@@ -32,3 +32,29 @@ class SeasonTeams(BaseModel):
     league_id: int
     year: int
     teams: List[Team]
+
+
+class OwnerAggregate(BaseModel):
+    owner_id: str
+    owner_name: str
+    team_names: List[str]
+    seasons_played: int
+    avg_finish: float
+    wins: int
+    losses: int
+    ties: int
+    playoff_wins: int
+    playoff_losses: int
+    points_for: float
+    points_against: float
+    avg_points_for: float
+    avg_points_against: float
+    avg_plus_minus: float
+
+
+class LeagueAggregate(BaseModel):
+    league_id: int
+    start_year: int
+    end_year: int
+    years: List[int]
+    owners: List[OwnerAggregate]

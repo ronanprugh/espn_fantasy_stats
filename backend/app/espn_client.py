@@ -33,6 +33,69 @@ def _playoff_record(team, reg_season_count: int, playoff_team_count: int) -> tup
     return (wins, losses)
 
 
+def aggregate_by_owner(seasons: list[dict]) -> list[dict]:
+    """Combine per-season team payloads into per-owner totals.
+
+    Keys on the primary owner's ID (stable across seasons), so an owner
+    who renames their team still aggregates correctly.
+    """
+    agg: dict[str, dict] = {}
+    for season in seasons:
+        for team in season["teams"]:
+            if not team["owners"]:
+                continue
+            owner = team["owners"][0]
+            oid = owner["id"]
+            if oid not in agg:
+                agg[oid] = {
+                    "owner_id": oid,
+                    "owner_name": f"{owner['first_name']} {owner['last_name']}".strip(),
+                    "team_names": [],
+                    "_finishes": [],
+                    "seasons_played": 0,
+                    "wins": 0,
+                    "losses": 0,
+                    "ties": 0,
+                    "playoff_wins": 0,
+                    "playoff_losses": 0,
+                    "points_for": 0.0,
+                    "points_against": 0.0,
+                }
+            row = agg[oid]
+            row["owner_name"] = f"{owner['first_name']} {owner['last_name']}".strip()
+            if team["team_name"] not in row["team_names"]:
+                row["team_names"].append(team["team_name"])
+            row["seasons_played"] += 1
+            row["wins"] += team["wins"]
+            row["losses"] += team["losses"]
+            row["ties"] += team["ties"]
+            row["playoff_wins"] += team["playoff_wins"]
+            row["playoff_losses"] += team["playoff_losses"]
+            row["points_for"] += team["points_for"]
+            row["points_against"] += team["points_against"]
+            finish = team["final_standing"] or team["standing"]
+            if finish:
+                row["_finishes"].append(finish)
+
+    result = []
+    for row in agg.values():
+        games = row["wins"] + row["losses"] + row["ties"]
+        avg_pf = row["points_for"] / games if games else 0.0
+        avg_pa = row["points_against"] / games if games else 0.0
+        finishes = row.pop("_finishes")
+        result.append({
+            **row,
+            "points_for": round(row["points_for"], 2),
+            "points_against": round(row["points_against"], 2),
+            "avg_points_for": round(avg_pf, 2),
+            "avg_points_against": round(avg_pa, 2),
+            "avg_plus_minus": round(avg_pf - avg_pa, 2),
+            "avg_finish": round(sum(finishes) / len(finishes), 2) if finishes else 0.0,
+        })
+    result.sort(key=lambda r: r["avg_finish"] or 999)
+    return result
+
+
 def serialize_teams(league: League) -> list[dict]:
     reg_count = league.settings.reg_season_count
     playoff_count = league.settings.playoff_team_count

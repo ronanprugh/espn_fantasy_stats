@@ -30,7 +30,39 @@ export type SeasonTeams = {
   teams: Team[]
 }
 
-export async function fetchConfig(): Promise<{ league_id: number }> {
+export type Config = {
+  league_id: number
+  start_year: number
+  end_year: number
+}
+
+export type OwnerAggregate = {
+  owner_id: string
+  owner_name: string
+  team_names: string[]
+  seasons_played: number
+  avg_finish: number
+  wins: number
+  losses: number
+  ties: number
+  playoff_wins: number
+  playoff_losses: number
+  points_for: number
+  points_against: number
+  avg_points_for: number
+  avg_points_against: number
+  avg_plus_minus: number
+}
+
+export type LeagueAggregate = {
+  league_id: number
+  start_year: number
+  end_year: number
+  years: number[]
+  owners: OwnerAggregate[]
+}
+
+export async function fetchConfig(): Promise<Config> {
   const r = await fetch('/api/config')
   if (!r.ok) throw new Error('Failed to fetch config')
   return r.json()
@@ -44,5 +76,15 @@ export async function fetchTeams(
   const url = `/api/leagues/${leagueId}/seasons/${year}/teams${refresh ? '?refresh=true' : ''}`
   const r = await fetch(url)
   if (!r.ok) throw new Error(`Failed to fetch teams: ${r.status}`)
+  return r.json()
+}
+
+export async function fetchAggregate(
+  leagueId: number,
+  refresh = false,
+): Promise<LeagueAggregate> {
+  const url = `/api/leagues/${leagueId}/aggregate${refresh ? '?refresh=true' : ''}`
+  const r = await fetch(url)
+  if (!r.ok) throw new Error(`Failed to fetch aggregate: ${r.status}`)
   return r.json()
 }

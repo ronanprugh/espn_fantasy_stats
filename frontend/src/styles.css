@@ -37,8 +37,15 @@ header h1 {
 
 .years {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 16px 0;
+}
+
+.subtitle {
+  color: #666;
+  font-size: 14px;
+  margin: 0 0 8px;
 }
 
 .years button {
