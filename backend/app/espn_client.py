@@ -138,6 +138,51 @@ def aggregate_by_owner(seasons: list[dict]) -> list[dict]:
     return result
 
 
+def build_owner_history(seasons: list[dict]) -> list[dict]:
+    """Rearrange per-season team payloads into per-owner records.
+
+    Each owner has a list of seasons in chronological order. owner_name and
+    current_team_name reflect the owner's most recent season (since the
+    incoming `seasons` list is ordered oldest → newest).
+    """
+    by_owner: dict[str, dict] = {}
+    for season in seasons:
+        for team in season["teams"]:
+            if not team["owners"]:
+                continue
+            owner = team["owners"][0]
+            oid = owner["id"]
+            if oid not in by_owner:
+                by_owner[oid] = {
+                    "owner_id": oid,
+                    "owner_name": "",
+                    "current_team_name": "",
+                    "seasons": [],
+                }
+            row = by_owner[oid]
+            row["owner_name"] = f"{owner['first_name']} {owner['last_name']}".strip()
+            row["current_team_name"] = team["team_name"]
+            row["seasons"].append({
+                "year": season["year"],
+                "team_name": team["team_name"],
+                "seed": team["standing"],
+                "final_standing": team["final_standing"] or team["standing"],
+                "wins": team["wins"],
+                "losses": team["losses"],
+                "ties": team["ties"],
+                "playoff_wins": team["playoff_wins"],
+                "playoff_losses": team["playoff_losses"],
+                "points_for": team["points_for"],
+                "points_against": team["points_against"],
+                "avg_points_for": team["avg_points_for"],
+                "avg_points_against": team["avg_points_against"],
+                "avg_plus_minus": team["avg_plus_minus"],
+            })
+    for row in by_owner.values():
+        row["seasons"].sort(key=lambda s: s["year"])
+    return sorted(by_owner.values(), key=lambda r: r["owner_name"].lower())
+
+
 def serialize_playoffs(league: League) -> dict:
     """Return playoff teams + every matchup played in playoff weeks.
 

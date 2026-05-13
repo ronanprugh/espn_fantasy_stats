@@ -86,3 +86,33 @@ class SeasonPlayoffs(BaseModel):
     playoff_weeks: List[int]
     teams: List[PlayoffTeam]
     matchups: List[PlayoffMatchup]
+
+
+class OwnerSeason(BaseModel):
+    year: int
+    team_name: str
+    seed: int
+    final_standing: int
+    wins: int
+    losses: int
+    ties: int
+    playoff_wins: int
+    playoff_losses: int
+    points_for: float
+    points_against: float
+    avg_points_for: float
+    avg_points_against: float
+    avg_plus_minus: float
+
+
+class OwnerHistory(BaseModel):
+    owner_id: str
+    owner_name: str
+    current_team_name: str
+    seasons: List[OwnerSeason]
+
+
+class LeagueOwnerHistory(BaseModel):
+    league_id: int
+    years: List[int]
+    owners: List[OwnerHistory]

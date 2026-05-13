@@ -5,12 +5,13 @@ from . import cache
 from .config import LEAGUE_ID
 from .espn_client import (
     aggregate_by_owner,
+    build_owner_history,
     discover_years,
     get_league,
     serialize_playoffs,
     serialize_teams,
 )
-from .schemas import LeagueAggregate, SeasonPlayoffs, SeasonTeams
+from .schemas import LeagueAggregate, LeagueOwnerHistory, SeasonPlayoffs, SeasonTeams
 
 app = FastAPI(title="espn_fantasy_stats")
 
@@ -56,6 +57,27 @@ def teams(league_id: int, year: int, refresh: bool = False):
         return _get_season_teams(league_id, year, refresh)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+
+
+@app.get("/api/leagues/{league_id}/owner_history", response_model=LeagueOwnerHistory)
+def owner_history(league_id: int, refresh: bool = False):
+    try:
+        years = discover_years(league_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not discover league years: {e}")
+
+    seasons = []
+    for year in years:
+        try:
+            seasons.append(_get_season_teams(league_id, year, refresh))
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+
+    return {
+        "league_id": league_id,
+        "years": years,
+        "owners": build_owner_history(seasons),
+    }
 
 
 @app.get(

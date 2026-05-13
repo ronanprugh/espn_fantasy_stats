@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import App from './App'
+import { ComparePage } from './pages/ComparePage'
 import { HomePage } from './pages/HomePage'
 import { PlayoffsPage } from './pages/PlayoffsPage'
 import './styles.css'
@@ -13,6 +14,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/" element={<App />}>
           <Route index element={<HomePage />} />
           <Route path="playoffs" element={<PlayoffsPage />} />
+          <Route path="compare" element={<ComparePage />} />
         </Route>
       </Routes>
     </BrowserRouter>

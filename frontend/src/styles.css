@@ -1,10 +1,12 @@
 :root {
   font-family: system-ui, -apple-system, sans-serif;
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
+  background: #fafafa;
+  color: #1a1a1a;
 }
 
 .layout {
@@ -14,16 +16,17 @@ body {
 }
 
 .sidebar {
-  background: rgba(0, 0, 0, 0.04);
-  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  border-right: 1px solid #e0e0e0;
   padding: 24px 0;
 }
 
 .sidebar .brand {
   font-weight: 700;
   font-size: 15px;
+  color: #0d0d0d;
   padding: 0 20px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid #e8e8e8;
 }
 
 .sidebar-nav {
@@ -35,9 +38,10 @@ body {
 .sidebar-nav a {
   display: block;
   padding: 10px 20px;
-  color: inherit;
+  color: #1a1a1a;
   text-decoration: none;
   font-size: 14px;
+  font-weight: 500;
   border-left: 3px solid transparent;
 }
 
@@ -65,13 +69,16 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 2px solid #d0d0d0;
   padding-bottom: 12px;
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 26px;
+  font-weight: 700;
+  color: #0a0a0a;
+  letter-spacing: -0.01em;
 }
 
 .league {
@@ -164,6 +171,182 @@ table.teams td.neg {
   color: #c04030;
 }
 
+/* Compare page */
+.compare-controls {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 16px 0 8px;
+}
+
+.compare-controls .control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compare-controls label {
+  font-size: 12px;
+  color: #666;
+}
+
+.compare-controls select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  min-width: 240px;
+}
+
+.selected-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 10px;
+  background: rgba(0, 102, 204, 0.1);
+  border: 1px solid rgba(0, 102, 204, 0.3);
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.pill .pill-owner {
+  color: #666;
+  font-size: 12px;
+}
+
+.pill button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  color: #666;
+  padding: 0 6px;
+  border-radius: 999px;
+}
+
+.pill button:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #c00;
+}
+
+.clear-all {
+  background: none;
+  border: 1px dashed #ccc;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+}
+
+.clear-all:hover {
+  border-color: #c00;
+  color: #c00;
+}
+
+.chart-title {
+  margin: 16px 0 4px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #0d0d0d;
+}
+
+.chart-wrap {
+  margin-top: 8px;
+  background: white;
+  padding: 8px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+}
+
+.chart-with-averages {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.chart-with-averages .chart-wrap {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.chart-averages {
+  width: 220px;
+  flex-shrink: 0;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.chart-averages h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0d0d0d;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.avg-row {
+  border-left: 3px solid #ccc;
+  padding: 6px 0 6px 10px;
+  margin-bottom: 6px;
+}
+
+.avg-row:last-child {
+  margin-bottom: 0;
+}
+
+.avg-team {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+}
+
+.avg-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0a0a0a;
+  margin-top: 2px;
+}
+
+.chart-tooltip {
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-tooltip .year {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 4px;
+}
+
+.chart-tooltip .team {
+  margin-right: 8px;
+}
+
+.chart-tooltip .value {
+  font-weight: 600;
+}
+
 /* Playoff brackets */
 .playoffs {
   display: flex;
@@ -174,8 +357,9 @@ table.teams td.neg {
 
 .bracket-section h3 {
   margin: 0 0 8px;
-  font-size: 15px;
-  color: #444;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0d0d0d;
 }
 
 .bracket-svg {
@@ -185,6 +369,13 @@ table.teams td.neg {
 
 .standings-section {
   margin-top: 12px;
+}
+
+.standings-section h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0d0d0d;
 }
 
 .standings-list {

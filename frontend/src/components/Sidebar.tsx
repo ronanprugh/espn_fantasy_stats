@@ -9,6 +9,7 @@ export function Sidebar() {
           Season Stats
         </NavLink>
         <NavLink to="/playoffs">Playoff History</NavLink>
+        <NavLink to="/compare">Team Comparison</NavLink>
       </nav>
     </aside>
   )

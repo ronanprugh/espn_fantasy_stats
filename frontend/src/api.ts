@@ -126,3 +126,43 @@ export async function fetchPlayoffs(
   if (!r.ok) throw new Error(`Failed to fetch playoffs: ${r.status}`)
   return r.json()
 }
+
+export type OwnerSeason = {
+  year: number
+  team_name: string
+  seed: number
+  final_standing: number
+  wins: number
+  losses: number
+  ties: number
+  playoff_wins: number
+  playoff_losses: number
+  points_for: number
+  points_against: number
+  avg_points_for: number
+  avg_points_against: number
+  avg_plus_minus: number
+}
+
+export type OwnerHistory = {
+  owner_id: string
+  owner_name: string
+  current_team_name: string
+  seasons: OwnerSeason[]
+}
+
+export type LeagueOwnerHistory = {
+  league_id: number
+  years: number[]
+  owners: OwnerHistory[]
+}
+
+export async function fetchOwnerHistory(
+  leagueId: number,
+  refresh = false,
+): Promise<LeagueOwnerHistory> {
+  const url = `/api/leagues/${leagueId}/owner_history${refresh ? '?refresh=true' : ''}`
+  const r = await fetch(url)
+  if (!r.ok) throw new Error(`Failed to fetch owner history: ${r.status}`)
+  return r.json()
+}
