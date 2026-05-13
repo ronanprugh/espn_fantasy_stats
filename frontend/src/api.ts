@@ -32,8 +32,7 @@ export type SeasonTeams = {
 
 export type Config = {
   league_id: number
-  start_year: number
-  end_year: number
+  years: number[]
 }
 
 export type OwnerAggregate = {

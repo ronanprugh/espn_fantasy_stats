@@ -1,8 +1,11 @@
+from datetime import datetime
+
 from espn_api.football import League
 
 from .config import ESPN_S2, SWID
 
 _leagues: dict[tuple[int, int], League] = {}
+_years_cache: dict[int, list[int]] = {}
 
 
 def get_league(league_id: int, year: int) -> League:
@@ -15,6 +18,42 @@ def get_league(league_id: int, year: int) -> League:
             swid=SWID,
         )
     return _leagues[key]
+
+
+def discover_years(league_id: int, probe_window: int = 5) -> list[int]:
+    """Return the sorted list of seasons this league has actually played.
+
+    Probes backwards from the current calendar year to find a working
+    season, reads `previousSeasons` from that fetch, and includes the
+    probed year only if it has real game data (some seasons exist on
+    ESPN before any games are played).
+    """
+    if league_id in _years_cache:
+        return _years_cache[league_id]
+
+    current = datetime.now().year
+    last_err: Exception | None = None
+    for candidate in range(current, current - probe_window, -1):
+        try:
+            lg = get_league(league_id, candidate)
+        except Exception as e:
+            last_err = e
+            continue
+
+        years = set(lg.previousSeasons)
+        has_games = any((t.wins + t.losses + t.ties) > 0 for t in lg.teams)
+        if has_games:
+            years.add(candidate)
+
+        if years:
+            result = sorted(years)
+            _years_cache[league_id] = result
+            return result
+
+    raise RuntimeError(
+        f"Could not discover any seasons for league {league_id} in the last "
+        f"{probe_window} years: {last_err}"
+    )
 
 
 def _playoff_record(team, reg_season_count: int, playoff_team_count: int) -> tuple[int, int]:

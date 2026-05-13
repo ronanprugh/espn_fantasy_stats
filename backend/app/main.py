@@ -3,7 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import cache
 from .config import LEAGUE_ID
-from .espn_client import aggregate_by_owner, get_league, serialize_teams
+from .espn_client import (
+    aggregate_by_owner,
+    discover_years,
+    get_league,
+    serialize_teams,
+)
 from .schemas import LeagueAggregate, SeasonTeams
 
 app = FastAPI(title="espn_fantasy_stats")
@@ -14,9 +19,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-DEFAULT_START_YEAR = 2016
-DEFAULT_END_YEAR = 2024
 
 
 def _get_season_teams(league_id: int, year: int, refresh: bool = False) -> dict:
@@ -37,10 +39,13 @@ def _get_season_teams(league_id: int, year: int, refresh: bool = False) -> dict:
 
 @app.get("/api/config")
 def config():
+    try:
+        years = discover_years(LEAGUE_ID)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not discover league years: {e}")
     return {
         "league_id": LEAGUE_ID,
-        "start_year": DEFAULT_START_YEAR,
-        "end_year": DEFAULT_END_YEAR,
+        "years": years,
     }
 
 
@@ -55,11 +60,19 @@ def teams(league_id: int, year: int, refresh: bool = False):
 @app.get("/api/leagues/{league_id}/aggregate", response_model=LeagueAggregate)
 def aggregate(
     league_id: int,
-    start_year: int = DEFAULT_START_YEAR,
-    end_year: int = DEFAULT_END_YEAR,
+    start_year: int | None = None,
+    end_year: int | None = None,
     refresh: bool = False,
 ):
-    years = list(range(start_year, end_year + 1))
+    try:
+        available = discover_years(league_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not discover league years: {e}")
+
+    sy = start_year if start_year is not None else available[0]
+    ey = end_year if end_year is not None else available[-1]
+    years = [y for y in available if sy <= y <= ey]
+
     seasons = []
     for year in years:
         try:
@@ -69,8 +82,8 @@ def aggregate(
 
     return {
         "league_id": league_id,
-        "start_year": start_year,
-        "end_year": end_year,
+        "start_year": sy,
+        "end_year": ey,
         "years": years,
         "owners": aggregate_by_owner(seasons),
     }

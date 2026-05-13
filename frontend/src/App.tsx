@@ -37,12 +37,7 @@ export default function App() {
     p.catch((e) => setError(String(e))).finally(() => setLoading(false))
   }, [config, view])
 
-  const years = config
-    ? Array.from(
-        { length: config.end_year - config.start_year + 1 },
-        (_, i) => config.end_year - i,
-      )
-    : []
+  const years = config ? [...config.years].reverse() : []
 
   return (
     <div className="app">
