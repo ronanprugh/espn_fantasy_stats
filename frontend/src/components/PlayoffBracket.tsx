@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import type { PlayoffMatchup, PlayoffTeam, SeasonPlayoffs } from '../api'
 
 const BOX_W = 240
@@ -161,14 +162,35 @@ function Connector({
   )
 }
 
-function MatchBox({ node, earliestWeek }: { node: BracketNode; earliestWeek: number }) {
+function MatchBox({
+  node,
+  earliestWeek,
+  onClick,
+}: {
+  node: BracketNode
+  earliestWeek: number
+  onClick?: (n: BracketNode) => void
+}) {
   const x = xOf(node.week, earliestWeek)
   const y = pixelY(node.y)
   const winnerIsTop = node.winnerId === node.teamTop.team_id
   const winnerIsBot = node.winnerId === node.teamBottom.team_id
+  const clickable = !!onClick
   return (
-    <g transform={`translate(${x},${y})`}>
-      <rect width={BOX_W} height={BOX_H} fill="white" stroke="#ccc" rx={3} />
+    <g
+      transform={`translate(${x},${y})`}
+      onClick={clickable ? () => onClick(node) : undefined}
+      style={clickable ? { cursor: 'pointer' } : undefined}
+      className={clickable ? 'bracket-match clickable' : 'bracket-match'}
+    >
+      <rect
+        width={BOX_W}
+        height={BOX_H}
+        fill="white"
+        stroke="#ccc"
+        rx={3}
+        className="bracket-match-rect"
+      />
       <line x1={0} y1={ROW_H} x2={BOX_W} y2={ROW_H} stroke="#eee" />
       <TeamRow
         team={node.teamTop}
@@ -184,6 +206,7 @@ function MatchBox({ node, earliestWeek }: { node: BracketNode; earliestWeek: num
         isBye={node.byeBottom}
         yOffset={ROW_H}
       />
+      {clickable && <title>View box score</title>}
     </g>
   )
 }
@@ -229,10 +252,12 @@ function BracketSection({
   title,
   root,
   weekLabels,
+  onMatchClick,
 }: {
   title: string
   root: BracketNode | null
   weekLabels?: Record<number, string>
+  onMatchClick?: (n: BracketNode) => void
 }) {
   if (!root) return null
   assignY(root, { v: 0 })
@@ -274,7 +299,12 @@ function BracketSection({
             <Connector key={i} from={from} to={to} earliestWeek={earliestWeek} />
           ))}
           {nodes.map((n) => (
-            <MatchBox key={`${n.week}-${n.teamTop.team_id}`} node={n} earliestWeek={earliestWeek} />
+            <MatchBox
+              key={`${n.week}-${n.teamTop.team_id}`}
+              node={n}
+              earliestWeek={earliestWeek}
+              onClick={onMatchClick}
+            />
           ))}
         </g>
       </svg>
@@ -286,10 +316,12 @@ function StandalonePlacementGame({
   title,
   match,
   teamsById,
+  onMatchClick,
 }: {
   title: string
   match: PlayoffMatchup | undefined
   teamsById: Map<number, PlayoffTeam>
+  onMatchClick?: (n: BracketNode) => void
 }) {
   if (!match) return null
   const teamA = teamsById.get(match.team_a_id)!
@@ -328,7 +360,7 @@ function StandalonePlacementGame({
           </text>
         </g>
         <g transform="translate(0,24)">
-          <MatchBox node={node} earliestWeek={match.week} />
+          <MatchBox node={node} earliestWeek={match.week} onClick={onMatchClick} />
         </g>
       </svg>
     </section>
@@ -336,12 +368,21 @@ function StandalonePlacementGame({
 }
 
 export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
+  const navigate = useNavigate()
   const teamsById = new Map(data.teams.map((t) => [t.team_id, t]))
   const weeks = data.playoff_weeks
   if (weeks.length === 0) {
     return <p className="subtitle">No playoff data for this season.</p>
   }
   const lastWeek = weeks[weeks.length - 1]
+
+  const onMatchClick =
+    data.year >= 2019
+      ? (n: BracketNode) =>
+          navigate(
+            `/box_score/${data.year}/${n.week}/${n.match.team_a_id}/${n.match.team_b_id}`,
+          )
+      : undefined
 
   // Championship: final + recurse all the way back
   const championship = (() => {
@@ -369,10 +410,24 @@ export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
 
   return (
     <div className="playoffs">
-      <BracketSection title="Championship" root={championship} />
-      <StandalonePlacementGame title="3rd-place game" match={thirdPlace} teamsById={teamsById} />
-      <BracketSection title="Consolation (5th place)" root={fifthBracket} />
-      <StandalonePlacementGame title="7th-place game" match={seventhPlace} teamsById={teamsById} />
+      <BracketSection title="Championship" root={championship} onMatchClick={onMatchClick} />
+      <StandalonePlacementGame
+        title="3rd-place game"
+        match={thirdPlace}
+        teamsById={teamsById}
+        onMatchClick={onMatchClick}
+      />
+      <BracketSection
+        title="Consolation (5th place)"
+        root={fifthBracket}
+        onMatchClick={onMatchClick}
+      />
+      <StandalonePlacementGame
+        title="7th-place game"
+        match={seventhPlace}
+        teamsById={teamsById}
+        onMatchClick={onMatchClick}
+      />
 
       <section className="standings-section">
         <h3>Final Standings</h3>

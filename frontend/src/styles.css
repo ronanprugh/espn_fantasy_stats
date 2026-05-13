@@ -35,6 +35,19 @@ body {
   padding: 8px 0;
 }
 
+.nav-section {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #888;
+  padding: 16px 20px 6px;
+  font-weight: 700;
+}
+
+.nav-section:first-child {
+  padding-top: 8px;
+}
+
 .sidebar-nav a {
   display: block;
   padding: 10px 20px;
@@ -761,6 +774,12 @@ table.teams td.neg {
 .bracket-svg {
   display: block;
   max-width: 100%;
+}
+
+.bracket-match.clickable:hover .bracket-match-rect {
+  stroke: #0066cc;
+  stroke-width: 2;
+  fill: #f5faff;
 }
 
 .standings-section {
