@@ -1,29 +1,116 @@
+import { useState } from 'react'
 import type { OwnerAggregate } from '../api'
+import { SortableTh, type SortDir } from './SortableTh'
+
+type SortKey =
+  | 'avg_finish'
+  | 'owner_name'
+  | 'team_names'
+  | 'seasons_played'
+  | 'wins'
+  | 'losses'
+  | 'ties'
+  | 'playoff_wins'
+  | 'playoff_losses'
+  | 'points_for'
+  | 'points_against'
+  | 'avg_points_for'
+  | 'avg_points_against'
+  | 'avg_plus_minus'
+
+const ASC_BY_DEFAULT: Set<SortKey> = new Set(['avg_finish', 'owner_name', 'team_names'])
+
+const valueOf = (o: OwnerAggregate, key: SortKey): string | number => {
+  switch (key) {
+    case 'avg_finish':
+      return o.avg_finish
+    case 'owner_name':
+      return o.owner_name
+    case 'team_names':
+      return o.team_names[0] ?? ''
+    case 'seasons_played':
+      return o.seasons_played
+    case 'wins':
+      return o.wins
+    case 'losses':
+      return o.losses
+    case 'ties':
+      return o.ties
+    case 'playoff_wins':
+      return o.playoff_wins
+    case 'playoff_losses':
+      return o.playoff_losses
+    case 'points_for':
+      return o.points_for
+    case 'points_against':
+      return o.points_against
+    case 'avg_points_for':
+      return o.avg_points_for
+    case 'avg_points_against':
+      return o.avg_points_against
+    case 'avg_plus_minus':
+      return o.avg_plus_minus
+  }
+}
 
 export function AggregateTable({ owners }: { owners: OwnerAggregate[] }) {
+  const [sortKey, setSortKey] = useState<SortKey>('avg_finish')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const handleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir(ASC_BY_DEFAULT.has(key) ? 'asc' : 'desc')
+    }
+  }
+
+  const sorted = [...owners].sort((a, b) => {
+    const va = valueOf(a, sortKey)
+    const vb = valueOf(b, sortKey)
+    const cmp =
+      typeof va === 'number' && typeof vb === 'number'
+        ? va - vb
+        : String(va).localeCompare(String(vb))
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
+  const th = (key: SortKey, label: string, title?: string) => (
+    <SortableTh
+      sortKey={key}
+      activeKey={sortKey}
+      dir={sortDir}
+      onClick={handleSort}
+      title={title}
+    >
+      {label}
+    </SortableTh>
+  )
+
   return (
     <div className="teams-wrap">
       <table className="teams">
         <thead>
           <tr>
-            <th title="Average finish across all seasons">Avg Finish</th>
-            <th>Owner</th>
-            <th>Teams</th>
-            <th title="Seasons played">Sns</th>
-            <th title="Wins">W</th>
-            <th title="Losses">L</th>
-            <th title="Ties">T</th>
-            <th title="Playoff Wins">PO W</th>
-            <th title="Playoff Losses">PO L</th>
-            <th title="Total Points For">PF</th>
-            <th title="Total Points Against">PA</th>
-            <th title="Average Points For per game (across all seasons)">Avg PF</th>
-            <th title="Average Points Against per game (across all seasons)">Avg PA</th>
-            <th title="Avg PF − Avg PA (positive = scored more than allowed)">Avg +/−</th>
+            {th('avg_finish', 'Avg Finish', 'Average finish across all seasons')}
+            {th('owner_name', 'Owner')}
+            {th('team_names', 'Teams')}
+            {th('seasons_played', 'Sns', 'Seasons played')}
+            {th('wins', 'W', 'Wins')}
+            {th('losses', 'L', 'Losses')}
+            {th('ties', 'T', 'Ties')}
+            {th('playoff_wins', 'PO W', 'Playoff Wins')}
+            {th('playoff_losses', 'PO L', 'Playoff Losses')}
+            {th('points_for', 'PF', 'Total Points For')}
+            {th('points_against', 'PA', 'Total Points Against')}
+            {th('avg_points_for', 'Avg PF', 'Average Points For per game (across all seasons)')}
+            {th('avg_points_against', 'Avg PA', 'Average Points Against per game (across all seasons)')}
+            {th('avg_plus_minus', 'Avg +/−', 'Avg PF − Avg PA (positive = scored more than allowed)')}
           </tr>
         </thead>
         <tbody>
-          {owners.map((o) => (
+          {sorted.map((o) => (
             <tr key={o.owner_id}>
               <td>{o.avg_finish.toFixed(2)}</td>
               <td>{o.owner_name}</td>

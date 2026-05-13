@@ -63,8 +63,10 @@ def aggregate_by_owner(seasons: list[dict]) -> list[dict]:
                 }
             row = agg[oid]
             row["owner_name"] = f"{owner['first_name']} {owner['last_name']}".strip()
-            if team["team_name"] not in row["team_names"]:
-                row["team_names"].append(team["team_name"])
+            name = team["team_name"]
+            if name in row["team_names"]:
+                row["team_names"].remove(name)
+            row["team_names"].append(name)
             row["seasons_played"] += 1
             row["wins"] += team["wins"]
             row["losses"] += team["losses"]
@@ -83,6 +85,7 @@ def aggregate_by_owner(seasons: list[dict]) -> list[dict]:
         avg_pf = row["points_for"] / games if games else 0.0
         avg_pa = row["points_against"] / games if games else 0.0
         finishes = row.pop("_finishes")
+        row["team_names"].reverse()  # most-recent first
         result.append({
             **row,
             "points_for": round(row["points_for"], 2),
