@@ -183,6 +183,45 @@ def build_owner_history(seasons: list[dict]) -> list[dict]:
     return sorted(by_owner.values(), key=lambda r: r["owner_name"].lower())
 
 
+def serialize_all_matchups(league: League) -> list[dict]:
+    """Return every matchup played in this season, deduped by week+pair."""
+    s = league.settings
+    reg_season = s.reg_season_count
+    teams_by_id = {t.team_id: t for t in league.teams}
+    matchups: list[dict] = []
+    seen: set = set()
+    for t in league.teams:
+        for week_idx, opp in enumerate(t.schedule):
+            week = week_idx + 1
+            opp_id = opp.team_id if hasattr(opp, "team_id") else opp
+            if opp_id == t.team_id:
+                continue  # bye
+            key = (week, frozenset([t.team_id, opp_id]))
+            if key in seen:
+                continue
+            seen.add(key)
+            opp_team = teams_by_id.get(opp_id)
+            if not opp_team:
+                continue
+            outcome = t.outcomes[week_idx]
+            if outcome == "W":
+                winner_id = t.team_id
+            elif outcome == "L":
+                winner_id = opp_id
+            else:
+                winner_id = None
+            matchups.append({
+                "week": week,
+                "is_playoff": week > reg_season,
+                "team_a_id": t.team_id,
+                "team_b_id": opp_id,
+                "team_a_score": round(t.scores[week_idx], 2),
+                "team_b_score": round(opp_team.scores[week_idx], 2),
+                "winner_id": winner_id,
+            })
+    return matchups
+
+
 def serialize_playoffs(league: League) -> dict:
     """Return playoff teams + every matchup played in playoff weeks.
 

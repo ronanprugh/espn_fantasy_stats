@@ -166,3 +166,47 @@ export async function fetchOwnerHistory(
   if (!r.ok) throw new Error(`Failed to fetch owner history: ${r.status}`)
   return r.json()
 }
+
+export type HeadToHeadMatchup = {
+  year: number
+  week: number
+  is_playoff: boolean
+  owner_a_team_name: string
+  owner_b_team_name: string
+  owner_a_score: number
+  owner_b_score: number
+  winner_owner_id: string | null
+}
+
+export type HeadToHeadStats = {
+  owner_a_id: string
+  owner_b_id: string
+  owner_a_name: string
+  owner_b_name: string
+  owner_a_team_name: string
+  owner_b_team_name: string
+  total_matchups: number
+  owner_a_wins: number
+  owner_b_wins: number
+  ties: number
+  owner_a_total_pf: number
+  owner_b_total_pf: number
+  owner_a_avg_pf: number
+  owner_b_avg_pf: number
+  playoff_matchups: number
+  owner_a_playoff_wins: number
+  owner_b_playoff_wins: number
+  playoff_ties: number
+  matchups: HeadToHeadMatchup[]
+}
+
+export async function fetchHeadToHead(
+  leagueId: number,
+  ownerA: string,
+  ownerB: string,
+): Promise<HeadToHeadStats> {
+  const params = new URLSearchParams({ owner_a: ownerA, owner_b: ownerB })
+  const r = await fetch(`/api/leagues/${leagueId}/head_to_head?${params}`)
+  if (!r.ok) throw new Error(`Failed to fetch head-to-head: ${r.status}`)
+  return r.json()
+}

@@ -347,6 +347,118 @@ table.teams td.neg {
   font-weight: 600;
 }
 
+/* Head to Head */
+.h2h-summary {
+  margin-top: 20px;
+}
+
+.h2h-summary h3,
+.h2h-matchups h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #0d0d0d;
+}
+
+.h2h-table {
+  border-collapse: collapse;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 28px;
+  min-width: 480px;
+}
+
+.h2h-table th,
+.h2h-table td {
+  padding: 10px 16px;
+  text-align: center;
+  border-bottom: 1px solid #eee;
+}
+
+.h2h-table th {
+  background: rgba(0, 0, 0, 0.03);
+  font-weight: 600;
+}
+
+.h2h-table .h2h-team {
+  font-size: 14px;
+  color: #0d0d0d;
+}
+
+.h2h-table .h2h-owner {
+  font-size: 11px;
+  color: #777;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.h2h-table .label {
+  text-align: right;
+  font-weight: 500;
+  color: #555;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.h2h-table tr:last-child td {
+  border-bottom: none;
+}
+
+.winner-cell {
+  font-weight: 700;
+  color: #0a7a25;
+}
+
+.h2h-matchups-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 6px;
+}
+
+.h2h-matchups-table th,
+.h2h-matchups-table td {
+  padding: 8px 12px;
+  text-align: center;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+.h2h-matchups-table th {
+  background: rgba(0, 0, 0, 0.03);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.h2h-matchups-table .vs {
+  color: #999;
+  font-size: 12px;
+}
+
+.h2h-matchups-table tr:last-child td {
+  border-bottom: none;
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background: rgba(0, 102, 204, 0.06);
+}
+
+.playoff-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(220, 53, 69, 0.12);
+  color: #c02030;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* Playoff brackets */
 .playoffs {
   display: flex;

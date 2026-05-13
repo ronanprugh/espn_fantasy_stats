@@ -116,3 +116,36 @@ class LeagueOwnerHistory(BaseModel):
     league_id: int
     years: List[int]
     owners: List[OwnerHistory]
+
+
+class HeadToHeadMatchup(BaseModel):
+    year: int
+    week: int
+    is_playoff: bool
+    owner_a_team_name: str
+    owner_b_team_name: str
+    owner_a_score: float
+    owner_b_score: float
+    winner_owner_id: str | None
+
+
+class HeadToHeadStats(BaseModel):
+    owner_a_id: str
+    owner_b_id: str
+    owner_a_name: str
+    owner_b_name: str
+    owner_a_team_name: str
+    owner_b_team_name: str
+    total_matchups: int
+    owner_a_wins: int
+    owner_b_wins: int
+    ties: int
+    owner_a_total_pf: float
+    owner_b_total_pf: float
+    owner_a_avg_pf: float
+    owner_b_avg_pf: float
+    playoff_matchups: int
+    owner_a_playoff_wins: int
+    owner_b_playoff_wins: int
+    playoff_ties: int
+    matchups: List[HeadToHeadMatchup]
