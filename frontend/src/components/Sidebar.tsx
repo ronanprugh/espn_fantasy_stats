@@ -11,6 +11,7 @@ export function Sidebar() {
         <NavLink to="/playoffs">Playoff History</NavLink>
         <NavLink to="/compare">Team Comparison</NavLink>
         <NavLink to="/h2h">Head to Head</NavLink>
+        <NavLink to="/scoreboard">Scoreboard</NavLink>
       </nav>
     </aside>
   )

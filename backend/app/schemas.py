@@ -122,11 +122,71 @@ class HeadToHeadMatchup(BaseModel):
     year: int
     week: int
     is_playoff: bool
+    round_label: str
+    owner_a_team_id: int
+    owner_b_team_id: int
     owner_a_team_name: str
     owner_b_team_name: str
     owner_a_score: float
     owner_b_score: float
     winner_owner_id: str | None
+
+
+class ScoreboardMatchup(BaseModel):
+    week: int
+    is_playoff: bool
+    round_label: str
+    is_bye: bool
+    team_a_id: int
+    team_a_name: str
+    team_a_owner: str
+    team_a_score: float
+    team_b_id: int
+    team_b_name: str
+    team_b_owner: str
+    team_b_score: float
+    winner_id: int | None
+
+
+class SeasonScoreboard(BaseModel):
+    league_id: int
+    year: int
+    weeks: List[int]
+    matchups: List[ScoreboardMatchup]
+
+
+class BoxPlayer(BaseModel):
+    name: str
+    player_id: int
+    position: str
+    slot_position: str
+    pro_team: str
+    points: float
+    projected_points: float
+
+
+class BoxScoreTeam(BaseModel):
+    team_id: int
+    team_name: str
+    owner_name: str
+    total_points: float
+    projected_points: float
+    lineup: List[BoxPlayer]
+
+
+class BoxScoreMatchup(BaseModel):
+    week: int
+    is_playoff: bool
+    matchup_type: str
+    home: BoxScoreTeam | None
+    away: BoxScoreTeam | None
+
+
+class WeekBoxScores(BaseModel):
+    league_id: int
+    year: int
+    week: int
+    matchups: List[BoxScoreMatchup]
 
 
 class HeadToHeadStats(BaseModel):

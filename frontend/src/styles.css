@@ -347,6 +347,300 @@ table.teams td.neg {
   font-weight: 600;
 }
 
+/* Scoreboard */
+.scoreboard-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.scoreboard-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px 16px;
+  position: relative;
+  transition: background 0.1s, border-color 0.1s, transform 0.1s;
+}
+
+.scoreboard-card.clickable {
+  cursor: pointer;
+}
+
+.scoreboard-card.clickable:hover {
+  border-color: #0066cc;
+  background: #f5faff;
+}
+
+.scoreboard-card.disabled {
+  opacity: 0.7;
+}
+
+.scoreboard-card .card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.scoreboard-card .card-row + .card-row {
+  border-top: 1px solid #f0f0f0;
+}
+
+.scoreboard-card .card-row.winner .team-name {
+  font-weight: 700;
+  color: #0a0a0a;
+}
+
+.scoreboard-card .card-row.winner .score {
+  color: #0a7a25;
+  font-weight: 700;
+}
+
+.scoreboard-card .team {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.scoreboard-card .team-name {
+  font-size: 14px;
+  color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scoreboard-card .team-owner {
+  font-size: 11px;
+  color: #888;
+  margin-top: 1px;
+}
+
+.scoreboard-card .score {
+  font-size: 18px;
+  font-weight: 600;
+  color: #222;
+  margin-left: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.scoreboard-card.bye .bye-label {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 11px;
+  color: #999;
+  font-weight: 600;
+}
+
+.scoreboard-card .card-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+}
+
+.round-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.round-badge.round-regular {
+  color: #555;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.round-badge.round-playoff {
+  color: #1a4ed8;
+  background: rgba(26, 78, 216, 0.12);
+}
+
+.round-badge.round-semifinal {
+  color: #6f42c1;
+  background: rgba(111, 66, 193, 0.13);
+}
+
+.round-badge.round-championship {
+  color: #92500a;
+  background: rgba(255, 175, 30, 0.18);
+}
+
+.round-badge.round-consolation {
+  color: #6c757d;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Box Score */
+.back-link {
+  font-size: 13px;
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.box-matchup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  margin-top: 16px;
+}
+
+.box-matchup-header .bs-side {
+  flex: 1;
+  text-align: center;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.box-matchup-header .bs-side.winner {
+  background: rgba(10, 122, 37, 0.06);
+}
+
+.box-matchup-header .bs-team-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0a0a0a;
+}
+
+.box-matchup-header .bs-team-owner {
+  font-size: 12px;
+  color: #777;
+  margin-top: 2px;
+}
+
+.box-matchup-header .bs-score {
+  font-size: 32px;
+  font-weight: 700;
+  color: #0a0a0a;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.box-matchup-header .bs-side.winner .bs-score {
+  color: #0a7a25;
+}
+
+.box-matchup-header .bs-projected {
+  font-size: 11px;
+  color: #888;
+}
+
+.box-matchup-header .bs-vs {
+  color: #888;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.box-matchup-header .bs-bye {
+  font-size: 14px;
+  font-weight: 700;
+  color: #999;
+}
+
+.box-score-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .box-score-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bs-lineup {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.bs-lineup h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: #0d0d0d;
+}
+
+.lineup-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.lineup-table th,
+.lineup-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: left;
+}
+
+.lineup-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #777;
+  letter-spacing: 0.04em;
+}
+
+.lineup-table td.slot {
+  font-weight: 700;
+  color: #555;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.02);
+  width: 56px;
+}
+
+.lineup-table td.player-name {
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.lineup-table td.points {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.lineup-table td.proj {
+  color: #888;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.lineup-table tr.bench td {
+  color: #888;
+}
+
+.lineup-table tr.bench td.points {
+  color: #444;
+}
+
+.lineup-table tr.bench-divider td {
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #666;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
 /* Head to Head */
 .h2h-summary {
   margin-top: 20px;
@@ -447,16 +741,6 @@ table.teams td.neg {
 
 .clickable-row:hover {
   background: rgba(0, 102, 204, 0.06);
-}
-
-.playoff-tag {
-  display: inline-block;
-  padding: 2px 8px;
-  background: rgba(220, 53, 69, 0.12);
-  color: #c02030;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
 }
 
 /* Playoff brackets */

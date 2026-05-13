@@ -183,11 +183,65 @@ def build_owner_history(seasons: list[dict]) -> list[dict]:
     return sorted(by_owner.values(), key=lambda r: r["owner_name"].lower())
 
 
+def _playoff_round_label(week: int, playoff_weeks: list[int]) -> str:
+    """Position in the championship bracket — assumes last week is the final."""
+    idx_from_end = len(playoff_weeks) - 1 - playoff_weeks.index(week)
+    if idx_from_end == 0:
+        return "championship"
+    if idx_from_end == 1:
+        return "semifinal"
+    return "playoff"
+
+
+def _build_alive_status(league: League) -> tuple[dict[int, dict[int, str]], list[int]]:
+    """Map team_id → week → 'alive' or 'eliminated' (status ENTERING the week)."""
+    s = league.settings
+    reg_season = s.reg_season_count
+    playoff_team_count = s.playoff_team_count
+
+    playoff_weeks: set[int] = set()
+    status: dict[int, dict[int, str]] = {}
+    for t in league.teams:
+        made_playoffs = t.standing <= playoff_team_count
+        alive = made_playoffs
+        per_week: dict[int, str] = {}
+        for week_idx in range(reg_season, len(t.outcomes)):
+            week = week_idx + 1
+            playoff_weeks.add(week)
+            per_week[week] = "alive" if alive else "eliminated"
+            outcome = t.outcomes[week_idx]
+            if alive and outcome == "L":
+                alive = False
+        status[t.team_id] = per_week
+    return status, sorted(playoff_weeks)
+
+
+def _matchup_round_label(
+    week: int,
+    team_a_id: int,
+    team_b_id: int,
+    reg_season: int,
+    status: dict[int, dict[int, str]],
+    playoff_weeks: list[int],
+) -> str:
+    if week <= reg_season:
+        return "regular"
+    a_alive = status.get(team_a_id, {}).get(week) == "alive"
+    b_alive = status.get(team_b_id, {}).get(week) == "alive"
+    # For byes (team plays itself), only their own status matters
+    if team_a_id == team_b_id:
+        return _playoff_round_label(week, playoff_weeks) if a_alive else "consolation"
+    if a_alive and b_alive:
+        return _playoff_round_label(week, playoff_weeks)
+    return "consolation"
+
+
 def serialize_all_matchups(league: League) -> list[dict]:
     """Return every matchup played in this season, deduped by week+pair."""
     s = league.settings
     reg_season = s.reg_season_count
     teams_by_id = {t.team_id: t for t in league.teams}
+    status, playoff_weeks = _build_alive_status(league)
     matchups: list[dict] = []
     seen: set = set()
     for t in league.teams:
@@ -213,6 +267,9 @@ def serialize_all_matchups(league: League) -> list[dict]:
             matchups.append({
                 "week": week,
                 "is_playoff": week > reg_season,
+                "round_label": _matchup_round_label(
+                    week, t.team_id, opp_id, reg_season, status, playoff_weeks
+                ),
                 "team_a_id": t.team_id,
                 "team_b_id": opp_id,
                 "team_a_score": round(t.scores[week_idx], 2),
@@ -220,6 +277,138 @@ def serialize_all_matchups(league: League) -> list[dict]:
                 "winner_id": winner_id,
             })
     return matchups
+
+
+def serialize_scoreboard(league: League, year: int) -> dict:
+    """Return every season matchup with names + scores, ready for display."""
+    s = league.settings
+    reg_season = s.reg_season_count
+    teams_by_id = {t.team_id: t for t in league.teams}
+    status, playoff_weeks = _build_alive_status(league)
+
+    def owner_name_of(t) -> str:
+        if not t.owners:
+            return "—"
+        o = t.owners[0]
+        return f"{o.get('firstName', '')} {o.get('lastName', '')}".strip() or "—"
+
+    matchups: list[dict] = []
+    seen: set = set()
+    for t in league.teams:
+        for week_idx, opp in enumerate(t.schedule):
+            week = week_idx + 1
+            opp_id = opp.team_id if hasattr(opp, "team_id") else opp
+            is_bye = opp_id == t.team_id
+            key = (week, frozenset([t.team_id, opp_id]))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            outcome = t.outcomes[week_idx]
+            t_score = round(t.scores[week_idx], 2)
+            round_label = _matchup_round_label(
+                week, t.team_id, opp_id, reg_season, status, playoff_weeks
+            )
+
+            if is_bye:
+                matchups.append({
+                    "week": week,
+                    "is_playoff": week > reg_season,
+                    "round_label": round_label,
+                    "is_bye": True,
+                    "team_a_id": t.team_id,
+                    "team_a_name": t.team_name,
+                    "team_a_owner": owner_name_of(t),
+                    "team_a_score": t_score,
+                    "team_b_id": t.team_id,
+                    "team_b_name": "",
+                    "team_b_owner": "",
+                    "team_b_score": 0.0,
+                    "winner_id": None,
+                })
+                continue
+
+            opp_team = teams_by_id.get(opp_id)
+            if not opp_team:
+                continue
+            opp_score = round(opp_team.scores[week_idx], 2)
+
+            if outcome == "W":
+                winner_id = t.team_id
+            elif outcome == "L":
+                winner_id = opp_id
+            else:
+                winner_id = None
+
+            matchups.append({
+                "week": week,
+                "is_playoff": week > reg_season,
+                "round_label": round_label,
+                "is_bye": False,
+                "team_a_id": t.team_id,
+                "team_a_name": t.team_name,
+                "team_a_owner": owner_name_of(t),
+                "team_a_score": t_score,
+                "team_b_id": opp_id,
+                "team_b_name": opp_team.team_name,
+                "team_b_owner": owner_name_of(opp_team),
+                "team_b_score": opp_score,
+                "winner_id": winner_id,
+            })
+
+    matchups.sort(key=lambda m: (m["week"], m["team_a_id"]))
+    weeks = sorted({m["week"] for m in matchups})
+    return {"year": year, "weeks": weeks, "matchups": matchups}
+
+
+def serialize_box_scores(league: League, week: int) -> list[dict]:
+    """Return all box scores for a single week with per-player lineups.
+
+    Caller should ensure year >= 2019 — espn_api raises otherwise.
+    """
+    box_scores = league.box_scores(week)
+    s = league.settings
+    reg_season = s.reg_season_count
+    is_playoff = week > reg_season
+
+    def serialize_team(team_ref, score, projected, lineup) -> dict | None:
+        if team_ref == 0 or not hasattr(team_ref, "team_id"):
+            return None  # bye
+        owners = team_ref.owners or []
+        owner_name = "—"
+        if owners:
+            o = owners[0]
+            owner_name = f"{o.get('firstName', '')} {o.get('lastName', '')}".strip() or "—"
+        return {
+            "team_id": team_ref.team_id,
+            "team_name": team_ref.team_name,
+            "owner_name": owner_name,
+            "total_points": round(score, 2),
+            "projected_points": round(projected, 2),
+            "lineup": [
+                {
+                    "name": p.name,
+                    "player_id": p.playerId,
+                    "position": p.position or "",
+                    "slot_position": p.slot_position or "",
+                    "pro_team": p.proTeam or "",
+                    "points": round(p.points, 2),
+                    "projected_points": round(p.projected_points, 2),
+                }
+                for p in lineup
+            ],
+        }
+
+    result = []
+    for bs in box_scores:
+        result.append({
+            "week": week,
+            "is_playoff": is_playoff,
+            "matchup_type": bs.matchup_type,
+            "home": serialize_team(bs.home_team, bs.home_score, bs.home_projected, bs.home_lineup),
+            "away": serialize_team(bs.away_team, bs.away_score, bs.away_projected, bs.away_lineup),
+        })
+    return result
 
 
 def serialize_playoffs(league: League) -> dict:

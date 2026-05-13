@@ -9,7 +9,9 @@ from .espn_client import (
     discover_years,
     get_league,
     serialize_all_matchups,
+    serialize_box_scores,
     serialize_playoffs,
+    serialize_scoreboard,
     serialize_teams,
 )
 from .schemas import (
@@ -17,7 +19,9 @@ from .schemas import (
     LeagueAggregate,
     LeagueOwnerHistory,
     SeasonPlayoffs,
+    SeasonScoreboard,
     SeasonTeams,
+    WeekBoxScores,
 )
 
 app = FastAPI(title="espn_fantasy_stats")
@@ -48,13 +52,13 @@ def _get_season_teams(league_id: int, year: int, refresh: bool = False) -> dict:
 
 def _get_season_matchups(league_id: int, year: int, refresh: bool = False) -> list[dict]:
     if not refresh:
-        cached = cache.get(league_id, year, "matchups_v1")
+        cached = cache.get(league_id, year, "matchups_v2")
         if cached:
             return cached["matchups"]
 
     league = get_league(league_id, year)
     matchups = serialize_all_matchups(league)
-    cache.put(league_id, year, "matchups_v1", {"matchups": matchups})
+    cache.put(league_id, year, "matchups_v2", {"matchups": matchups})
     return matchups
 
 
@@ -138,6 +142,9 @@ def head_to_head(league_id: int, owner_a: str, owner_b: str, refresh: bool = Fal
                 "year": year,
                 "week": m["week"],
                 "is_playoff": m["is_playoff"],
+                "round_label": m.get("round_label", "regular"),
+                "owner_a_team_id": a_team_id,
+                "owner_b_team_id": b_team_id,
                 "owner_a_team_name": team_a_in_season["team_name"],
                 "owner_b_team_name": team_b_in_season["team_name"],
                 "owner_a_score": a_score,
@@ -199,6 +206,55 @@ def owner_history(league_id: int, refresh: bool = False):
         "years": years,
         "owners": build_owner_history(seasons),
     }
+
+
+@app.get(
+    "/api/leagues/{league_id}/seasons/{year}/scoreboard",
+    response_model=SeasonScoreboard,
+)
+def scoreboard(league_id: int, year: int, refresh: bool = False):
+    if not refresh:
+        cached = cache.get(league_id, year, "scoreboard_v2")
+        if cached:
+            return cached
+    try:
+        league = get_league(league_id, year)
+        data = serialize_scoreboard(league, year)
+        payload = {"league_id": league_id, **data}
+        cache.put(league_id, year, "scoreboard_v2", payload)
+        return payload
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+
+
+@app.get(
+    "/api/leagues/{league_id}/seasons/{year}/weeks/{week}/box_scores",
+    response_model=WeekBoxScores,
+)
+def box_scores(league_id: int, year: int, week: int, refresh: bool = False):
+    if year < 2019:
+        raise HTTPException(
+            status_code=400,
+            detail="Box scores are only available for seasons 2019 and later.",
+        )
+    cache_key = f"box_scores_v1_w{week}"
+    if not refresh:
+        cached = cache.get(league_id, year, cache_key)
+        if cached:
+            return cached
+    try:
+        league = get_league(league_id, year)
+        matchups = serialize_box_scores(league, week)
+        payload = {
+            "league_id": league_id,
+            "year": year,
+            "week": week,
+            "matchups": matchups,
+        }
+        cache.put(league_id, year, cache_key, payload)
+        return payload
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
 
 
 @app.get(

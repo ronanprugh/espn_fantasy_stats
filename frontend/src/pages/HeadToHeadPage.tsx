@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   fetchConfig,
   fetchHeadToHead,
@@ -8,8 +9,10 @@ import {
   type HeadToHeadStats,
   type OwnerHistory,
 } from '../api'
+import { RoundBadge } from '../components/RoundBadge'
 
 export function HeadToHeadPage() {
+  const navigate = useNavigate()
   const [config, setConfig] = useState<Config | null>(null)
   const [owners, setOwners] = useState<OwnerHistory[]>([])
   const [ownerA, setOwnerA] = useState<string>('')
@@ -41,8 +44,9 @@ export function HeadToHeadPage() {
       .finally(() => setLoading(false))
   }, [config, ownerA, ownerB])
 
-  const handleMatchupClick = (_m: HeadToHeadMatchup) => {
-    // Future: navigate to box score for this matchup.
+  const handleMatchupClick = (m: HeadToHeadMatchup) => {
+    if (m.year < 2019) return // box scores unavailable
+    navigate(`/box_score/${m.year}/${m.week}/${m.owner_a_team_id}/${m.owner_b_team_id}`)
   }
 
   return (
@@ -224,12 +228,12 @@ function H2HMatchupsList({
               <tr
                 key={i}
                 onClick={() => onClick(m)}
-                className="clickable-row"
-                title="Coming soon: click for box score"
+                className={m.year >= 2019 ? 'clickable-row' : ''}
+                title={m.year >= 2019 ? 'View box score' : 'Box scores not available before 2019'}
               >
                 <td>{m.year}</td>
                 <td>Wk {m.week}</td>
-                <td>{m.is_playoff ? <span className="playoff-tag">Playoff</span> : 'Regular'}</td>
+                <td><RoundBadge round={m.round_label} /></td>
                 <td className={aWon ? 'winner-cell' : ''}>{m.owner_a_score.toFixed(1)}</td>
                 <td className="vs">vs</td>
                 <td className={bWon ? 'winner-cell' : ''}>{m.owner_b_score.toFixed(1)}</td>

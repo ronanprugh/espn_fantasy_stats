@@ -171,6 +171,9 @@ export type HeadToHeadMatchup = {
   year: number
   week: number
   is_playoff: boolean
+  round_label: RoundLabel
+  owner_a_team_id: number
+  owner_b_team_id: number
   owner_a_team_name: string
   owner_b_team_name: string
   owner_a_score: number
@@ -198,6 +201,96 @@ export type HeadToHeadStats = {
   owner_b_playoff_wins: number
   playoff_ties: number
   matchups: HeadToHeadMatchup[]
+}
+
+export type RoundLabel =
+  | 'regular'
+  | 'playoff'
+  | 'semifinal'
+  | 'championship'
+  | 'consolation'
+
+export type ScoreboardMatchup = {
+  week: number
+  is_playoff: boolean
+  round_label: RoundLabel
+  is_bye: boolean
+  team_a_id: number
+  team_a_name: string
+  team_a_owner: string
+  team_a_score: number
+  team_b_id: number
+  team_b_name: string
+  team_b_owner: string
+  team_b_score: number
+  winner_id: number | null
+}
+
+export type SeasonScoreboard = {
+  league_id: number
+  year: number
+  weeks: number[]
+  matchups: ScoreboardMatchup[]
+}
+
+export async function fetchScoreboard(
+  leagueId: number,
+  year: number,
+  refresh = false,
+): Promise<SeasonScoreboard> {
+  const url = `/api/leagues/${leagueId}/seasons/${year}/scoreboard${refresh ? '?refresh=true' : ''}`
+  const r = await fetch(url)
+  if (!r.ok) throw new Error(`Failed to fetch scoreboard: ${r.status}`)
+  return r.json()
+}
+
+export type BoxPlayer = {
+  name: string
+  player_id: number
+  position: string
+  slot_position: string
+  pro_team: string
+  points: number
+  projected_points: number
+}
+
+export type BoxScoreTeam = {
+  team_id: number
+  team_name: string
+  owner_name: string
+  total_points: number
+  projected_points: number
+  lineup: BoxPlayer[]
+}
+
+export type BoxScoreMatchup = {
+  week: number
+  is_playoff: boolean
+  matchup_type: string
+  home: BoxScoreTeam | null
+  away: BoxScoreTeam | null
+}
+
+export type WeekBoxScores = {
+  league_id: number
+  year: number
+  week: number
+  matchups: BoxScoreMatchup[]
+}
+
+export async function fetchBoxScores(
+  leagueId: number,
+  year: number,
+  week: number,
+  refresh = false,
+): Promise<WeekBoxScores> {
+  const url = `/api/leagues/${leagueId}/seasons/${year}/weeks/${week}/box_scores${refresh ? '?refresh=true' : ''}`
+  const r = await fetch(url)
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}))
+    throw new Error(body.detail || `Failed to fetch box scores: ${r.status}`)
+  }
+  return r.json()
 }
 
 export async function fetchHeadToHead(
