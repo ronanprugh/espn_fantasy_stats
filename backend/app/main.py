@@ -24,7 +24,7 @@ def config():
 @app.get("/api/leagues/{league_id}/seasons/{year}/teams", response_model=SeasonTeams)
 def teams(league_id: int, year: int, refresh: bool = False):
     if not refresh:
-        cached = cache.get(league_id, year, "teams")
+        cached = cache.get(league_id, year, "teams_v2")
         if cached:
             return cached
 
@@ -38,5 +38,5 @@ def teams(league_id: int, year: int, refresh: bool = False):
         "year": year,
         "teams": serialize_teams(league),
     }
-    cache.put(league_id, year, "teams", payload)
+    cache.put(league_id, year, "teams_v2", payload)
     return payload

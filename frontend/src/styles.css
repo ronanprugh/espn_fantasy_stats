@@ -8,9 +8,13 @@ body {
 }
 
 .app {
-  max-width: 1000px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 24px;
+}
+
+.teams-wrap {
+  overflow-x: auto;
 }
 
 header {
@@ -74,4 +78,13 @@ table.teams td {
 table.teams th {
   font-weight: 600;
   background: rgba(0, 0, 0, 0.04);
+  white-space: nowrap;
+}
+
+table.teams td.pos {
+  color: #0a7a25;
+}
+
+table.teams td.neg {
+  color: #c04030;
 }

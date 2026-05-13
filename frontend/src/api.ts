@@ -12,8 +12,13 @@ export type Team = {
   wins: number
   losses: number
   ties: number
+  playoff_wins: number
+  playoff_losses: number
   points_for: number
   points_against: number
+  avg_points_for: number
+  avg_points_against: number
+  avg_plus_minus: number
   final_standing: number
   standing: number
   scores: number[]
