@@ -87,3 +87,42 @@ export async function fetchAggregate(
   if (!r.ok) throw new Error(`Failed to fetch aggregate: ${r.status}`)
   return r.json()
 }
+
+export type PlayoffTeam = {
+  team_id: number
+  team_name: string
+  owner_name: string
+  seed: number
+  final_standing: number
+}
+
+export type PlayoffMatchup = {
+  week: number
+  team_a_id: number
+  team_b_id: number
+  team_a_score: number
+  team_b_score: number
+  is_bye: boolean
+  winner_id: number | null
+}
+
+export type SeasonPlayoffs = {
+  league_id: number
+  year: number
+  playoff_team_count: number
+  reg_season_count: number
+  playoff_weeks: number[]
+  teams: PlayoffTeam[]
+  matchups: PlayoffMatchup[]
+}
+
+export async function fetchPlayoffs(
+  leagueId: number,
+  year: number,
+  refresh = false,
+): Promise<SeasonPlayoffs> {
+  const url = `/api/leagues/${leagueId}/seasons/${year}/playoffs${refresh ? '?refresh=true' : ''}`
+  const r = await fetch(url)
+  if (!r.ok) throw new Error(`Failed to fetch playoffs: ${r.status}`)
+  return r.json()
+}

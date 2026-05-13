@@ -138,6 +138,92 @@ def aggregate_by_owner(seasons: list[dict]) -> list[dict]:
     return result
 
 
+def serialize_playoffs(league: League) -> dict:
+    """Return playoff teams + every matchup played in playoff weeks.
+
+    Filters out toilet-bowl games (matchups where neither team made the
+    playoffs). Byes are reported as a matchup where team_a_id == team_b_id.
+    The frontend builds the bracket tree from this flat list.
+    """
+    s = league.settings
+    playoff_team_ids = {
+        t.team_id for t in league.teams if t.standing <= s.playoff_team_count
+    }
+    teams_by_id = {t.team_id: t for t in league.teams}
+
+    teams = []
+    for t in league.teams:
+        if t.team_id not in playoff_team_ids:
+            continue
+        owner = t.owners[0] if t.owners else {}
+        owner_name = f"{owner.get('firstName', '')} {owner.get('lastName', '')}".strip()
+        teams.append({
+            "team_id": t.team_id,
+            "team_name": t.team_name,
+            "owner_name": owner_name or "—",
+            "seed": t.standing,
+            "final_standing": t.final_standing,
+        })
+
+    matchups: list[dict] = []
+    seen: set = set()
+    for t in league.teams:
+        if t.team_id not in playoff_team_ids:
+            continue
+        for week_idx in range(s.reg_season_count, len(t.outcomes)):
+            week = week_idx + 1
+            opp = t.schedule[week_idx]
+            opp_id = opp.team_id if hasattr(opp, "team_id") else opp
+            is_bye = opp_id == t.team_id
+
+            if not is_bye and opp_id not in playoff_team_ids:
+                continue
+
+            key = (week, frozenset([t.team_id, opp_id]))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            if is_bye:
+                matchups.append({
+                    "week": week,
+                    "team_a_id": t.team_id,
+                    "team_b_id": t.team_id,
+                    "team_a_score": round(t.scores[week_idx], 2),
+                    "team_b_score": round(t.scores[week_idx], 2),
+                    "is_bye": True,
+                    "winner_id": None,
+                })
+                continue
+
+            opp_team = teams_by_id[opp_id]
+            outcome = t.outcomes[week_idx]
+            if outcome == "W":
+                winner_id = t.team_id
+            elif outcome == "L":
+                winner_id = opp_id
+            else:
+                winner_id = None
+            matchups.append({
+                "week": week,
+                "team_a_id": t.team_id,
+                "team_b_id": opp_id,
+                "team_a_score": round(t.scores[week_idx], 2),
+                "team_b_score": round(opp_team.scores[week_idx], 2),
+                "is_bye": False,
+                "winner_id": winner_id,
+            })
+
+    playoff_weeks = sorted({m["week"] for m in matchups})
+    return {
+        "playoff_team_count": s.playoff_team_count,
+        "reg_season_count": s.reg_season_count,
+        "playoff_weeks": playoff_weeks,
+        "teams": sorted(teams, key=lambda t: t["seed"]),
+        "matchups": sorted(matchups, key=lambda m: (m["week"], m["team_a_id"])),
+    }
+
+
 def serialize_teams(league: League) -> list[dict]:
     reg_count = league.settings.reg_season_count
     playoff_count = league.settings.playoff_team_count

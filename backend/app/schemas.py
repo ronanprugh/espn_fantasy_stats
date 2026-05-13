@@ -58,3 +58,31 @@ class LeagueAggregate(BaseModel):
     end_year: int
     years: List[int]
     owners: List[OwnerAggregate]
+
+
+class PlayoffTeam(BaseModel):
+    team_id: int
+    team_name: str
+    owner_name: str
+    seed: int
+    final_standing: int
+
+
+class PlayoffMatchup(BaseModel):
+    week: int
+    team_a_id: int
+    team_b_id: int
+    team_a_score: float
+    team_b_score: float
+    is_bye: bool
+    winner_id: int | None
+
+
+class SeasonPlayoffs(BaseModel):
+    league_id: int
+    year: int
+    playoff_team_count: int
+    reg_season_count: int
+    playoff_weeks: List[int]
+    teams: List[PlayoffTeam]
+    matchups: List[PlayoffMatchup]

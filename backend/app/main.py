@@ -7,9 +7,10 @@ from .espn_client import (
     aggregate_by_owner,
     discover_years,
     get_league,
+    serialize_playoffs,
     serialize_teams,
 )
-from .schemas import LeagueAggregate, SeasonTeams
+from .schemas import LeagueAggregate, SeasonPlayoffs, SeasonTeams
 
 app = FastAPI(title="espn_fantasy_stats")
 
@@ -53,6 +54,25 @@ def config():
 def teams(league_id: int, year: int, refresh: bool = False):
     try:
         return _get_season_teams(league_id, year, refresh)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+
+
+@app.get(
+    "/api/leagues/{league_id}/seasons/{year}/playoffs",
+    response_model=SeasonPlayoffs,
+)
+def playoffs(league_id: int, year: int, refresh: bool = False):
+    if not refresh:
+        cached = cache.get(league_id, year, "playoffs_v1")
+        if cached:
+            return cached
+    try:
+        league = get_league(league_id, year)
+        data = serialize_playoffs(league)
+        payload = {"league_id": league_id, "year": year, **data}
+        cache.put(league_id, year, "playoffs_v1", payload)
+        return payload
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
 
