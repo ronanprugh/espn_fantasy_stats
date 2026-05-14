@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  fetchConfig,
   fetchHeadToHead,
   fetchOwnerHistory,
-  type Config,
   type HeadToHeadMatchup,
   type HeadToHeadStats,
   type OwnerHistory,
 } from '../api'
+import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
+import { useLeague } from '../contexts/LeagueContext'
 
 export function HeadToHeadPage() {
   const navigate = useNavigate()
-  const [config, setConfig] = useState<Config | null>(null)
+  const { selectedLeague } = useLeague()
   const [owners, setOwners] = useState<OwnerHistory[]>([])
   const [ownerA, setOwnerA] = useState<string>('')
   const [ownerB, setOwnerB] = useState<string>('')
@@ -22,27 +22,27 @@ export function HeadToHeadPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchConfig()
-      .then((c) => {
-        setConfig(c)
-        return fetchOwnerHistory(c.league_id)
-      })
+    if (!selectedLeague) return
+    fetchOwnerHistory(selectedLeague.espn_league_id)
       .then((h) => setOwners(h.owners))
-      .catch((e) => setError(String(e)))
-  }, [])
+      .catch((e: Error) => setError(e.message))
+  }, [selectedLeague?.espn_league_id])
 
   useEffect(() => {
-    if (!config || !ownerA || !ownerB || ownerA === ownerB) {
+    if (!selectedLeague || !ownerA || !ownerB || ownerA === ownerB) {
       setData(null)
       return
     }
     setLoading(true)
     setError(null)
-    fetchHeadToHead(config.league_id, ownerA, ownerB)
+    fetchHeadToHead(selectedLeague.espn_league_id, ownerA, ownerB)
       .then(setData)
-      .catch((e) => setError(String(e)))
+      .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [config, ownerA, ownerB])
+  }, [selectedLeague?.espn_league_id, ownerA, ownerB])
+
+  if (!selectedLeague) return <NoLeagueSelected />
+
 
   const handleMatchupClick = (m: HeadToHeadMatchup) => {
     if (m.year < 2019) return // box scores unavailable

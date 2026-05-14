@@ -1,8 +1,87 @@
-export type Owner = {
-  id: string
-  first_name: string
-  last_name: string
+// All fetches use credentials:'include' so the session cookie is sent.
+const baseFetch = (input: RequestInfo, init: RequestInit = {}) =>
+  fetch(input, { ...init, credentials: 'include' })
+
+async function jsonFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
+  const r = await baseFetch(url, init)
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}))
+    const message = body.detail ?? `HTTP ${r.status}`
+    const err = new Error(message) as Error & { status: number }
+    err.status = r.status
+    throw err
+  }
+  return r.json()
 }
+
+// --------------------------------------------------------------------- //
+// Auth
+// --------------------------------------------------------------------- //
+
+export type AuthUser = { id: number; username: string }
+
+export async function fetchAuthMe(): Promise<AuthUser> {
+  return jsonFetch<AuthUser>('/api/auth/me')
+}
+
+export async function login(username: string, password: string): Promise<AuthUser> {
+  return jsonFetch<AuthUser>('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+}
+
+export async function logout(): Promise<void> {
+  await jsonFetch('/api/auth/logout', { method: 'POST' })
+}
+
+// --------------------------------------------------------------------- //
+// League management (per-user)
+// --------------------------------------------------------------------- //
+
+export type LeagueSummary = {
+  id: number
+  espn_league_id: number
+  display_name: string
+}
+
+export type LeagueInfo = {
+  espn_league_id: number
+  display_name: string
+  years: number[]
+}
+
+export async function fetchMyLeagues(): Promise<LeagueSummary[]> {
+  return jsonFetch<LeagueSummary[]>('/api/me/leagues')
+}
+
+export async function createLeague(payload: {
+  espn_league_id: number
+  display_name: string
+  espn_s2?: string
+  swid?: string
+}): Promise<LeagueSummary> {
+  return jsonFetch<LeagueSummary>('/api/me/leagues', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function deleteLeague(id: number): Promise<void> {
+  await jsonFetch(`/api/me/leagues/${id}`, { method: 'DELETE' })
+}
+
+export async function fetchLeagueInfo(espnLeagueId: number): Promise<LeagueInfo> {
+  return jsonFetch<LeagueInfo>(`/api/leagues/${espnLeagueId}/info`)
+}
+
+// --------------------------------------------------------------------- //
+// ESPN data — all scoped to a user-owned ESPN league_id
+// --------------------------------------------------------------------- //
+
+export type Owner = { id: string; first_name: string; last_name: string }
 
 export type Team = {
   team_id: number
@@ -30,9 +109,13 @@ export type SeasonTeams = {
   teams: Team[]
 }
 
-export type Config = {
-  league_id: number
-  years: number[]
+export async function fetchTeams(
+  leagueId: number,
+  year: number,
+  refresh = false,
+): Promise<SeasonTeams> {
+  const url = `/api/leagues/${leagueId}/seasons/${year}/teams${refresh ? '?refresh=true' : ''}`
+  return jsonFetch<SeasonTeams>(url)
 }
 
 export type OwnerAggregate = {
@@ -61,31 +144,12 @@ export type LeagueAggregate = {
   owners: OwnerAggregate[]
 }
 
-export async function fetchConfig(): Promise<Config> {
-  const r = await fetch('/api/config')
-  if (!r.ok) throw new Error('Failed to fetch config')
-  return r.json()
-}
-
-export async function fetchTeams(
-  leagueId: number,
-  year: number,
-  refresh = false,
-): Promise<SeasonTeams> {
-  const url = `/api/leagues/${leagueId}/seasons/${year}/teams${refresh ? '?refresh=true' : ''}`
-  const r = await fetch(url)
-  if (!r.ok) throw new Error(`Failed to fetch teams: ${r.status}`)
-  return r.json()
-}
-
 export async function fetchAggregate(
   leagueId: number,
   refresh = false,
 ): Promise<LeagueAggregate> {
   const url = `/api/leagues/${leagueId}/aggregate${refresh ? '?refresh=true' : ''}`
-  const r = await fetch(url)
-  if (!r.ok) throw new Error(`Failed to fetch aggregate: ${r.status}`)
-  return r.json()
+  return jsonFetch<LeagueAggregate>(url)
 }
 
 export type PlayoffTeam = {
@@ -122,9 +186,7 @@ export async function fetchPlayoffs(
   refresh = false,
 ): Promise<SeasonPlayoffs> {
   const url = `/api/leagues/${leagueId}/seasons/${year}/playoffs${refresh ? '?refresh=true' : ''}`
-  const r = await fetch(url)
-  if (!r.ok) throw new Error(`Failed to fetch playoffs: ${r.status}`)
-  return r.json()
+  return jsonFetch<SeasonPlayoffs>(url)
 }
 
 export type OwnerSeason = {
@@ -162,45 +224,7 @@ export async function fetchOwnerHistory(
   refresh = false,
 ): Promise<LeagueOwnerHistory> {
   const url = `/api/leagues/${leagueId}/owner_history${refresh ? '?refresh=true' : ''}`
-  const r = await fetch(url)
-  if (!r.ok) throw new Error(`Failed to fetch owner history: ${r.status}`)
-  return r.json()
-}
-
-export type HeadToHeadMatchup = {
-  year: number
-  week: number
-  is_playoff: boolean
-  round_label: RoundLabel
-  owner_a_team_id: number
-  owner_b_team_id: number
-  owner_a_team_name: string
-  owner_b_team_name: string
-  owner_a_score: number
-  owner_b_score: number
-  winner_owner_id: string | null
-}
-
-export type HeadToHeadStats = {
-  owner_a_id: string
-  owner_b_id: string
-  owner_a_name: string
-  owner_b_name: string
-  owner_a_team_name: string
-  owner_b_team_name: string
-  total_matchups: number
-  owner_a_wins: number
-  owner_b_wins: number
-  ties: number
-  owner_a_total_pf: number
-  owner_b_total_pf: number
-  owner_a_avg_pf: number
-  owner_b_avg_pf: number
-  playoff_matchups: number
-  owner_a_playoff_wins: number
-  owner_b_playoff_wins: number
-  playoff_ties: number
-  matchups: HeadToHeadMatchup[]
+  return jsonFetch<LeagueOwnerHistory>(url)
 }
 
 export type RoundLabel =
@@ -239,9 +263,7 @@ export async function fetchScoreboard(
   refresh = false,
 ): Promise<SeasonScoreboard> {
   const url = `/api/leagues/${leagueId}/seasons/${year}/scoreboard${refresh ? '?refresh=true' : ''}`
-  const r = await fetch(url)
-  if (!r.ok) throw new Error(`Failed to fetch scoreboard: ${r.status}`)
-  return r.json()
+  return jsonFetch<SeasonScoreboard>(url)
 }
 
 export type BoxPlayer = {
@@ -285,12 +307,43 @@ export async function fetchBoxScores(
   refresh = false,
 ): Promise<WeekBoxScores> {
   const url = `/api/leagues/${leagueId}/seasons/${year}/weeks/${week}/box_scores${refresh ? '?refresh=true' : ''}`
-  const r = await fetch(url)
-  if (!r.ok) {
-    const body = await r.json().catch(() => ({}))
-    throw new Error(body.detail || `Failed to fetch box scores: ${r.status}`)
-  }
-  return r.json()
+  return jsonFetch<WeekBoxScores>(url)
+}
+
+export type HeadToHeadMatchup = {
+  year: number
+  week: number
+  is_playoff: boolean
+  round_label: RoundLabel
+  owner_a_team_id: number
+  owner_b_team_id: number
+  owner_a_team_name: string
+  owner_b_team_name: string
+  owner_a_score: number
+  owner_b_score: number
+  winner_owner_id: string | null
+}
+
+export type HeadToHeadStats = {
+  owner_a_id: string
+  owner_b_id: string
+  owner_a_name: string
+  owner_b_name: string
+  owner_a_team_name: string
+  owner_b_team_name: string
+  total_matchups: number
+  owner_a_wins: number
+  owner_b_wins: number
+  ties: number
+  owner_a_total_pf: number
+  owner_b_total_pf: number
+  owner_a_avg_pf: number
+  owner_b_avg_pf: number
+  playoff_matchups: number
+  owner_a_playoff_wins: number
+  owner_b_playoff_wins: number
+  playoff_ties: number
+  matchups: HeadToHeadMatchup[]
 }
 
 export async function fetchHeadToHead(
@@ -299,7 +352,5 @@ export async function fetchHeadToHead(
   ownerB: string,
 ): Promise<HeadToHeadStats> {
   const params = new URLSearchParams({ owner_a: ownerA, owner_b: ownerB })
-  const r = await fetch(`/api/leagues/${leagueId}/head_to_head?${params}`)
-  if (!r.ok) throw new Error(`Failed to fetch head-to-head: ${r.status}`)
-  return r.json()
+  return jsonFetch<HeadToHeadStats>(`/api/leagues/${leagueId}/head_to_head?${params}`)
 }

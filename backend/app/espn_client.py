@@ -2,25 +2,33 @@ from datetime import datetime
 
 from espn_api.football import League
 
-from .config import ESPN_S2, SWID
-
 _leagues: dict[tuple[int, int], League] = {}
 _years_cache: dict[int, list[int]] = {}
 
 
-def get_league(league_id: int, year: int) -> League:
+def get_league(
+    league_id: int,
+    year: int,
+    espn_s2: str | None = None,
+    swid: str | None = None,
+) -> League:
     key = (league_id, year)
     if key not in _leagues:
         _leagues[key] = League(
             league_id=league_id,
             year=year,
-            espn_s2=ESPN_S2,
-            swid=SWID,
+            espn_s2=espn_s2,
+            swid=swid,
         )
     return _leagues[key]
 
 
-def discover_years(league_id: int, probe_window: int = 5) -> list[int]:
+def discover_years(
+    league_id: int,
+    espn_s2: str | None = None,
+    swid: str | None = None,
+    probe_window: int = 5,
+) -> list[int]:
     """Return the sorted list of seasons this league has actually played.
 
     Probes backwards from the current calendar year to find a working
@@ -35,7 +43,7 @@ def discover_years(league_id: int, probe_window: int = 5) -> list[int]:
     last_err: Exception | None = None
     for candidate in range(current, current - probe_window, -1):
         try:
-            lg = get_league(league_id, candidate)
+            lg = get_league(league_id, candidate, espn_s2=espn_s2, swid=swid)
         except Exception as e:
             last_err = e
             continue

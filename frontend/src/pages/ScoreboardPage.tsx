@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  fetchConfig,
   fetchScoreboard,
-  type Config,
   type ScoreboardMatchup,
   type SeasonScoreboard,
 } from '../api'
+import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
+import { useLeagueYears } from '../hooks/useLeagueYears'
 
 export function ScoreboardPage() {
   const navigate = useNavigate()
-  const [config, setConfig] = useState<Config | null>(null)
+  const { leagueId, years } = useLeagueYears()
   const [year, setYear] = useState<number | ''>('')
   const [week, setWeek] = useState<number | ''>('')
   const [seasonData, setSeasonData] = useState<SeasonScoreboard | null>(null)
@@ -19,27 +19,24 @@ export function ScoreboardPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchConfig().then(setConfig).catch((e) => setError(String(e)))
-  }, [])
-
-  useEffect(() => {
-    if (!config || year === '') {
+    if (!leagueId || year === '') {
       setSeasonData(null)
       return
     }
     setLoading(true)
     setError(null)
-    fetchScoreboard(config.league_id, year as number)
+    fetchScoreboard(leagueId, year as number)
       .then(setSeasonData)
-      .catch((e) => setError(String(e)))
+      .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [config, year])
+  }, [leagueId, year])
 
-  const years = config ? [...config.years].reverse() : []
+  if (!leagueId) return <NoLeagueSelected />
+
+  const yearsDesc = [...years].reverse()
   const weeks = seasonData?.weeks ?? []
-  const weekMatchups = seasonData && week !== ''
-    ? seasonData.matchups.filter((m) => m.week === week)
-    : []
+  const weekMatchups =
+    seasonData && week !== '' ? seasonData.matchups.filter((m) => m.week === week) : []
 
   const goToBoxScore = (m: ScoreboardMatchup) => {
     if (m.is_bye) return
@@ -69,7 +66,7 @@ export function ScoreboardPage() {
             }}
           >
             <option value="">— pick a year —</option>
-            {years.map((y) => (
+            {yearsDesc.map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>

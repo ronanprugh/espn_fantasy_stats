@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import {
-  fetchConfig,
   fetchOwnerHistory,
   type LeagueOwnerHistory,
   type OwnerSeason,
 } from '../api'
 import { COLORS, ComparisonChart } from '../components/ComparisonChart'
+import { NoLeagueSelected } from '../components/NoLeagueSelected'
+import { useLeague } from '../contexts/LeagueContext'
 
 function average(seasons: OwnerSeason[], key: keyof OwnerSeason): number | null {
   const values = seasons
@@ -36,6 +37,7 @@ const STAT_OPTIONS: StatOption[] = [
 ]
 
 export function ComparePage() {
+  const { selectedLeague } = useLeague()
   const [history, setHistory] = useState<LeagueOwnerHistory | null>(null)
   const [selected, setSelected] = useState<string[]>([])
   const [statKey, setStatKey] = useState<keyof OwnerSeason>('final_standing')
@@ -43,12 +45,16 @@ export function ComparePage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchConfig()
-      .then((c) => fetchOwnerHistory(c.league_id))
+    if (!selectedLeague) return
+    setLoading(true)
+    fetchOwnerHistory(selectedLeague.espn_league_id)
       .then(setHistory)
-      .catch((e) => setError(String(e)))
+      .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [selectedLeague?.espn_league_id])
+
+  if (!selectedLeague) return <NoLeagueSelected />
+
 
   const stat = STAT_OPTIONS.find((s) => s.key === statKey) ?? STAT_OPTIONS[0]
   const selectedOwners = history

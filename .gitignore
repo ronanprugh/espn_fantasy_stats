@@ -16,6 +16,9 @@ dist/
 *.sqlite
 *.db
 
+# Local Postgres data (managed by docker-compose)
+.pgdata/
+
 # Editor / OS
 .DS_Store
 .vscode/

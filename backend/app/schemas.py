@@ -1,5 +1,34 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+
+
+class LeagueSummary(BaseModel):
+    id: int
+    espn_league_id: int
+    display_name: str
+
+
+class CreateLeagueRequest(BaseModel):
+    espn_league_id: int
+    display_name: str
+    espn_s2: str | None = None
+    swid: str | None = None
+
+
+class LeagueInfo(BaseModel):
+    espn_league_id: int
+    display_name: str
+    years: List[int]
 
 
 class Owner(BaseModel):

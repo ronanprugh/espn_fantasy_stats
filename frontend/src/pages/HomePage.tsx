@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import {
   fetchAggregate,
-  fetchConfig,
   fetchTeams,
-  type Config,
   type LeagueAggregate,
   type SeasonTeams,
 } from '../api'
 import { AggregateTable } from '../components/AggregateTable'
+import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { TeamList } from '../components/TeamList'
+import { useLeagueYears } from '../hooks/useLeagueYears'
 
 type View = { mode: 'year'; year: number } | { mode: 'all' }
 
 export function HomePage() {
-  const [config, setConfig] = useState<Config | null>(null)
+  const { leagueId, leagueName, years } = useLeagueYears()
   const [view, setView] = useState<View>({ mode: 'all' })
   const [seasonData, setSeasonData] = useState<SeasonTeams | null>(null)
   const [aggregateData, setAggregateData] = useState<LeagueAggregate | null>(null)
@@ -21,29 +21,25 @@ export function HomePage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchConfig()
-      .then(setConfig)
-      .catch((e) => setError(String(e)))
-  }, [])
-
-  useEffect(() => {
-    if (!config) return
+    if (!leagueId) return
     setLoading(true)
     setError(null)
     const p =
       view.mode === 'all'
-        ? fetchAggregate(config.league_id).then(setAggregateData)
-        : fetchTeams(config.league_id, view.year).then(setSeasonData)
-    p.catch((e) => setError(String(e))).finally(() => setLoading(false))
-  }, [config, view])
+        ? fetchAggregate(leagueId).then(setAggregateData)
+        : fetchTeams(leagueId, view.year).then(setSeasonData)
+    p.catch((e: Error) => setError(e.message)).finally(() => setLoading(false))
+  }, [leagueId, view])
 
-  const years = config ? [...config.years].reverse() : []
+  if (!leagueId) return <NoLeagueSelected />
+
+  const yearsDesc = [...years].reverse()
 
   return (
     <div className="page">
       <header className="page-header">
         <h2>Season Stats</h2>
-        {config && <span className="league">League {config.league_id}</span>}
+        {leagueName && <span className="league">{leagueName}</span>}
       </header>
       <nav className="years">
         <button
@@ -52,7 +48,7 @@ export function HomePage() {
         >
           All Time
         </button>
-        {years.map((y) => (
+        {yearsDesc.map((y) => (
           <button
             key={y}
             onClick={() => setView({ mode: 'year', year: y })}

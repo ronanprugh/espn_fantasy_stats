@@ -2,12 +2,11 @@ import { Fragment, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   fetchBoxScores,
-  fetchConfig,
   type BoxPlayer,
   type BoxScoreMatchup,
   type BoxScoreTeam,
-  type Config,
 } from '../api'
+import { useLeague } from '../contexts/LeagueContext'
 
 const STARTER_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'WR/TE', 'OP', 'FLEX', 'K', 'D/ST']
 
@@ -39,20 +38,16 @@ export function BoxScorePage() {
   const teamA = Number(params.teamA)
   const teamB = Number(params.teamB)
 
-  const [config, setConfig] = useState<Config | null>(null)
+  const { selectedLeague } = useLeague()
   const [matchup, setMatchup] = useState<BoxScoreMatchup | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchConfig().then(setConfig).catch((e) => setError(String(e)))
-  }, [])
-
-  useEffect(() => {
-    if (!config) return
+    if (!selectedLeague) return
     setLoading(true)
     setError(null)
-    fetchBoxScores(config.league_id, year, week)
+    fetchBoxScores(selectedLeague.espn_league_id, year, week)
       .then((data) => {
         const ids = new Set([teamA, teamB])
         const found = data.matchups.find((m) => {
@@ -66,9 +61,9 @@ export function BoxScorePage() {
         })
         setMatchup(found ?? null)
       })
-      .catch((e) => setError(String(e)))
+      .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [config, year, week, teamA, teamB])
+  }, [selectedLeague?.espn_league_id, year, week, teamA, teamB])
 
   return (
     <div className="page">

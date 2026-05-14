@@ -1,55 +1,34 @@
-import json
-import sqlite3
-import time
-from typing import Optional
+from typing import Any
 
-from .config import CACHE_PATH
+from sqlalchemy.dialects.postgresql import insert
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS cache (
-    league_id INTEGER NOT NULL,
-    year INTEGER NOT NULL,
-    key TEXT NOT NULL,
-    payload TEXT NOT NULL,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY (league_id, year, key)
-);
-"""
+from .database import SessionLocal
+from .models import Cache
 
 
-def _conn():
-    conn = sqlite3.connect(CACHE_PATH)
-    conn.execute(SCHEMA)
-    return conn
+def get(league_id: int, year: int, key: str) -> Any | None:
+    with SessionLocal() as db:
+        row = db.get(Cache, (league_id, year, key))
+        return row.payload if row else None
 
 
-def get(league_id: int, year: int, key: str) -> Optional[dict]:
-    with _conn() as conn:
-        row = conn.execute(
-            "SELECT payload FROM cache WHERE league_id=? AND year=? AND key=?",
-            (league_id, year, key),
-        ).fetchone()
-    return json.loads(row[0]) if row else None
+def put(league_id: int, year: int, key: str, payload: Any) -> None:
+    stmt = insert(Cache).values(
+        league_id=league_id, year=year, key=key, payload=payload
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["league_id", "year", "key"],
+        set_={"payload": stmt.excluded.payload},
+    )
+    with SessionLocal() as db:
+        db.execute(stmt)
+        db.commit()
 
 
-def put(league_id: int, year: int, key: str, payload: dict) -> None:
-    with _conn() as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO cache (league_id, year, key, payload, updated_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (league_id, year, key, json.dumps(payload), int(time.time())),
-        )
-
-
-def invalidate(league_id: int, year: int, key: Optional[str] = None) -> None:
-    with _conn() as conn:
+def invalidate(league_id: int, year: int, key: str | None = None) -> None:
+    with SessionLocal() as db:
+        q = db.query(Cache).filter(Cache.league_id == league_id, Cache.year == year)
         if key:
-            conn.execute(
-                "DELETE FROM cache WHERE league_id=? AND year=? AND key=?",
-                (league_id, year, key),
-            )
-        else:
-            conn.execute(
-                "DELETE FROM cache WHERE league_id=? AND year=?",
-                (league_id, year),
-            )
+            q = q.filter(Cache.key == key)
+        q.delete()
+        db.commit()
