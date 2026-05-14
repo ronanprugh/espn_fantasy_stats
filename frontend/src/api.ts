@@ -44,6 +44,7 @@ export type LeagueSummary = {
   id: number
   espn_league_id: number
   display_name: string
+  favorite_owner_id: string | null
 }
 
 export type LeagueInfo = {
@@ -71,6 +72,23 @@ export async function createLeague(payload: {
 
 export async function deleteLeague(id: number): Promise<void> {
   await jsonFetch(`/api/me/leagues/${id}`, { method: 'DELETE' })
+}
+
+export async function updateLeague(
+  id: number,
+  payload: {
+    display_name?: string
+    espn_s2?: string
+    swid?: string
+    favorite_owner_id?: string
+    clear_favorite?: boolean
+  },
+): Promise<LeagueSummary> {
+  return jsonFetch<LeagueSummary>(`/api/me/leagues/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
 }
 
 export async function fetchLeagueInfo(espnLeagueId: number): Promise<LeagueInfo> {
@@ -353,4 +371,50 @@ export async function fetchHeadToHead(
 ): Promise<HeadToHeadStats> {
   const params = new URLSearchParams({ owner_a: ownerA, owner_b: ownerB })
   return jsonFetch<HeadToHeadStats>(`/api/leagues/${leagueId}/head_to_head?${params}`)
+}
+
+export type TeamHubPlayer = {
+  name: string
+  player_id: number
+  position: string
+  lineup_slot: string
+  pro_team: string
+  total_points: number
+  injury_status: string
+}
+
+export type TeamHubLastMatchup = {
+  year: number
+  week: number
+  round_label: RoundLabel
+  is_playoff: boolean
+  own_team_id: number
+  own_team_name: string
+  own_score: number
+  opp_team_id: number
+  opp_team_name: string
+  opp_owner_name: string
+  opp_score: number
+  result: 'W' | 'L' | 'T' | 'U'
+}
+
+export type TeamHub = {
+  owner_id: string
+  owner_name: string
+  current_team_name: string
+  seasons_played: number
+  latest_year: number
+  latest_team_id: number
+  latest_finish: number
+  avg_finish: number
+  career_avg_pf: number
+  latest_avg_pf: number
+  roster: TeamHubPlayer[]
+  last_matchup: TeamHubLastMatchup | null
+}
+
+export async function fetchTeamHub(leagueId: number, ownerId: string): Promise<TeamHub> {
+  return jsonFetch<TeamHub>(
+    `/api/leagues/${leagueId}/owners/${encodeURIComponent(ownerId)}/hub`,
+  )
 }

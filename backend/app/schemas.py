@@ -16,6 +16,7 @@ class LeagueSummary(BaseModel):
     id: int
     espn_league_id: int
     display_name: str
+    favorite_owner_id: str | None = None
 
 
 class CreateLeagueRequest(BaseModel):
@@ -25,10 +26,59 @@ class CreateLeagueRequest(BaseModel):
     swid: str | None = None
 
 
+class UpdateLeagueRequest(BaseModel):
+    display_name: str | None = None
+    espn_s2: str | None = None
+    swid: str | None = None
+    favorite_owner_id: str | None = None
+    # When True, clears the favorite. (Distinguishes from "leave unchanged".)
+    clear_favorite: bool = False
+
+
 class LeagueInfo(BaseModel):
     espn_league_id: int
     display_name: str
     years: List[int]
+
+
+class TeamHubPlayer(BaseModel):
+    name: str
+    player_id: int
+    position: str
+    lineup_slot: str
+    pro_team: str
+    total_points: float
+    injury_status: str = ""
+
+
+class TeamHubLastMatchup(BaseModel):
+    year: int
+    week: int
+    round_label: str
+    is_playoff: bool
+    own_team_id: int
+    own_team_name: str
+    own_score: float
+    opp_team_id: int
+    opp_team_name: str
+    opp_owner_name: str
+    opp_score: float
+    result: str  # 'W', 'L', 'T', 'U'
+
+
+class TeamHub(BaseModel):
+    owner_id: str
+    owner_name: str
+    current_team_name: str
+    seasons_played: int
+    latest_year: int
+    latest_team_id: int
+    latest_finish: int
+    avg_finish: float
+    career_avg_pf: float
+    latest_avg_pf: float
+    roster: List[TeamHubPlayer]
+    last_matchup: TeamHubLastMatchup | None
 
 
 class Owner(BaseModel):

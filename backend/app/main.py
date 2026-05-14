@@ -18,6 +18,7 @@ from .espn_client import (
     serialize_all_matchups,
     serialize_box_scores,
     serialize_playoffs,
+    serialize_roster,
     serialize_scoreboard,
     serialize_teams,
 )
@@ -34,6 +35,8 @@ from .schemas import (
     SeasonPlayoffs,
     SeasonScoreboard,
     SeasonTeams,
+    TeamHub,
+    UpdateLeagueRequest,
     UserResponse,
     WeekBoxScores,
 )
@@ -99,7 +102,10 @@ def list_my_leagues(user: User = Depends(current_user), db: Session = Depends(ge
     )
     return [
         LeagueSummary(
-            id=r.id, espn_league_id=r.espn_league_id, display_name=r.display_name
+            id=r.id,
+            espn_league_id=r.espn_league_id,
+            display_name=r.display_name,
+            favorite_owner_id=r.favorite_owner_id,
         )
         for r in rows
     ]
@@ -132,7 +138,44 @@ def add_my_league(
     db.commit()
     db.refresh(row)
     return LeagueSummary(
-        id=row.id, espn_league_id=row.espn_league_id, display_name=row.display_name
+        id=row.id,
+        espn_league_id=row.espn_league_id,
+        display_name=row.display_name,
+        favorite_owner_id=row.favorite_owner_id,
+    )
+
+
+@app.patch("/api/me/leagues/{league_row_id}", response_model=LeagueSummary)
+def update_my_league(
+    league_row_id: int,
+    payload: UpdateLeagueRequest,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(LeagueModel)
+        .filter(LeagueModel.id == league_row_id, LeagueModel.user_id == user.id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="League not found")
+    if payload.display_name is not None:
+        row.display_name = payload.display_name
+    if payload.espn_s2 is not None:
+        row.espn_s2_encrypted = encrypt(payload.espn_s2) if payload.espn_s2 else None
+    if payload.swid is not None:
+        row.swid_encrypted = encrypt(payload.swid) if payload.swid else None
+    if payload.clear_favorite:
+        row.favorite_owner_id = None
+    elif payload.favorite_owner_id is not None:
+        row.favorite_owner_id = payload.favorite_owner_id
+    db.commit()
+    db.refresh(row)
+    return LeagueSummary(
+        id=row.id,
+        espn_league_id=row.espn_league_id,
+        display_name=row.display_name,
+        favorite_owner_id=row.favorite_owner_id,
     )
 
 
@@ -228,6 +271,20 @@ def _get_season_matchups(
     return matchups
 
 
+def _get_season_scoreboard(
+    league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
+) -> dict:
+    if not refresh:
+        cached = cache.get(league_id, year, "scoreboard_v2")
+        if cached:
+            return cached
+    league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
+    data = serialize_scoreboard(league, year)
+    payload = {"league_id": league_id, **data}
+    cache.put(league_id, year, "scoreboard_v2", payload)
+    return payload
+
+
 # --------------------------------------------------------------------------- #
 # League info / years discovery
 # --------------------------------------------------------------------------- #
@@ -264,16 +321,8 @@ def teams(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_use
     response_model=SeasonScoreboard,
 )
 def scoreboard(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
-    if not refresh:
-        cached = cache.get(ctx.espn_league_id, year, "scoreboard_v2")
-        if cached:
-            return cached
     try:
-        league = get_league(ctx.espn_league_id, year, espn_s2=ctx.espn_s2, swid=ctx.swid)
-        data = serialize_scoreboard(league, year)
-        payload = {"league_id": ctx.espn_league_id, **data}
-        cache.put(ctx.espn_league_id, year, "scoreboard_v2", payload)
-        return payload
+        return _get_season_scoreboard(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
 
@@ -327,6 +376,154 @@ def playoffs(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_
         return payload
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+
+
+@app.get(
+    "/api/leagues/{league_id}/owners/{owner_id}/hub",
+    response_model=TeamHub,
+)
+def team_hub(
+    owner_id: str,
+    refresh: bool = False,
+    ctx: LeagueContext = Depends(get_user_league),
+):
+    try:
+        years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+
+    # Walk back from latest year, gather every season this owner played
+    seasons: list[tuple[int, dict]] = []
+    latest_year: int | None = None
+    latest_team_data: dict | None = None
+    for year in years:
+        teams_payload = _get_season_teams(
+            ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh
+        )
+        team_data = next(
+            (
+                t
+                for t in teams_payload["teams"]
+                if t["owners"] and t["owners"][0]["id"] == owner_id
+            ),
+            None,
+        )
+        if team_data is None:
+            continue
+        seasons.append((year, team_data))
+        latest_year = year
+        latest_team_data = team_data
+
+    if latest_year is None or latest_team_data is None:
+        raise HTTPException(status_code=404, detail="Owner not found in any season")
+
+    # Aggregate stats
+    finishes = [
+        (td["final_standing"] or td["standing"])
+        for _, td in seasons
+        if (td["final_standing"] or td["standing"])
+    ]
+    avg_finish = sum(finishes) / len(finishes) if finishes else 0.0
+    total_pf = sum(td["points_for"] for _, td in seasons)
+    total_games = sum(td["wins"] + td["losses"] + td["ties"] for _, td in seasons)
+    career_avg_pf = total_pf / total_games if total_games else 0.0
+
+    # Roster: fetch live League object (cached in-memory) and serialize
+    roster: list[dict] = []
+    try:
+        league = get_league(
+            ctx.espn_league_id, latest_year, espn_s2=ctx.espn_s2, swid=ctx.swid
+        )
+        live_team = next(
+            (t for t in league.teams if t.team_id == latest_team_data["team_id"]),
+            None,
+        )
+        if live_team:
+            roster = serialize_roster(live_team)
+    except Exception:
+        roster = []
+
+    # Last matchup: scan latest year's scoreboard for the latest week this team played
+    last_matchup: dict | None = None
+    try:
+        sb = _get_season_scoreboard(
+            ctx.espn_league_id, latest_year, ctx.espn_s2, ctx.swid, refresh
+        )
+        team_id = latest_team_data["team_id"]
+        relevant = [
+            m
+            for m in sb["matchups"]
+            if not m["is_bye"]
+            and (m["team_a_id"] == team_id or m["team_b_id"] == team_id)
+        ]
+        if relevant:
+            m = max(relevant, key=lambda x: x["week"])
+            if m["team_a_id"] == team_id:
+                own_id, own_name, own_score = (
+                    m["team_a_id"],
+                    m["team_a_name"],
+                    m["team_a_score"],
+                )
+                opp_id, opp_name, opp_owner, opp_score = (
+                    m["team_b_id"],
+                    m["team_b_name"],
+                    m["team_b_owner"],
+                    m["team_b_score"],
+                )
+            else:
+                own_id, own_name, own_score = (
+                    m["team_b_id"],
+                    m["team_b_name"],
+                    m["team_b_score"],
+                )
+                opp_id, opp_name, opp_owner, opp_score = (
+                    m["team_a_id"],
+                    m["team_a_name"],
+                    m["team_a_owner"],
+                    m["team_a_score"],
+                )
+            if m["winner_id"] == own_id:
+                result = "W"
+            elif m["winner_id"] == opp_id:
+                result = "L"
+            elif m["winner_id"] is None and own_score == opp_score:
+                result = "T"
+            else:
+                result = "U"
+            last_matchup = {
+                "year": latest_year,
+                "week": m["week"],
+                "round_label": m.get("round_label", "regular"),
+                "is_playoff": m["is_playoff"],
+                "own_team_id": own_id,
+                "own_team_name": own_name,
+                "own_score": own_score,
+                "opp_team_id": opp_id,
+                "opp_team_name": opp_name,
+                "opp_owner_name": opp_owner,
+                "opp_score": opp_score,
+                "result": result,
+            }
+    except Exception:
+        last_matchup = None
+
+    owner_obj = latest_team_data["owners"][0] if latest_team_data["owners"] else {}
+    owner_name = f"{owner_obj.get('first_name', '')} {owner_obj.get('last_name', '')}".strip()
+
+    return {
+        "owner_id": owner_id,
+        "owner_name": owner_name or "—",
+        "current_team_name": latest_team_data["team_name"],
+        "seasons_played": len(seasons),
+        "latest_year": latest_year,
+        "latest_team_id": latest_team_data["team_id"],
+        "latest_finish": latest_team_data["final_standing"] or latest_team_data["standing"],
+        "avg_finish": round(avg_finish, 2),
+        "career_avg_pf": round(career_avg_pf, 2),
+        "latest_avg_pf": latest_team_data["avg_points_for"],
+        "roster": roster,
+        "last_matchup": last_matchup,
+    }
 
 
 @app.get("/api/leagues/{league_id}/owner_history", response_model=LeagueOwnerHistory)

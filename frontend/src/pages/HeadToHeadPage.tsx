@@ -24,8 +24,15 @@ export function HeadToHeadPage() {
   useEffect(() => {
     if (!selectedLeague) return
     fetchOwnerHistory(selectedLeague.espn_league_id)
-      .then((h) => setOwners(h.owners))
+      .then((h) => {
+        setOwners(h.owners)
+        if (!ownerA && selectedLeague.favorite_owner_id) {
+          const fav = h.owners.find((o) => o.owner_id === selectedLeague.favorite_owner_id)
+          if (fav) setOwnerA(fav.owner_id)
+        }
+      })
       .catch((e: Error) => setError(e.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLeague?.espn_league_id])
 
   useEffect(() => {

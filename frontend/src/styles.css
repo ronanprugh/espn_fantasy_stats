@@ -256,6 +256,21 @@ body {
   border-color: #c00;
 }
 
+.edit-btn {
+  background: none;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #b85c00;
+}
+
+.edit-btn:hover {
+  background: #fff5e6;
+  border-color: #b85c00;
+}
+
 .leagues-list {
   list-style: none;
   padding: 0;
@@ -276,6 +291,113 @@ body {
 .leagues-list li.selected {
   border-color: #0066cc;
   background: #f5faff;
+}
+
+.leagues-list li.clickable {
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.leagues-list li.clickable:hover {
+  border-color: #0a7a25;
+  background: #f3fbf5;
+}
+
+.leagues-list li.clickable .use-this {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.leagues-list li.clickable:hover .use-this {
+  opacity: 1;
+}
+
+.pill-tag.use-this {
+  background: rgba(10, 122, 37, 0.12);
+  color: #0a7a25;
+}
+
+.leagues-list li.editing {
+  border-color: #0066cc;
+  background: white;
+  cursor: default;
+}
+
+.editing-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 4px;
+}
+
+.editing-form input {
+  font-size: 15px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border: 1px solid #0066cc;
+  border-radius: 4px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.login-error.inline {
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.primary-btn.small {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.league-favorite {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #555;
+}
+
+.league-favorite .favorite-label {
+  color: #888;
+  font-weight: 600;
+}
+
+.league-favorite .favorite-value {
+  color: #1a1a1a;
+}
+
+.favorite-edit {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.favorite-edit select {
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 1px solid #0066cc;
+  border-radius: 4px;
+  background: white;
+  max-width: 280px;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: #0066cc;
+  padding: 0 0 0 8px;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-btn:hover {
+  color: #0052a3;
+}
+
+.link-btn:disabled {
+  color: #aaa;
+  cursor: not-allowed;
 }
 
 .league-row-main {
@@ -355,6 +477,129 @@ body {
 
 .no-league {
   margin-top: 32px;
+}
+
+/* Team Hub */
+.hub-header {
+  margin: 16px 0 16px;
+  padding: 16px 20px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.hub-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #d0d0d0;
+}
+
+.hub-tabs button {
+  background: none;
+  border: none;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.hub-tabs button:hover {
+  color: #1a1a1a;
+}
+
+.hub-tabs button.active {
+  color: #0066cc;
+  border-bottom-color: #0066cc;
+}
+
+.hub-team-name {
+  margin: 0;
+  font-size: 22px;
+  color: #0a0a0a;
+}
+
+.hub-owner {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #666;
+}
+
+.hub-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+  font-weight: 700;
+}
+
+.stat-value {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 700;
+  color: #0a0a0a;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #888;
+}
+
+.hub-last-matchup,
+.hub-roster {
+  margin-bottom: 24px;
+}
+
+.hub-last-matchup h3,
+.hub-roster h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0d0d0d;
+}
+
+.hub-last-matchup .scoreboard-card {
+  max-width: 520px;
+}
+
+.hub-matchup-meta {
+  font-size: 12px;
+  color: #888;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 6px;
+}
+
+.injury-tag {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #c02030;
+  background: rgba(220, 53, 69, 0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+  vertical-align: middle;
 }
 
 .content {
@@ -893,6 +1138,11 @@ table.teams td.neg {
   text-align: left;
 }
 
+.lineup-table th.right,
+.lineup-table td.right {
+  text-align: right;
+}
+
 .lineup-table th {
   font-size: 11px;
   text-transform: uppercase;
@@ -1053,8 +1303,17 @@ table.teams td.neg {
   margin-top: 16px;
 }
 
+.bracket-section {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  overflow-x: auto;
+}
+
 .bracket-section h3 {
-  margin: 0 0 8px;
+  margin: 0 0 14px;
   font-size: 16px;
   font-weight: 600;
   color: #0d0d0d;
@@ -1069,6 +1328,12 @@ table.teams td.neg {
   stroke: #0066cc;
   stroke-width: 2;
   fill: #f5faff;
+}
+
+.bracket-match.bye .bracket-match-rect {
+  fill: #fafafa;
+  stroke-dasharray: 4 3;
+  stroke: #b0b0b0;
 }
 
 .standings-section {

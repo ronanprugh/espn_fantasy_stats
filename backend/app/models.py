@@ -36,6 +36,7 @@ class League(Base):
     # NULL for public leagues (no auth cookies needed)
     espn_s2_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     swid_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    favorite_owner_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="leagues")

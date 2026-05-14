@@ -46,6 +46,7 @@ export function Sidebar() {
         <NavLink to="/scoreboard">Scoreboard</NavLink>
 
         <div className="nav-section">Team Data</div>
+        <NavLink to="/team_hub">Team Hub</NavLink>
         <NavLink to="/compare">Team Comparison</NavLink>
         <NavLink to="/h2h">Head to Head</NavLink>
 

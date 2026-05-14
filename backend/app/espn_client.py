@@ -287,6 +287,22 @@ def serialize_all_matchups(league: League) -> list[dict]:
     return matchups
 
 
+def serialize_roster(team) -> list[dict]:
+    """Serialize a team's current roster (season-aggregate stats)."""
+    out = []
+    for p in team.roster or []:
+        out.append({
+            "name": p.name,
+            "player_id": p.playerId,
+            "position": p.position or "",
+            "lineup_slot": p.lineupSlot or "",
+            "pro_team": p.proTeam or "",
+            "total_points": round(p.total_points or 0.0, 2),
+            "injury_status": (p.injuryStatus or "").upper() if p.injuryStatus else "",
+        })
+    return out
+
+
 def serialize_scoreboard(league: League, year: int) -> dict:
     """Return every season matchup with names + scores, ready for display."""
     s = league.settings

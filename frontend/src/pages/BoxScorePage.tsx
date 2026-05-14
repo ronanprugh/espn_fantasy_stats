@@ -153,8 +153,8 @@ function TeamLineup({ team }: { team: BoxScoreTeam }) {
             <th>Player</th>
             <th>Pos</th>
             <th>NFL</th>
-            <th>Pts</th>
-            <th>Proj</th>
+            <th className="right">Pts</th>
+            <th className="right">Proj</th>
           </tr>
         </thead>
         <tbody>

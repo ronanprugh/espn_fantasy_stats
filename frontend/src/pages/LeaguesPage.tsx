@@ -1,5 +1,12 @@
-import { useState } from 'react'
-import { createLeague, deleteLeague } from '../api'
+import { useEffect, useState } from 'react'
+import {
+  createLeague,
+  deleteLeague,
+  fetchOwnerHistory,
+  updateLeague,
+  type LeagueSummary,
+  type OwnerHistory,
+} from '../api'
 import { useLeague } from '../contexts/LeagueContext'
 
 export function LeaguesPage() {
@@ -25,32 +32,205 @@ export function LeaguesPage() {
 
       <ul className="leagues-list">
         {leagues.map((l) => (
-          <li key={l.id} className={selectedLeague?.id === l.id ? 'selected' : ''}>
-            <div className="league-row-main">
-              <div className="league-name">{l.display_name}</div>
-              <div className="league-id">ESPN ID: {l.espn_league_id}</div>
-            </div>
-            <div className="league-row-actions">
-              {selectedLeague?.id !== l.id && (
-                <button onClick={() => select(l.espn_league_id)}>Use this</button>
-              )}
-              {selectedLeague?.id === l.id && <span className="pill-tag">Active</span>}
-              <button
-                className="danger-btn"
-                onClick={async () => {
-                  if (confirm(`Remove "${l.display_name}" from your account?`)) {
-                    await deleteLeague(l.id)
-                    await refresh()
-                  }
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          </li>
+          <LeagueRow
+            key={l.id}
+            league={l}
+            isSelected={selectedLeague?.id === l.id}
+            onSelect={() => select(l.espn_league_id)}
+            onChanged={refresh}
+          />
         ))}
       </ul>
     </div>
+  )
+}
+
+function LeagueRow({
+  league,
+  isSelected,
+  onSelect,
+  onChanged,
+}: {
+  league: LeagueSummary
+  isSelected: boolean
+  onSelect: () => void
+  onChanged: () => Promise<void>
+}) {
+  const [editingName, setEditingName] = useState(false)
+  const [editingFavorite, setEditingFavorite] = useState(false)
+  const [nameDraft, setNameDraft] = useState(league.display_name)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [owners, setOwners] = useState<OwnerHistory[] | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchOwnerHistory(league.espn_league_id)
+      .then((h) => {
+        if (!cancelled) setOwners(h.owners)
+      })
+      .catch(() => {
+        if (!cancelled) setOwners([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [league.espn_league_id])
+
+  const favoriteOwner = owners?.find((o) => o.owner_id === league.favorite_owner_id) ?? null
+  const favoriteLabel = favoriteOwner
+    ? `${favoriteOwner.current_team_name} (${favoriteOwner.owner_name})`
+    : league.favorite_owner_id
+      ? '…'
+      : 'None'
+
+  const startEditName = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setNameDraft(league.display_name)
+    setError(null)
+    setEditingName(true)
+  }
+
+  const cancelEditName = (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    setEditingName(false)
+  }
+
+  const saveName = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    const trimmed = nameDraft.trim()
+    if (!trimmed) {
+      setError('Name is required')
+      return
+    }
+    if (trimmed === league.display_name) {
+      setEditingName(false)
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await updateLeague(league.id, { display_name: trimmed })
+      await onChanged()
+      setEditingName(false)
+    } catch (err: any) {
+      setError(err.message || 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveFavorite = async (ownerId: string | null) => {
+    setSaving(true)
+    setError(null)
+    try {
+      if (ownerId === null) {
+        await updateLeague(league.id, { clear_favorite: true })
+      } else {
+        await updateLeague(league.id, { favorite_owner_id: ownerId })
+      }
+      await onChanged()
+      setEditingFavorite(false)
+    } catch (err: any) {
+      setError(err.message || 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editingName) {
+    return (
+      <li className={`editing ${isSelected ? 'selected' : ''}`}>
+        <form className="league-row-main editing-form" onSubmit={saveName}>
+          <input
+            type="text"
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') cancelEditName()
+            }}
+          />
+          <div className="league-id">ESPN ID: {league.espn_league_id}</div>
+          {error && <div className="login-error inline">{error}</div>}
+        </form>
+        <div className="league-row-actions">
+          <button className="primary-btn small" onClick={saveName} disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button onClick={cancelEditName} disabled={saving}>
+            Cancel
+          </button>
+        </div>
+      </li>
+    )
+  }
+
+  return (
+    <li
+      className={isSelected ? 'selected' : 'clickable'}
+      onClick={() => {
+        if (!isSelected) onSelect()
+      }}
+    >
+      <div className="league-row-main">
+        <div className="league-name">{league.display_name}</div>
+        <div className="league-id">ESPN ID: {league.espn_league_id}</div>
+        <div className="league-favorite" onClick={(e) => e.stopPropagation()}>
+          <span className="favorite-label">Favorite:</span>{' '}
+          {editingFavorite ? (
+            <span className="favorite-edit">
+              <select
+                value={league.favorite_owner_id ?? ''}
+                onChange={(e) => saveFavorite(e.target.value || null)}
+                disabled={saving || owners === null}
+                autoFocus
+              >
+                <option value="">— none —</option>
+                {owners?.map((o) => (
+                  <option key={o.owner_id} value={o.owner_id}>
+                    {o.current_team_name} ({o.owner_name})
+                  </option>
+                ))}
+              </select>
+              <button onClick={() => setEditingFavorite(false)}>Cancel</button>
+            </span>
+          ) : (
+            <>
+              <span className="favorite-value">{favoriteLabel}</span>
+              <button
+                className="link-btn"
+                onClick={() => setEditingFavorite(true)}
+                disabled={owners === null}
+              >
+                {league.favorite_owner_id ? 'Change' : 'Set'}
+              </button>
+            </>
+          )}
+        </div>
+        {error && <div className="login-error inline">{error}</div>}
+      </div>
+      <div className="league-row-actions">
+        {isSelected ? (
+          <span className="pill-tag active">Active</span>
+        ) : (
+          <span className="pill-tag use-this">Use this</span>
+        )}
+        <button className="edit-btn" onClick={startEditName}>Edit</button>
+        <button
+          className="danger-btn"
+          onClick={async (e) => {
+            e.stopPropagation()
+            if (confirm(`Remove "${league.display_name}" from your account?`)) {
+              await deleteLeague(league.id)
+              await onChanged()
+            }
+          }}
+        >
+          Remove
+        </button>
+      </div>
+    </li>
   )
 }
 

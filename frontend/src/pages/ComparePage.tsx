@@ -48,9 +48,16 @@ export function ComparePage() {
     if (!selectedLeague) return
     setLoading(true)
     fetchOwnerHistory(selectedLeague.espn_league_id)
-      .then(setHistory)
+      .then((h) => {
+        setHistory(h)
+        if (selected.length === 0 && selectedLeague.favorite_owner_id) {
+          const fav = h.owners.find((o) => o.owner_id === selectedLeague.favorite_owner_id)
+          if (fav) setSelected([fav.owner_id])
+        }
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLeague?.espn_league_id])
 
   if (!selectedLeague) return <NoLeagueSelected />

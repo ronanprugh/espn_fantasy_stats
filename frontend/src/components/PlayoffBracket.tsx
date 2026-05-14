@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom'
 import type { PlayoffMatchup, PlayoffTeam, SeasonPlayoffs } from '../api'
 
-const BOX_W = 240
-const BOX_H = 60
-const ROW_H = 30
-const COL_GAP = 60
-const Y_GAP = 24
+const BOX_W = 320
+const BOX_H = 88
+const ROW_H = 44
+const COL_GAP = 48
+const Y_GAP = 28
+const TEXT_PAD_X = 18
 
 type BracketNode = {
   match: PlayoffMatchup
@@ -16,10 +17,33 @@ type BracketNode = {
   winnerId: number | null
   feederTop: BracketNode | null
   feederBottom: BracketNode | null
-  byeTop: boolean
-  byeBottom: boolean
+  isByeMatchup: boolean
   y: number
   week: number
+}
+
+const BYE_PLACEHOLDER: PlayoffTeam = {
+  team_id: -1,
+  team_name: 'BYE',
+  owner_name: '',
+  seed: 0,
+  final_standing: 0,
+}
+
+function makeByeNode(team: PlayoffTeam, byeMatch: PlayoffMatchup): BracketNode {
+  return {
+    match: byeMatch,
+    teamTop: team,
+    teamBottom: BYE_PLACEHOLDER,
+    scoreTop: byeMatch.team_a_score,
+    scoreBottom: 0,
+    winnerId: team.team_id,
+    feederTop: null,
+    feederBottom: null,
+    isByeMatchup: true,
+    y: 0,
+    week: byeMatch.week,
+  }
 }
 
 const findMatch = (
@@ -73,14 +97,12 @@ function buildNode(
 
   let feederTop: BracketNode | null = null
   let feederBottom: BracketNode | null = null
-  let byeTop = false
-  let byeBottom = false
   if (prevWeek != null && maxDepth > 0) {
     const topPrev = findMatch(data.matchups, prevWeek, teamTop.team_id)
     const botPrev = findMatch(data.matchups, prevWeek, teamBottom.team_id)
-    if (topPrev?.is_bye) byeTop = true
+    if (topPrev?.is_bye) feederTop = makeByeNode(teamTop, topPrev)
     else if (topPrev) feederTop = buildNode(topPrev, data, teamsById, maxDepth - 1)
-    if (botPrev?.is_bye) byeBottom = true
+    if (botPrev?.is_bye) feederBottom = makeByeNode(teamBottom, botPrev)
     else if (botPrev) feederBottom = buildNode(botPrev, data, teamsById, maxDepth - 1)
   }
 
@@ -93,8 +115,7 @@ function buildNode(
     winnerId: match.winner_id,
     feederTop,
     feederBottom,
-    byeTop,
-    byeBottom,
+    isByeMatchup: false,
     y: 0,
     week: match.week,
   }
@@ -145,16 +166,14 @@ function Connector({
   const toX = xOf(to.week, earliestWeek)
   const toYBox = pixelY(to.y)
 
-  const fromIsTop = from.teamTop.team_id === from.winnerId
-  const fromYRow = fromYBox + (fromIsTop ? ROW_H / 2 : ROW_H + ROW_H / 2)
-
-  const toIsTop = to.teamTop.team_id === from.winnerId
-  const toYRow = toYBox + (toIsTop ? ROW_H / 2 : ROW_H + ROW_H / 2)
+  // Both ends attach at the vertical midpoint of their boxes.
+  const fromYMid = fromYBox + BOX_H / 2
+  const toYMid = toYBox + BOX_H / 2
 
   const midX = fromX + COL_GAP / 2
   return (
     <path
-      d={`M ${fromX} ${fromYRow} H ${midX} V ${toYRow} H ${toX}`}
+      d={`M ${fromX} ${fromYMid} H ${midX} V ${toYMid} H ${toX}`}
       stroke="#999"
       strokeWidth={1.5}
       fill="none"
@@ -175,20 +194,21 @@ function MatchBox({
   const y = pixelY(node.y)
   const winnerIsTop = node.winnerId === node.teamTop.team_id
   const winnerIsBot = node.winnerId === node.teamBottom.team_id
-  const clickable = !!onClick
+  // Bye boxes aren't clickable — there's no box score for a bye.
+  const clickable = !!onClick && !node.isByeMatchup
   return (
     <g
       transform={`translate(${x},${y})`}
-      onClick={clickable ? () => onClick(node) : undefined}
+      onClick={clickable ? () => onClick!(node) : undefined}
       style={clickable ? { cursor: 'pointer' } : undefined}
-      className={clickable ? 'bracket-match clickable' : 'bracket-match'}
+      className={`bracket-match${clickable ? ' clickable' : ''}${node.isByeMatchup ? ' bye' : ''}`}
     >
       <rect
         width={BOX_W}
         height={BOX_H}
         fill="white"
-        stroke="#ccc"
-        rx={3}
+        stroke="#d0d0d0"
+        rx={8}
         className="bracket-match-rect"
       />
       <line x1={0} y1={ROW_H} x2={BOX_W} y2={ROW_H} stroke="#eee" />
@@ -196,14 +216,14 @@ function MatchBox({
         team={node.teamTop}
         score={node.scoreTop}
         isWinner={winnerIsTop}
-        isBye={node.byeTop}
+        isPlaceholder={false}
         yOffset={0}
       />
       <TeamRow
         team={node.teamBottom}
         score={node.scoreBottom}
         isWinner={winnerIsBot}
-        isBye={node.byeBottom}
+        isPlaceholder={node.isByeMatchup}
         yOffset={ROW_H}
       />
       {clickable && <title>View box score</title>}
@@ -215,29 +235,40 @@ function TeamRow({
   team,
   score,
   isWinner,
-  isBye,
+  isPlaceholder,
   yOffset,
 }: {
   team: PlayoffTeam
   score: number
   isWinner: boolean
-  isBye: boolean
+  isPlaceholder: boolean
   yOffset: number
 }) {
+  const textY = ROW_H / 2 + 5 // visual vertical center for 13px text
+  if (isPlaceholder) {
+    return (
+      <g transform={`translate(0,${yOffset})`}>
+        <text
+          x={TEXT_PAD_X}
+          y={textY}
+          fontSize={13}
+          fontStyle="italic"
+          fill="#999"
+        >
+          BYE
+        </text>
+      </g>
+    )
+  }
   return (
     <g transform={`translate(0,${yOffset})`}>
-      <text x={8} y={20} fontSize={13} fontWeight={isWinner ? 600 : 400}>
+      <text x={TEXT_PAD_X} y={textY} fontSize={13} fontWeight={isWinner ? 600 : 400}>
         <tspan fill="#999">{team.seed}.</tspan>
-        <tspan dx={4}>{team.team_name}</tspan>
-        {isBye && (
-          <tspan fontSize={10} fill="#999" dx={4}>
-            (bye)
-          </tspan>
-        )}
+        <tspan dx={6}>{team.team_name}</tspan>
       </text>
       <text
-        x={BOX_W - 8}
-        y={20}
+        x={BOX_W - TEXT_PAD_X}
+        y={textY}
         fontSize={13}
         fontWeight={isWinner ? 600 : 400}
         textAnchor="end"
@@ -339,8 +370,7 @@ function StandalonePlacementGame({
     winnerId: match.winner_id,
     feederTop: null,
     feederBottom: null,
-    byeTop: false,
-    byeBottom: false,
+    isByeMatchup: false,
     y: 0,
     week: match.week,
   }

@@ -12,6 +12,7 @@ import { LeaguesPage } from './pages/LeaguesPage'
 import { LoginPage } from './pages/LoginPage'
 import { PlayoffsPage } from './pages/PlayoffsPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
+import { TeamHubPage } from './pages/TeamHubPage'
 import './styles.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -26,6 +27,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="playoffs" element={<PlayoffsPage />} />
               <Route path="compare" element={<ComparePage />} />
               <Route path="h2h" element={<HeadToHeadPage />} />
+              <Route path="team_hub" element={<TeamHubPage />} />
               <Route path="scoreboard" element={<ScoreboardPage />} />
               <Route path="box_score/:year/:week/:teamA/:teamB" element={<BoxScorePage />} />
               <Route path="leagues" element={<LeaguesPage />} />
