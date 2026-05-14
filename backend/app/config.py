@@ -26,3 +26,18 @@ if not ENCRYPTION_KEY:
 SEED_LEAGUE_ID = os.environ.get("LEAGUE_ID")
 SEED_ESPN_S2 = os.environ.get("ESPN_S2") or None
 SEED_SWID = os.environ.get("SWID") or None
+
+# Comma-separated list of CORS origins that may carry credentials. In dev
+# Vite is on 5173; in production behind Vercel rewrites the browser sees the
+# Vercel origin, so include it here once you've deployed.
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+    if o.strip()
+]
+
+# Cookie hardening. In dev these defaults work; in production set
+# COOKIE_SECURE=true (and, if you ever serve frontend on a different domain
+# than the backend, COOKIE_SAME_SITE=none).
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
+COOKIE_SAME_SITE = os.environ.get("COOKIE_SAME_SITE", "lax")

@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import cache
 from .auth import current_user, hash_password, login, logout, verify_password
-from .config import SECRET_KEY
+from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
 from .crypto import decrypt, encrypt
 from .database import get_db
 from .espn_client import (
@@ -46,14 +46,14 @@ app = FastAPI(title="espn_fantasy_stats")
 app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
-    same_site="lax",
-    https_only=False,  # set True in production
+    same_site=COOKIE_SAME_SITE,
+    https_only=COOKIE_SECURE,
     max_age=60 * 60 * 24 * 30,  # 30 days
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
