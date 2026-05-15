@@ -402,19 +402,93 @@ export type TeamHub = {
   owner_id: string
   owner_name: string
   current_team_name: string
+  selected_year: number
+  selected_team_id: number
+  selected_team_name: string
+  selected_finish: number
+  selected_avg_pf: number
   seasons_played: number
-  latest_year: number
-  latest_team_id: number
-  latest_finish: number
   avg_finish: number
   career_avg_pf: number
-  latest_avg_pf: number
+  available_years: number[]
   roster: TeamHubPlayer[]
   last_matchup: TeamHubLastMatchup | null
 }
 
-export async function fetchTeamHub(leagueId: number, ownerId: string): Promise<TeamHub> {
+export async function fetchTeamHub(
+  leagueId: number,
+  ownerId: string,
+  year?: number,
+): Promise<TeamHub> {
+  const q = year != null ? `?year=${year}` : ''
   return jsonFetch<TeamHub>(
-    `/api/leagues/${leagueId}/owners/${encodeURIComponent(ownerId)}/hub`,
+    `/api/leagues/${leagueId}/owners/${encodeURIComponent(ownerId)}/hub${q}`,
   )
+}
+
+export type PositionTeamStats = {
+  team_id: number
+  team_name: string
+  owner_id: string
+  owner_name: string
+  total_points: number
+  games_played: number
+  avg_ppg: number
+  playoff_points: number
+  playoff_games: number
+  playoff_ppg: number
+  made_playoffs: boolean
+}
+
+export type SeasonPositionStats = {
+  position: string
+  teams: PositionTeamStats[]
+}
+
+export type SeasonPositionalStats = {
+  league_id: number
+  year: number
+  reg_season_count: number
+  positions: SeasonPositionStats[]
+}
+
+export type PositionOwnerAggregate = {
+  owner_id: string
+  owner_name: string
+  current_team_name: string
+  seasons_with_data: number
+  total_points: number
+  games_played: number
+  avg_ppg: number
+  playoff_points: number
+  playoff_games: number
+  playoff_ppg: number
+}
+
+export type PositionAggregate = {
+  position: string
+  owners: PositionOwnerAggregate[]
+}
+
+export type LeaguePositionalAggregate = {
+  league_id: number
+  years: number[]
+  positions: PositionAggregate[]
+}
+
+export async function fetchPositionalStatsForYear(
+  leagueId: number,
+  year: number,
+  refresh = false,
+): Promise<SeasonPositionalStats> {
+  const url = `/api/leagues/${leagueId}/seasons/${year}/positional_stats${refresh ? '?refresh=true' : ''}`
+  return jsonFetch<SeasonPositionalStats>(url)
+}
+
+export async function fetchPositionalStatsAggregate(
+  leagueId: number,
+  refresh = false,
+): Promise<LeaguePositionalAggregate> {
+  const url = `/api/leagues/${leagueId}/positional_stats/aggregate${refresh ? '?refresh=true' : ''}`
+  return jsonFetch<LeaguePositionalAggregate>(url)
 }

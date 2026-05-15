@@ -40,6 +40,7 @@ export function TeamHubPage() {
   const navigate = useNavigate()
   const [owners, setOwners] = useState<OwnerHistory[]>([])
   const [ownerId, setOwnerId] = useState<string>('')
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [hub, setHub] = useState<TeamHub | null>(null)
   const [tab, setTab] = useState<HubTab>('summary')
   const [loading, setLoading] = useState(false)
@@ -59,6 +60,12 @@ export function TeamHubPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLeague?.espn_league_id])
 
+  // Reset the selected year whenever owner or league changes; the hub fetch
+  // will default to the most recent year and we'll pick up that value.
+  useEffect(() => {
+    setSelectedYear(null)
+  }, [ownerId, selectedLeague?.espn_league_id])
+
   useEffect(() => {
     if (!selectedLeague || !ownerId) {
       setHub(null)
@@ -66,11 +73,18 @@ export function TeamHubPage() {
     }
     setLoading(true)
     setError(null)
-    fetchTeamHub(selectedLeague.espn_league_id, ownerId)
-      .then(setHub)
+    fetchTeamHub(
+      selectedLeague.espn_league_id,
+      ownerId,
+      selectedYear ?? undefined,
+    )
+      .then((h) => {
+        setHub(h)
+        if (selectedYear == null) setSelectedYear(h.selected_year)
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [selectedLeague?.espn_league_id, ownerId])
+  }, [selectedLeague?.espn_league_id, ownerId, selectedYear])
 
   if (!selectedLeague) return <NoLeagueSelected />
 
@@ -96,6 +110,23 @@ export function TeamHubPage() {
             ))}
           </select>
         </div>
+
+        {hub && hub.available_years.length > 0 && (
+          <div className="control">
+            <label htmlFor="hub-year">Year</label>
+            <select
+              id="hub-year"
+              value={selectedYear ?? hub.selected_year}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+            >
+              {[...hub.available_years].reverse().map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -107,7 +138,10 @@ export function TeamHubPage() {
             <div>
               <h3 className="hub-team-name">{hub.current_team_name}</h3>
               <div className="hub-owner">
-                {hub.owner_name} · {hub.seasons_played} seasons · most recent: {hub.latest_year}
+                {hub.owner_name} · {hub.seasons_played} seasons played
+                {hub.selected_team_name !== hub.current_team_name && (
+                  <> · {hub.selected_year}: <em>{hub.selected_team_name}</em></>
+                )}
               </div>
             </div>
           </section>
@@ -130,7 +164,10 @@ export function TeamHubPage() {
           {tab === 'summary' && (
             <>
               <section className="hub-summary">
-                <StatCard label="Last Finish" value={`#${hub.latest_finish}`} sub={`${hub.latest_year}`} />
+                <StatCard
+                  label={`${hub.selected_year} Final Place`}
+                  value={`#${hub.selected_finish}`}
+                />
                 <StatCard label="Average Finish" value={hub.avg_finish.toFixed(2)} sub="all-time" />
                 <StatCard
                   label="Avg PF / Game"
@@ -138,15 +175,14 @@ export function TeamHubPage() {
                   sub="all-time"
                 />
                 <StatCard
-                  label="Avg PF / Game"
-                  value={hub.latest_avg_pf.toFixed(2)}
-                  sub={`${hub.latest_year} season`}
+                  label={`Avg PF / Game (${hub.selected_year})`}
+                  value={hub.selected_avg_pf.toFixed(2)}
                 />
               </section>
 
               {hub.last_matchup && (
                 <section className="hub-last-matchup">
-                  <h3>Last Matchup</h3>
+                  <h3>Last Matchup — {hub.selected_year}</h3>
                   <LastMatchupCard
                     hub={hub}
                     onClick={() => {
@@ -163,7 +199,7 @@ export function TeamHubPage() {
 
           {tab === 'roster' && (
             <section className="hub-roster">
-              <h3>Roster — {hub.latest_year}</h3>
+              <h3>Roster — {hub.selected_year}</h3>
               <RosterTable roster={hub.roster} />
             </section>
           )}

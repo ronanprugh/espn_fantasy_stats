@@ -287,6 +287,54 @@ def serialize_all_matchups(league: League) -> list[dict]:
     return matchups
 
 
+POSITION_BUCKETS: dict[str, str] = {
+    "QB": "QB",
+    "RB": "RB",
+    "WR": "WR",
+    "TE": "TE",
+    "K": "K",
+    "D/ST": "D/ST",
+    "RB/WR/TE": "FLEX",
+    "WR/TE": "FLEX",
+    "OP": "FLEX",
+}
+POSITIONS_ORDER = ["QB", "RB", "WR", "TE", "FLEX", "K", "D/ST"]
+
+
+def compute_positional_week_points(
+    box_scores_payload: dict,
+) -> dict[int, dict[str, float]]:
+    """Given the payload from box_scores endpoint, return team_id -> position -> total points.
+
+    A player started in a FLEX slot contributes to BOTH the FLEX bucket AND
+    their primary position bucket (so a WR played at FLEX boosts both WR and
+    FLEX totals for that team).
+    """
+    out: dict[int, dict[str, float]] = {}
+    for m in box_scores_payload.get("matchups", []):
+        for side_key in ("home", "away"):
+            side = m.get(side_key)
+            if not side:
+                continue
+            team_id = side["team_id"]
+            for p in side.get("lineup", []):
+                slot = p.get("slot_position", "")
+                bucket = POSITION_BUCKETS.get(slot)
+                if not bucket:  # BE, IR, or unknown — skip
+                    continue
+                pts = float(p.get("points") or 0.0)
+                team_buckets = out.setdefault(team_id, {})
+                team_buckets[bucket] = team_buckets.get(bucket, 0.0) + pts
+                # If the player was in a FLEX-type slot, also credit their
+                # primary position (e.g. a WR in the FLEX slot counts toward
+                # both FLEX and WR totals).
+                if bucket == "FLEX":
+                    primary = POSITION_BUCKETS.get(p.get("position", ""))
+                    if primary and primary != "FLEX":
+                        team_buckets[primary] = team_buckets.get(primary, 0.0) + pts
+    return out
+
+
 def serialize_roster(team) -> list[dict]:
     """Serialize a team's current roster (season-aggregate stats)."""
     out = []

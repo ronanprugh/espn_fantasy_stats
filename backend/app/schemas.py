@@ -66,17 +66,76 @@ class TeamHubLastMatchup(BaseModel):
     result: str  # 'W', 'L', 'T', 'U'
 
 
-class TeamHub(BaseModel):
+class PositionTeamStats(BaseModel):
+    team_id: int
+    team_name: str
+    owner_id: str
+    owner_name: str
+    total_points: float
+    games_played: int
+    avg_ppg: float
+    playoff_points: float
+    playoff_games: int
+    playoff_ppg: float
+    made_playoffs: bool
+
+
+class SeasonPositionStats(BaseModel):
+    position: str
+    teams: List[PositionTeamStats]
+
+
+class SeasonPositionalStats(BaseModel):
+    league_id: int
+    year: int
+    reg_season_count: int
+    positions: List[SeasonPositionStats]
+
+
+class PositionOwnerAggregate(BaseModel):
     owner_id: str
     owner_name: str
     current_team_name: str
+    seasons_with_data: int
+    total_points: float
+    games_played: int
+    avg_ppg: float
+    playoff_points: float
+    playoff_games: int
+    playoff_ppg: float
+
+
+class PositionAggregate(BaseModel):
+    position: str
+    owners: List[PositionOwnerAggregate]
+
+
+class LeaguePositionalAggregate(BaseModel):
+    league_id: int
+    years: List[int]
+    positions: List[PositionAggregate]
+
+
+class TeamHub(BaseModel):
+    owner_id: str
+    owner_name: str
+    current_team_name: str  # most-recent team name (stable identity)
+
+    # Year-specific (what the page is currently displaying)
+    selected_year: int
+    selected_team_id: int
+    selected_team_name: str
+    selected_finish: int
+    selected_avg_pf: float
+
+    # All-time aggregates (don't change as the year selector moves)
     seasons_played: int
-    latest_year: int
-    latest_team_id: int
-    latest_finish: int
     avg_finish: float
     career_avg_pf: float
-    latest_avg_pf: float
+
+    # Years this owner has data for, ascending — for the year dropdown
+    available_years: List[int]
+
     roster: List[TeamHubPlayer]
     last_matchup: TeamHubLastMatchup | None
 

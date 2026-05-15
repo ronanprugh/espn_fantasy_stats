@@ -11,8 +11,10 @@ from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
 from .crypto import decrypt, encrypt
 from .database import get_db
 from .espn_client import (
+    POSITIONS_ORDER,
     aggregate_by_owner,
     build_owner_history,
+    compute_positional_week_points,
     discover_years,
     get_league,
     serialize_all_matchups,
@@ -33,6 +35,8 @@ from .schemas import (
     LeagueSummary,
     LoginRequest,
     SeasonPlayoffs,
+    LeaguePositionalAggregate,
+    SeasonPositionalStats,
     SeasonScoreboard,
     SeasonTeams,
     TeamHub,
@@ -271,6 +275,123 @@ def _get_season_matchups(
     return matchups
 
 
+def _get_season_box_scores(
+    league_id: int, year: int, week: int, espn_s2: str | None, swid: str | None,
+    refresh: bool = False,
+) -> dict:
+    """Cached per-week box scores (the same payload the API endpoint serves)."""
+    from .espn_client import serialize_box_scores as _ser  # local import for clarity
+    cache_key = f"box_scores_v1_w{week}"
+    if not refresh:
+        cached = cache.get(league_id, year, cache_key)
+        if cached:
+            return cached
+    league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
+    matchups = _ser(league, week)
+    payload = {
+        "league_id": league_id,
+        "year": year,
+        "week": week,
+        "matchups": matchups,
+    }
+    cache.put(league_id, year, cache_key, payload)
+    return payload
+
+
+def _compute_positional_stats_for_year(
+    league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
+) -> dict:
+    """Build per-position-per-team stats for one season. Requires year >= 2019.
+
+    "Playoff" stats only count weeks where the team played in the championship
+    bracket (round_label in playoff/semifinal/championship). Consolation and
+    toilet-bowl weeks count toward total_points/games_played but NOT toward
+    playoff_points/playoff_games — same convention as elsewhere in the app.
+    """
+    if year < 2019:
+        raise ValueError("Positional stats require 2019 or later")
+
+    if not refresh:
+        cached = cache.get(league_id, year, "positional_stats_v3")
+        if cached:
+            return cached
+
+    teams_payload = _get_season_teams(league_id, year, espn_s2, swid, refresh)
+    matchups = _get_season_matchups(league_id, year, espn_s2, swid, refresh)
+
+    league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
+    reg_season_count = league.settings.reg_season_count
+    playoff_team_count = league.settings.playoff_team_count
+    total_weeks = max((len(t.outcomes) for t in league.teams), default=0)
+
+    # Build per-week set of team_ids that played a real championship-bracket game.
+    championship_teams_by_week: dict[int, set[int]] = {}
+    for m in matchups:
+        if m.get("round_label") in {"playoff", "semifinal", "championship"}:
+            championship_teams_by_week.setdefault(m["week"], set()).update(
+                {m["team_a_id"], m["team_b_id"]}
+            )
+
+    # team_id -> position -> { tot_pts, tot_games, po_pts, po_games }
+    acc: dict[int, dict[str, dict]] = {}
+
+    for week in range(1, total_weeks + 1):
+        try:
+            bs = _get_season_box_scores(league_id, year, week, espn_s2, swid, refresh)
+        except Exception:
+            continue
+        week_points = compute_positional_week_points(bs)
+        championship_set = championship_teams_by_week.get(week, set())
+        for team_id, by_pos in week_points.items():
+            in_championship_bracket = team_id in championship_set
+            for pos, pts in by_pos.items():
+                row = (
+                    acc.setdefault(team_id, {})
+                    .setdefault(pos, {"tot_pts": 0.0, "tot_games": 0, "po_pts": 0.0, "po_games": 0})
+                )
+                row["tot_pts"] += pts
+                row["tot_games"] += 1
+                if in_championship_bracket:
+                    row["po_pts"] += pts
+                    row["po_games"] += 1
+
+    positions: list[dict] = []
+    for pos in POSITIONS_ORDER:
+        rows: list[dict] = []
+        for team in teams_payload["teams"]:
+            stats = acc.get(team["team_id"], {}).get(pos, {
+                "tot_pts": 0.0, "tot_games": 0, "po_pts": 0.0, "po_games": 0,
+            })
+            owner = team["owners"][0] if team["owners"] else {}
+            owner_name = (
+                f"{owner.get('first_name', '')} {owner.get('last_name', '')}".strip() or "—"
+            )
+            rows.append({
+                "team_id": team["team_id"],
+                "team_name": team["team_name"],
+                "owner_id": owner.get("id", ""),
+                "owner_name": owner_name,
+                "total_points": round(stats["tot_pts"], 2),
+                "games_played": stats["tot_games"],
+                "avg_ppg": round(stats["tot_pts"] / stats["tot_games"], 2) if stats["tot_games"] else 0.0,
+                "playoff_points": round(stats["po_pts"], 2),
+                "playoff_games": stats["po_games"],
+                "playoff_ppg": round(stats["po_pts"] / stats["po_games"], 2) if stats["po_games"] else 0.0,
+                "made_playoffs": team["standing"] <= playoff_team_count,
+            })
+        rows.sort(key=lambda r: r["total_points"], reverse=True)
+        positions.append({"position": pos, "teams": rows})
+
+    payload = {
+        "league_id": league_id,
+        "year": year,
+        "reg_season_count": reg_season_count,
+        "positions": positions,
+    }
+    cache.put(league_id, year, "positional_stats_v3", payload)
+    return payload
+
+
 def _get_season_scoreboard(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> dict:
@@ -360,6 +481,109 @@ def box_scores(
 
 
 @app.get(
+    "/api/leagues/{league_id}/seasons/{year}/positional_stats",
+    response_model=SeasonPositionalStats,
+)
+def positional_stats_for_year(
+    year: int,
+    refresh: bool = False,
+    ctx: LeagueContext = Depends(get_user_league),
+):
+    if year < 2019:
+        raise HTTPException(
+            status_code=400,
+            detail="Positional stats require seasons from 2019 onward (box-score data).",
+        )
+    try:
+        return _compute_positional_stats_for_year(
+            ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+
+
+@app.get(
+    "/api/leagues/{league_id}/positional_stats/aggregate",
+    response_model=LeaguePositionalAggregate,
+)
+def positional_stats_aggregate(
+    refresh: bool = False,
+    ctx: LeagueContext = Depends(get_user_league),
+):
+    try:
+        all_years = discover_years(
+            ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+
+    years = [y for y in all_years if y >= 2019]
+    if not years:
+        raise HTTPException(
+            status_code=400,
+            detail="No seasons with box-score data (2019+) found.",
+        )
+
+    # Aggregate per position per owner across years.
+    # owners[pos][owner_id] = {meta + tallies}
+    by_pos: dict[str, dict[str, dict]] = {p: {} for p in POSITIONS_ORDER}
+
+    for year in years:
+        try:
+            season = _compute_positional_stats_for_year(
+                ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+        for pos_block in season["positions"]:
+            pos = pos_block["position"]
+            for row in pos_block["teams"]:
+                oid = row["owner_id"]
+                if not oid:
+                    continue
+                agg = by_pos[pos].setdefault(oid, {
+                    "owner_id": oid,
+                    "owner_name": row["owner_name"],
+                    "current_team_name": row["team_name"],
+                    "seasons_with_data": 0,
+                    "total_points": 0.0,
+                    "games_played": 0,
+                    "playoff_points": 0.0,
+                    "playoff_games": 0,
+                })
+                # Most-recent year wins for name fields (we iterate chronologically).
+                agg["owner_name"] = row["owner_name"]
+                agg["current_team_name"] = row["team_name"]
+                agg["seasons_with_data"] += 1
+                agg["total_points"] += row["total_points"]
+                agg["games_played"] += row["games_played"]
+                agg["playoff_points"] += row["playoff_points"]
+                agg["playoff_games"] += row["playoff_games"]
+
+    positions = []
+    for pos in POSITIONS_ORDER:
+        owners = []
+        for agg in by_pos[pos].values():
+            tg = agg["games_played"]
+            pg = agg["playoff_games"]
+            owners.append({
+                **agg,
+                "total_points": round(agg["total_points"], 2),
+                "avg_ppg": round(agg["total_points"] / tg, 2) if tg else 0.0,
+                "playoff_points": round(agg["playoff_points"], 2),
+                "playoff_ppg": round(agg["playoff_points"] / pg, 2) if pg else 0.0,
+            })
+        owners.sort(key=lambda r: r["total_points"], reverse=True)
+        positions.append({"position": pos, "owners": owners})
+
+    return {
+        "league_id": ctx.espn_league_id,
+        "years": years,
+        "positions": positions,
+    }
+
+
+@app.get(
     "/api/leagues/{league_id}/seasons/{year}/playoffs",
     response_model=SeasonPlayoffs,
 )
@@ -384,23 +608,22 @@ def playoffs(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_
 )
 def team_hub(
     owner_id: str,
+    year: int | None = None,
     refresh: bool = False,
     ctx: LeagueContext = Depends(get_user_league),
 ):
     try:
-        years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
+        all_years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
 
-    # Walk back from latest year, gather every season this owner played
-    seasons: list[tuple[int, dict]] = []
-    latest_year: int | None = None
-    latest_team_data: dict | None = None
-    for year in years:
+    # Gather every season this owner played in.
+    seasons_by_year: dict[int, dict] = {}
+    for y in all_years:
         teams_payload = _get_season_teams(
-            ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh
+            ctx.espn_league_id, y, ctx.espn_s2, ctx.swid, refresh
         )
-        team_data = next(
+        td = next(
             (
                 t
                 for t in teams_payload["teams"]
@@ -408,34 +631,49 @@ def team_hub(
             ),
             None,
         )
-        if team_data is None:
-            continue
-        seasons.append((year, team_data))
-        latest_year = year
-        latest_team_data = team_data
+        if td is not None:
+            seasons_by_year[y] = td
 
-    if latest_year is None or latest_team_data is None:
+    if not seasons_by_year:
         raise HTTPException(status_code=404, detail="Owner not found in any season")
 
-    # Aggregate stats
+    available_years = sorted(seasons_by_year.keys())
+
+    # Decide which year to display.
+    if year is None:
+        selected_year = available_years[-1]
+    elif year not in seasons_by_year:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Owner did not play in {year}",
+        )
+    else:
+        selected_year = year
+
+    selected_td = seasons_by_year[selected_year]
+    latest_td = seasons_by_year[available_years[-1]]
+
+    # All-time aggregates (over every season the owner played).
     finishes = [
         (td["final_standing"] or td["standing"])
-        for _, td in seasons
+        for td in seasons_by_year.values()
         if (td["final_standing"] or td["standing"])
     ]
     avg_finish = sum(finishes) / len(finishes) if finishes else 0.0
-    total_pf = sum(td["points_for"] for _, td in seasons)
-    total_games = sum(td["wins"] + td["losses"] + td["ties"] for _, td in seasons)
+    total_pf = sum(td["points_for"] for td in seasons_by_year.values())
+    total_games = sum(
+        td["wins"] + td["losses"] + td["ties"] for td in seasons_by_year.values()
+    )
     career_avg_pf = total_pf / total_games if total_games else 0.0
 
-    # Roster: fetch live League object (cached in-memory) and serialize
+    # Roster from the selected year.
     roster: list[dict] = []
     try:
         league = get_league(
-            ctx.espn_league_id, latest_year, espn_s2=ctx.espn_s2, swid=ctx.swid
+            ctx.espn_league_id, selected_year, espn_s2=ctx.espn_s2, swid=ctx.swid
         )
         live_team = next(
-            (t for t in league.teams if t.team_id == latest_team_data["team_id"]),
+            (t for t in league.teams if t.team_id == selected_td["team_id"]),
             None,
         )
         if live_team:
@@ -443,13 +681,13 @@ def team_hub(
     except Exception:
         roster = []
 
-    # Last matchup: scan latest year's scoreboard for the latest week this team played
+    # Last matchup from the selected year's scoreboard.
     last_matchup: dict | None = None
     try:
         sb = _get_season_scoreboard(
-            ctx.espn_league_id, latest_year, ctx.espn_s2, ctx.swid, refresh
+            ctx.espn_league_id, selected_year, ctx.espn_s2, ctx.swid, refresh
         )
-        team_id = latest_team_data["team_id"]
+        team_id = selected_td["team_id"]
         relevant = [
             m
             for m in sb["matchups"]
@@ -491,7 +729,7 @@ def team_hub(
             else:
                 result = "U"
             last_matchup = {
-                "year": latest_year,
+                "year": selected_year,
                 "week": m["week"],
                 "round_label": m.get("round_label", "regular"),
                 "is_playoff": m["is_playoff"],
@@ -507,20 +745,22 @@ def team_hub(
     except Exception:
         last_matchup = None
 
-    owner_obj = latest_team_data["owners"][0] if latest_team_data["owners"] else {}
+    owner_obj = latest_td["owners"][0] if latest_td["owners"] else {}
     owner_name = f"{owner_obj.get('first_name', '')} {owner_obj.get('last_name', '')}".strip()
 
     return {
         "owner_id": owner_id,
         "owner_name": owner_name or "—",
-        "current_team_name": latest_team_data["team_name"],
-        "seasons_played": len(seasons),
-        "latest_year": latest_year,
-        "latest_team_id": latest_team_data["team_id"],
-        "latest_finish": latest_team_data["final_standing"] or latest_team_data["standing"],
+        "current_team_name": latest_td["team_name"],
+        "selected_year": selected_year,
+        "selected_team_id": selected_td["team_id"],
+        "selected_team_name": selected_td["team_name"],
+        "selected_finish": selected_td["final_standing"] or selected_td["standing"],
+        "selected_avg_pf": selected_td["avg_points_for"],
+        "seasons_played": len(seasons_by_year),
         "avg_finish": round(avg_finish, 2),
         "career_avg_pf": round(career_avg_pf, 2),
-        "latest_avg_pf": latest_team_data["avg_points_for"],
+        "available_years": available_years,
         "roster": roster,
         "last_matchup": last_matchup,
     }

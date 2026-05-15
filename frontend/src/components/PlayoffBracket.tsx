@@ -173,8 +173,8 @@ function Connector({
   const midX = fromX + COL_GAP / 2
   return (
     <path
+      className="bracket-connector"
       d={`M ${fromX} ${fromYMid} H ${midX} V ${toYMid} H ${toX}`}
-      stroke="#999"
       strokeWidth={1.5}
       fill="none"
     />
@@ -206,12 +206,16 @@ function MatchBox({
       <rect
         width={BOX_W}
         height={BOX_H}
-        fill="white"
-        stroke="#d0d0d0"
         rx={8}
         className="bracket-match-rect"
       />
-      <line x1={0} y1={ROW_H} x2={BOX_W} y2={ROW_H} stroke="#eee" />
+      <line
+        className="bracket-row-divider"
+        x1={0}
+        y1={ROW_H}
+        x2={BOX_W}
+        y2={ROW_H}
+      />
       <TeamRow
         team={node.teamTop}
         score={node.scoreTop}
@@ -249,11 +253,11 @@ function TeamRow({
     return (
       <g transform={`translate(0,${yOffset})`}>
         <text
+          className="bracket-text-muted"
           x={TEXT_PAD_X}
           y={textY}
           fontSize={13}
           fontStyle="italic"
-          fill="#999"
         >
           BYE
         </text>
@@ -262,11 +266,18 @@ function TeamRow({
   }
   return (
     <g transform={`translate(0,${yOffset})`}>
-      <text x={TEXT_PAD_X} y={textY} fontSize={13} fontWeight={isWinner ? 600 : 400}>
-        <tspan fill="#999">{team.seed}.</tspan>
+      <text
+        className="bracket-text"
+        x={TEXT_PAD_X}
+        y={textY}
+        fontSize={13}
+        fontWeight={isWinner ? 600 : 400}
+      >
+        <tspan className="bracket-text-muted">{team.seed}.</tspan>
         <tspan dx={6}>{team.team_name}</tspan>
       </text>
       <text
+        className="bracket-text"
         x={BOX_W - TEXT_PAD_X}
         y={textY}
         fontSize={13}
@@ -314,11 +325,11 @@ function BracketSection({
         <g>
           {weeks.map((w) => (
             <text
+              className="bracket-text-muted"
               key={w}
               x={xOf(w, earliestWeek) + BOX_W / 2}
               y={14}
               fontSize={11}
-              fill="#888"
               textAnchor="middle"
             >
               {weekLabels?.[w] ?? `Wk ${w}`}
@@ -380,10 +391,10 @@ function StandalonePlacementGame({
       <svg width={BOX_W + 4} height={BOX_H + 28} className="bracket-svg">
         <g>
           <text
+            className="bracket-text-muted"
             x={BOX_W / 2}
             y={14}
             fontSize={11}
-            fill="#888"
             textAnchor="middle"
           >
             Wk {match.week}
