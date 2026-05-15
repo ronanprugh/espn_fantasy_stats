@@ -66,6 +66,22 @@ class TeamHubLastMatchup(BaseModel):
     result: str  # 'W', 'L', 'T', 'U'
 
 
+class TeamHubGame(BaseModel):
+    """A single game on the team's season schedule."""
+    week: int
+    round_label: str
+    is_playoff: bool
+    is_bye: bool
+    own_team_id: int
+    own_team_name: str
+    own_score: float
+    opp_team_id: int | None
+    opp_team_name: str
+    opp_owner_name: str
+    opp_score: float
+    result: str  # 'W', 'L', 'T', 'U' for non-byes; 'BYE' for byes
+
+
 class PositionTeamStats(BaseModel):
     team_id: int
     team_name: str
@@ -138,6 +154,7 @@ class TeamHub(BaseModel):
 
     roster: List[TeamHubPlayer]
     last_matchup: TeamHubLastMatchup | None
+    schedule: List[TeamHubGame]
 
 
 class Owner(BaseModel):

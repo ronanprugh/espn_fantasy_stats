@@ -681,45 +681,55 @@ def team_hub(
     except Exception:
         roster = []
 
-    # Last matchup from the selected year's scoreboard.
+    # Schedule: every game (and bye) for the team that year, in week order.
+    # Also derive last_matchup from this same loop (most recent non-bye game).
+    schedule: list[dict] = []
     last_matchup: dict | None = None
     try:
         sb = _get_season_scoreboard(
             ctx.espn_league_id, selected_year, ctx.espn_s2, ctx.swid, refresh
         )
         team_id = selected_td["team_id"]
-        relevant = [
+        my_games = [
             m
             for m in sb["matchups"]
-            if not m["is_bye"]
-            and (m["team_a_id"] == team_id or m["team_b_id"] == team_id)
+            if m["team_a_id"] == team_id or m["team_b_id"] == team_id
         ]
-        if relevant:
-            m = max(relevant, key=lambda x: x["week"])
+        my_games.sort(key=lambda x: x["week"])
+
+        for m in my_games:
+            if m["is_bye"]:
+                schedule.append({
+                    "week": m["week"],
+                    "round_label": m.get("round_label", "regular"),
+                    "is_playoff": m["is_playoff"],
+                    "is_bye": True,
+                    "own_team_id": team_id,
+                    "own_team_name": m["team_a_name"],
+                    "own_score": m["team_a_score"],
+                    "opp_team_id": None,
+                    "opp_team_name": "",
+                    "opp_owner_name": "",
+                    "opp_score": 0.0,
+                    "result": "BYE",
+                })
+                continue
+
             if m["team_a_id"] == team_id:
                 own_id, own_name, own_score = (
-                    m["team_a_id"],
-                    m["team_a_name"],
-                    m["team_a_score"],
+                    m["team_a_id"], m["team_a_name"], m["team_a_score"],
                 )
                 opp_id, opp_name, opp_owner, opp_score = (
-                    m["team_b_id"],
-                    m["team_b_name"],
-                    m["team_b_owner"],
-                    m["team_b_score"],
+                    m["team_b_id"], m["team_b_name"], m["team_b_owner"], m["team_b_score"],
                 )
             else:
                 own_id, own_name, own_score = (
-                    m["team_b_id"],
-                    m["team_b_name"],
-                    m["team_b_score"],
+                    m["team_b_id"], m["team_b_name"], m["team_b_score"],
                 )
                 opp_id, opp_name, opp_owner, opp_score = (
-                    m["team_a_id"],
-                    m["team_a_name"],
-                    m["team_a_owner"],
-                    m["team_a_score"],
+                    m["team_a_id"], m["team_a_name"], m["team_a_owner"], m["team_a_score"],
                 )
+
             if m["winner_id"] == own_id:
                 result = "W"
             elif m["winner_id"] == opp_id:
@@ -728,11 +738,12 @@ def team_hub(
                 result = "T"
             else:
                 result = "U"
-            last_matchup = {
-                "year": selected_year,
+
+            game = {
                 "week": m["week"],
                 "round_label": m.get("round_label", "regular"),
                 "is_playoff": m["is_playoff"],
+                "is_bye": False,
                 "own_team_id": own_id,
                 "own_team_name": own_name,
                 "own_score": own_score,
@@ -742,7 +753,10 @@ def team_hub(
                 "opp_score": opp_score,
                 "result": result,
             }
+            schedule.append(game)
+            last_matchup = {"year": selected_year, **game}
     except Exception:
+        schedule = []
         last_matchup = None
 
     owner_obj = latest_td["owners"][0] if latest_td["owners"] else {}
@@ -763,6 +777,7 @@ def team_hub(
         "available_years": available_years,
         "roster": roster,
         "last_matchup": last_matchup,
+        "schedule": schedule,
     }
 
 

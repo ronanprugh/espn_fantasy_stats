@@ -398,6 +398,21 @@ export type TeamHubLastMatchup = {
   result: 'W' | 'L' | 'T' | 'U'
 }
 
+export type TeamHubGame = {
+  week: number
+  round_label: RoundLabel
+  is_playoff: boolean
+  is_bye: boolean
+  own_team_id: number
+  own_team_name: string
+  own_score: number
+  opp_team_id: number | null
+  opp_team_name: string
+  opp_owner_name: string
+  opp_score: number
+  result: string // 'W', 'L', 'T', 'U', 'BYE'
+}
+
 export type TeamHub = {
   owner_id: string
   owner_name: string
@@ -413,6 +428,7 @@ export type TeamHub = {
   available_years: number[]
   roster: TeamHubPlayer[]
   last_matchup: TeamHubLastMatchup | null
+  schedule: TeamHubGame[]
 }
 
 export async function fetchTeamHub(

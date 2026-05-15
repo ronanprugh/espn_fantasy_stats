@@ -5,6 +5,7 @@ import {
   fetchTeamHub,
   type OwnerHistory,
   type TeamHub,
+  type TeamHubGame,
   type TeamHubPlayer,
 } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
@@ -33,7 +34,7 @@ function sortRoster(roster: TeamHubPlayer[]): TeamHubPlayer[] {
   })
 }
 
-type HubTab = 'summary' | 'roster'
+type HubTab = 'summary' | 'roster' | 'schedule'
 
 export function TeamHubPage() {
   const { selectedLeague } = useLeague()
@@ -159,6 +160,12 @@ export function TeamHubPage() {
             >
               Roster
             </button>
+            <button
+              className={tab === 'schedule' ? 'active' : ''}
+              onClick={() => setTab('schedule')}
+            >
+              Schedule
+            </button>
           </nav>
 
           {tab === 'summary' && (
@@ -201,6 +208,22 @@ export function TeamHubPage() {
             <section className="hub-roster">
               <h3>Roster — {hub.selected_year}</h3>
               <RosterTable roster={hub.roster} />
+            </section>
+          )}
+
+          {tab === 'schedule' && (
+            <section className="hub-schedule">
+              <h3>Schedule — {hub.selected_year}</h3>
+              <ScheduleTable
+                schedule={hub.schedule}
+                year={hub.selected_year}
+                onGameClick={(g) => {
+                  if (g.is_bye || hub.selected_year < 2019 || g.opp_team_id == null) return
+                  navigate(
+                    `/box_score/${hub.selected_year}/${g.week}/${g.own_team_id}/${g.opp_team_id}`,
+                  )
+                }}
+              />
             </section>
           )}
         </>
@@ -288,9 +311,76 @@ function RosterTable({ roster }: { roster: TeamHubPlayer[] }) {
                 </td>
                 <td>{p.position}</td>
                 <td>{p.pro_team}</td>
-                <td className="points">{p.total_points.toFixed(1)}</td>
+                <td className="points right">{p.total_points.toFixed(1)}</td>
               </tr>
             </Fragment>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
+function ScheduleTable({
+  schedule,
+  year,
+  onGameClick,
+}: {
+  schedule: TeamHubGame[]
+  year: number
+  onGameClick: (g: TeamHubGame) => void
+}) {
+  const boxScoresAvailable = year >= 2019
+  return (
+    <table className="schedule-table">
+      <thead>
+        <tr>
+          <th>Wk</th>
+          <th>Round</th>
+          <th>Opponent</th>
+          <th className="right">Score</th>
+          <th className="right">Opp Score</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {schedule.map((g) => {
+          const won = g.result === 'W'
+          const lost = g.result === 'L'
+          const clickable = !g.is_bye && boxScoresAvailable && g.opp_team_id != null
+          return (
+            <tr
+              key={g.week}
+              className={clickable ? 'clickable-row' : ''}
+              onClick={clickable ? () => onGameClick(g) : undefined}
+              title={clickable ? 'View box score' : ''}
+            >
+              <td>{g.week}</td>
+              <td>
+                <RoundBadge round={g.round_label} />
+              </td>
+              <td>
+                {g.is_bye ? (
+                  <span className="bye-cell">BYE</span>
+                ) : (
+                  <>
+                    <div>{g.opp_team_name}</div>
+                    <div className="opp-owner">{g.opp_owner_name}</div>
+                  </>
+                )}
+              </td>
+              <td className="right">{g.is_bye ? '—' : g.own_score.toFixed(1)}</td>
+              <td className="right">{g.is_bye ? '—' : g.opp_score.toFixed(1)}</td>
+              <td>
+                {g.is_bye ? (
+                  <span className="result-tag bye">BYE</span>
+                ) : (
+                  <span className={`result-tag ${won ? 'won' : lost ? 'lost' : ''}`}>
+                    {g.result}
+                  </span>
+                )}
+              </td>
+            </tr>
           )
         })}
       </tbody>
