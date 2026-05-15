@@ -3,7 +3,6 @@ import {
   fetchPositionalStatsAggregate,
   fetchPositionalStatsForYear,
   type LeaguePositionalAggregate,
-  type PositionOwnerAggregate,
   type PositionTeamStats,
   type SeasonPositionalStats,
 } from '../api'
