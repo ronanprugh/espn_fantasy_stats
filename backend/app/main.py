@@ -27,6 +27,7 @@ from .espn_client import (
 from .models import League as LeagueModel
 from .models import User
 from .schemas import (
+    ChangePasswordRequest,
     CreateLeagueRequest,
     HeadToHeadStats,
     LeagueAggregate,
@@ -89,6 +90,27 @@ def auth_logout(request: Request):
 @app.get("/api/auth/me", response_model=UserResponse)
 def auth_me(user: User = Depends(current_user)):
     return UserResponse(id=user.id, username=user.username)
+
+
+@app.post("/api/auth/change_password")
+def auth_change_password(
+    payload: ChangePasswordRequest,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect",
+        )
+    if payload.current_password == payload.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must differ from the current one",
+        )
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    return {"ok": True}
 
 
 # --------------------------------------------------------------------------- #

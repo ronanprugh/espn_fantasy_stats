@@ -373,6 +373,15 @@ body {
   font-size: 13px;
 }
 
+.success-msg {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--success-soft);
+  color: var(--success);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
 .login-hint {
   margin: 16px 0 0;
   font-size: 12px;

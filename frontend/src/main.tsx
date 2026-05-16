@@ -5,6 +5,7 @@ import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import { LeagueProvider } from './contexts/LeagueContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { AccountPage } from './pages/AccountPage'
 import { BoxScorePage } from './pages/BoxScorePage'
 import { ComparePage } from './pages/ComparePage'
 import { HeadToHeadPage } from './pages/HeadToHeadPage'
@@ -35,6 +36,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="positional" element={<PositionalStatsPage />} />
               <Route path="box_score/:year/:week/:teamA/:teamB" element={<BoxScorePage />} />
               <Route path="leagues" element={<LeaguesPage />} />
+              <Route path="account" element={<AccountPage />} />
             </Route>
           </Routes>
           </LeagueProvider>

@@ -3,6 +3,7 @@
 Usage (from backend/ with venv active):
     python -m app.admin create-user --username ronan
     python -m app.admin add-league --username ronan --league-id 1375368 --name "Payton"
+    python -m app.admin reset-password --username ronan
     python -m app.admin list-users
     python -m app.admin seed-from-env --username ronan
 """
@@ -63,6 +64,17 @@ def add_league(args):
         print(
             f"Added league {args.league_id} ('{args.name}') to user '{args.username}'"
         )
+
+
+def reset_password(args):
+    password = _read_password(args.password)
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.username == args.username).first()
+        if not user:
+            sys.exit(f"User '{args.username}' not found")
+        user.password_hash = hash_password(password)
+        db.commit()
+        print(f"Updated password for '{args.username}'")
 
 
 def list_users(_args):
@@ -132,6 +144,11 @@ def main():
     al.add_argument("--espn-s2", default=None)
     al.add_argument("--swid", default=None)
     al.set_defaults(func=add_league)
+
+    rp = sub.add_parser("reset-password")
+    rp.add_argument("--username", required=True)
+    rp.add_argument("--password", default=None, help="If omitted, prompted")
+    rp.set_defaults(func=reset_password)
 
     lu = sub.add_parser("list-users")
     lu.set_defaults(func=list_users)

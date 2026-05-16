@@ -36,6 +36,17 @@ export async function logout(): Promise<void> {
   await jsonFetch('/api/auth/logout', { method: 'POST' })
 }
 
+export async function changePassword(
+  current_password: string,
+  new_password: string,
+): Promise<void> {
+  await jsonFetch('/api/auth/change_password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current_password, new_password }),
+  })
+}
+
 // --------------------------------------------------------------------- //
 // League management (per-user)
 // --------------------------------------------------------------------- //

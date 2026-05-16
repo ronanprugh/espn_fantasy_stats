@@ -70,6 +70,7 @@ export function Sidebar({ collapsed, onToggle }: Props) {
 
           <div className="nav-section">Account</div>
           <NavLink to="/leagues">Manage Leagues</NavLink>
+          <NavLink to="/account">Account</NavLink>
         </nav>
       </div>
 
