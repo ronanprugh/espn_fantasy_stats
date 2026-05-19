@@ -409,6 +409,33 @@ export type TeamHubLastMatchup = {
   result: 'W' | 'L' | 'T' | 'U'
 }
 
+export type TeamHubAccolades = {
+  championships: number
+  runner_ups: number
+  third_places: number
+  last_places: number
+  championship_years: number[]
+  runner_up_years: number[]
+  third_place_years: number[]
+  last_place_years: number[]
+}
+
+export type RecordEntry = {
+  value: number
+  year: number
+  week: number
+  opponent: string
+}
+
+export type TeamHubRecords = {
+  highest_score: RecordEntry | null
+  lowest_score: RecordEntry | null
+  biggest_win_margin: RecordEntry | null
+  biggest_loss_margin: RecordEntry | null
+  longest_win_streak: number
+  longest_loss_streak: number
+}
+
 export type TeamHubGame = {
   week: number
   round_label: RoundLabel
@@ -440,6 +467,8 @@ export type TeamHub = {
   roster: TeamHubPlayer[]
   last_matchup: TeamHubLastMatchup | null
   schedule: TeamHubGame[]
+  accolades: TeamHubAccolades
+  records: TeamHubRecords
 }
 
 export async function fetchTeamHub(

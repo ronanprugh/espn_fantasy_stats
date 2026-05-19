@@ -703,6 +703,114 @@ def team_hub(
     except Exception:
         roster = []
 
+    # Accolades: count finishes across all seasons this owner played.
+    championships: list[int] = []
+    runner_ups: list[int] = []
+    third_places: list[int] = []
+    last_places: list[int] = []
+    # last-place threshold: total team count (max final_standing observed)
+    league_size = max(
+        (td["final_standing"] or td["standing"]) for td in seasons_by_year.values()
+    )
+    for y, td in sorted(seasons_by_year.items()):
+        f = td["final_standing"] or td["standing"]
+        if f == 1:
+            championships.append(y)
+        elif f == 2:
+            runner_ups.append(y)
+        elif f == 3:
+            third_places.append(y)
+        if f == league_size:
+            last_places.append(y)
+    accolades = {
+        "championships": len(championships),
+        "runner_ups": len(runner_ups),
+        "third_places": len(third_places),
+        "last_places": len(last_places),
+        "championship_years": championships,
+        "runner_up_years": runner_ups,
+        "third_place_years": third_places,
+        "last_place_years": last_places,
+    }
+
+    # Career records: scan every season's scoreboard for this owner's team.
+    best_score: tuple[float, int, int, str] | None = None
+    worst_score: tuple[float, int, int, str] | None = None
+    biggest_win: tuple[float, int, int, str] | None = None
+    biggest_loss: tuple[float, int, int, str] | None = None
+    all_results: list[tuple[int, int, str]] = []  # (year, week, W/L/T)
+
+    for y in sorted(seasons_by_year.keys()):
+        td_y = seasons_by_year[y]
+        team_id_y = td_y["team_id"]
+        try:
+            sb_y = _get_season_scoreboard(
+                ctx.espn_league_id, y, ctx.espn_s2, ctx.swid, refresh
+            )
+        except Exception:
+            continue
+        for mm in sb_y["matchups"]:
+            if mm["is_bye"]:
+                continue
+            if mm["team_a_id"] != team_id_y and mm["team_b_id"] != team_id_y:
+                continue
+            if mm["team_a_id"] == team_id_y:
+                own_sc = mm["team_a_score"]
+                opp_sc = mm["team_b_score"]
+                opp_nm = mm["team_b_name"]
+            else:
+                own_sc = mm["team_b_score"]
+                opp_sc = mm["team_a_score"]
+                opp_nm = mm["team_a_name"]
+            if best_score is None or own_sc > best_score[0]:
+                best_score = (own_sc, y, mm["week"], opp_nm)
+            if worst_score is None or own_sc < worst_score[0]:
+                worst_score = (own_sc, y, mm["week"], opp_nm)
+            margin = own_sc - opp_sc
+            if margin > 0 and (biggest_win is None or margin > biggest_win[0]):
+                biggest_win = (margin, y, mm["week"], opp_nm)
+            elif margin < 0:
+                deficit = -margin
+                if biggest_loss is None or deficit > biggest_loss[0]:
+                    biggest_loss = (deficit, y, mm["week"], opp_nm)
+            if mm["winner_id"] == team_id_y:
+                all_results.append((y, mm["week"], "W"))
+            elif mm["winner_id"] is None:
+                all_results.append((y, mm["week"], "T"))
+            else:
+                all_results.append((y, mm["week"], "L"))
+
+    # Streaks: walk chronologically.
+    all_results.sort(key=lambda r: (r[0], r[1]))
+    longest_win_streak = longest_loss_streak = cur_w = cur_l = 0
+    for _, _, r in all_results:
+        if r == "W":
+            cur_w += 1
+            cur_l = 0
+            longest_win_streak = max(longest_win_streak, cur_w)
+        elif r == "L":
+            cur_l += 1
+            cur_w = 0
+            longest_loss_streak = max(longest_loss_streak, cur_l)
+        else:
+            cur_w = cur_l = 0
+
+    def _fmt(t):
+        return (
+            None
+            if t is None
+            else {"value": round(t[0], 2), "year": t[1], "week": t[2], "opponent": t[3]}
+        )
+
+    records = {
+        "highest_score": _fmt(best_score),
+        "lowest_score": _fmt(worst_score),
+        "biggest_win_margin": _fmt(biggest_win),
+        "biggest_loss_margin": _fmt(biggest_loss),
+        "longest_win_streak": longest_win_streak,
+        "longest_loss_streak": longest_loss_streak,
+    }
+
     # Schedule: every game (and bye) for the team that year, in week order.
     # Also derive last_matchup from this same loop (most recent non-bye game).
     schedule: list[dict] = []
@@ -800,6 +908,8 @@ def team_hub(
         "roster": roster,
         "last_matchup": last_matchup,
         "schedule": schedule,
+        "accolades": accolades,
+        "records": records,
     }
 
 

@@ -71,6 +71,33 @@ class TeamHubLastMatchup(BaseModel):
     result: str  # 'W', 'L', 'T', 'U'
 
 
+class TeamHubAccolades(BaseModel):
+    championships: int
+    runner_ups: int
+    third_places: int
+    last_places: int
+    championship_years: List[int]
+    runner_up_years: List[int]
+    third_place_years: List[int]
+    last_place_years: List[int]
+
+
+class RecordEntry(BaseModel):
+    value: float
+    year: int
+    week: int
+    opponent: str
+
+
+class TeamHubRecords(BaseModel):
+    highest_score: RecordEntry | None
+    lowest_score: RecordEntry | None
+    biggest_win_margin: RecordEntry | None
+    biggest_loss_margin: RecordEntry | None
+    longest_win_streak: int
+    longest_loss_streak: int
+
+
 class TeamHubGame(BaseModel):
     """A single game on the team's season schedule."""
     week: int
@@ -160,6 +187,8 @@ class TeamHub(BaseModel):
     roster: List[TeamHubPlayer]
     last_matchup: TeamHubLastMatchup | None
     schedule: List[TeamHubGame]
+    accolades: TeamHubAccolades
+    records: TeamHubRecords
 
 
 class Owner(BaseModel):

@@ -4,6 +4,7 @@ import {
   fetchOwnerHistory,
   fetchTeamHub,
   type OwnerHistory,
+  type RecordEntry,
   type TeamHub,
   type TeamHubGame,
   type TeamHubPlayer,
@@ -136,7 +137,7 @@ export function TeamHubPage() {
       {!loading && hub && (
         <>
           <section className="hub-header">
-            <div>
+            <div className="hub-header-main">
               <h3 className="hub-team-name">{hub.current_team_name}</h3>
               <div className="hub-owner">
                 {hub.owner_name} · {hub.seasons_played} seasons played
@@ -145,6 +146,7 @@ export function TeamHubPage() {
                 )}
               </div>
             </div>
+            <TrophyCabinet accolades={hub.accolades} />
           </section>
 
           <nav className="hub-tabs">
@@ -201,6 +203,8 @@ export function TeamHubPage() {
                   />
                 </section>
               )}
+
+              <RecordsSection records={hub.records} />
             </>
           )}
 
@@ -238,6 +242,95 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
       <div className="stat-label">{label}</div>
       <div className="stat-value">{value}</div>
       {sub && <div className="stat-sub">{sub}</div>}
+    </div>
+  )
+}
+
+function TrophyCabinet({ accolades }: { accolades: TeamHub['accolades'] }) {
+  const items = [
+    { count: accolades.championships, label: '1st', emoji: '🏆', years: accolades.championship_years, cls: 'gold' },
+    { count: accolades.runner_ups, label: '2nd', emoji: '🥈', years: accolades.runner_up_years, cls: 'silver' },
+    { count: accolades.third_places, label: '3rd', emoji: '🥉', years: accolades.third_place_years, cls: 'bronze' },
+  ]
+  return (
+    <div className="trophy-cabinet">
+      {items.map((it) => (
+        <div
+          key={it.label}
+          className={`trophy ${it.cls}${it.count === 0 ? ' empty' : ''}`}
+          title={it.years.length ? it.years.join(', ') : 'none'}
+        >
+          <div className="trophy-icon">{it.emoji}</div>
+          <div className="trophy-count">{it.count}</div>
+          <div className="trophy-sub">{it.label}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function RecordsSection({ records }: { records: TeamHub['records'] }) {
+  const fmtCtx = (r: RecordEntry | null) =>
+    r ? `${r.year} · Wk ${r.week} · vs ${r.opponent}` : '—'
+  const fmtVal = (r: RecordEntry | null, sign = '') =>
+    r ? `${sign}${r.value.toFixed(1)}` : '—'
+  return (
+    <section className="hub-records">
+      <h3>Career Records</h3>
+      <div className="records-grid">
+        <RecordCard
+          label="Highest Score"
+          value={fmtVal(records.highest_score)}
+          sub={fmtCtx(records.highest_score)}
+        />
+        <RecordCard
+          label="Lowest Score"
+          value={fmtVal(records.lowest_score)}
+          sub={fmtCtx(records.lowest_score)}
+        />
+        <RecordCard
+          label="Biggest Win"
+          value={fmtVal(records.biggest_win_margin, '+')}
+          sub={fmtCtx(records.biggest_win_margin)}
+          accent="pos"
+        />
+        <RecordCard
+          label="Worst Loss"
+          value={fmtVal(records.biggest_loss_margin, '−')}
+          sub={fmtCtx(records.biggest_loss_margin)}
+          accent="neg"
+        />
+        <RecordCard
+          label="Longest Win Streak"
+          value={`${records.longest_win_streak}`}
+          accent="pos"
+        />
+        <RecordCard
+          label="Longest Losing Streak"
+          value={`${records.longest_loss_streak}`}
+          accent="neg"
+        />
+      </div>
+    </section>
+  )
+}
+
+function RecordCard({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string
+  value: string
+  sub?: string
+  accent?: 'pos' | 'neg'
+}) {
+  return (
+    <div className={`record-card${accent ? ` ${accent}` : ''}`}>
+      <div className="record-label">{label}</div>
+      <div className="record-value">{value}</div>
+      {sub && <div className="record-sub">{sub}</div>}
     </div>
   )
 }

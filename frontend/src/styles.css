@@ -681,6 +681,116 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.hub-header-main {
+  min-width: 0;
+}
+
+/* Trophy cabinet */
+.trophy-cabinet {
+  display: flex;
+  gap: 10px;
+}
+
+.trophy {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 70px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.trophy.empty {
+  opacity: 0.45;
+}
+
+.trophy.gold { border-color: #d4a017; background: rgba(212, 160, 23, 0.08); }
+.trophy.silver { border-color: #a8a8a8; background: rgba(168, 168, 168, 0.1); }
+.trophy.bronze { border-color: #b87333; background: rgba(184, 115, 51, 0.08); }
+
+.trophy-icon { font-size: 22px; line-height: 1; }
+.trophy-count {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-strong);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.trophy-sub {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Records */
+.hub-records {
+  margin-bottom: 24px;
+}
+
+.hub-records h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.record-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.record-card.pos {
+  border-left: 4px solid var(--success);
+}
+
+.record-card.neg {
+  border-left: 4px solid var(--danger);
+}
+
+.record-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.record-value {
+  margin-top: 6px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.record-card.pos .record-value { color: var(--success); }
+.record-card.neg .record-value { color: var(--danger); }
+
+.record-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .hub-tabs {
