@@ -1,4 +1,4 @@
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 
 from .config import ENCRYPTION_KEY
 
@@ -12,6 +12,12 @@ def encrypt(value: str | None) -> bytes | None:
 
 
 def decrypt(value: bytes | None) -> str | None:
+    """Decrypt a Fernet token. Returns None for null or undecryptable values
+    (e.g. after rotating ENCRYPTION_KEY), so the app stays usable and the
+    affected league entry can be re-credentialed via the UI."""
     if value is None:
         return None
-    return _fernet.decrypt(value).decode()
+    try:
+        return _fernet.decrypt(value).decode()
+    except InvalidToken:
+        return None
