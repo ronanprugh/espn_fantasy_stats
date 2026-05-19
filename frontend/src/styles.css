@@ -404,6 +404,33 @@ body {
 .primary-btn:hover { background: var(--accent-hover); }
 .primary-btn:disabled { background: var(--text-muted); cursor: not-allowed; }
 
+.secondary-btn {
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.secondary-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.secondary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary-btn.small {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
 .danger-btn {
   background: none;
   border: 1px solid var(--border-strong);

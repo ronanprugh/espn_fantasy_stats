@@ -158,7 +158,7 @@ function LeagueRow({
           <button className="primary-btn small" onClick={saveName} disabled={saving}>
             {saving ? 'Saving…' : 'Save'}
           </button>
-          <button onClick={cancelEditName} disabled={saving}>
+          <button className="secondary-btn small" onClick={cancelEditName} disabled={saving}>
             Cancel
           </button>
         </div>
@@ -193,7 +193,12 @@ function LeagueRow({
                   </option>
                 ))}
               </select>
-              <button onClick={() => setEditingFavorite(false)}>Cancel</button>
+              <button
+                className="secondary-btn small"
+                onClick={() => setEditingFavorite(false)}
+              >
+                Cancel
+              </button>
             </span>
           ) : (
             <>
@@ -309,7 +314,7 @@ function AddLeagueForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCa
         <button type="submit" disabled={submitting} className="primary-btn">
           {submitting ? 'Adding…' : 'Add league'}
         </button>
-        <button type="button" onClick={onCancel}>Cancel</button>
+        <button type="button" className="secondary-btn" onClick={onCancel}>Cancel</button>
       </div>
     </form>
   )
