@@ -5,7 +5,8 @@ Multi-user web app for analyzing ESPN Fantasy Football leagues across seasons.
 - **Backend**: FastAPI + SQLAlchemy + Postgres, wrapping the `espn_api` library.
 - **Frontend**: React + Vite + TypeScript with Recharts for visualization.
 - **Auth**: invite-only, bcrypt-hashed passwords, cookie sessions.
-- **Storage**: Postgres (local via Docker). ESPN credentials encrypted at rest with Fernet.
+- **Storage**: Postgres (local via Docker; Neon in production). ESPN credentials encrypted at rest with Fernet.
+- **Hosting**: Cloud Run (backend) + Vercel (frontend). Push to `main` triggers auto-deploy via Cloud Build.
 
 What's in it:
 
