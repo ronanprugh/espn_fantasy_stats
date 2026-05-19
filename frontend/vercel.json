@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://espn-fantasy-stats-api-118114367178.us-east1.run.app/api/:path*"
+      "destination": "https://espn-fantasy-stats-api-158503771308.us-east1.run.app/api/:path*"
     }
   ]
 }
