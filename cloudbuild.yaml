@@ -1,0 +1,46 @@
+# Cloud Build pipeline: build the backend image and roll a new Cloud Run revision.
+# Triggered by Cloud Build trigger on pushes to main (configured in the GCP console).
+# Existing env vars / memory / cpu on the Cloud Run service are preserved across
+# deploys — we only swap the image.
+
+substitutions:
+  _SERVICE_NAME: espn-fantasy-stats-api
+  _REGION: us-east1
+  _AR_REPO: cloud-run-source-deploy
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:$SHORT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:latest
+      - backend/
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE_NAME}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:latest
+
+# Required when using the Compute Engine default service account.
+options:
+  logging: CLOUD_LOGGING_ONLY
