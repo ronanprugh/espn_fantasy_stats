@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://espn-fantasy-stats-api-158503771308.us-east1.run.app/api/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }
