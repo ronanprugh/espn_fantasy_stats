@@ -104,7 +104,7 @@ def auth_signup(payload: SignupRequest, db: Session = Depends(get_db)):
     now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
     candidates = (
         db.query(InviteCode)
-        .filter(InviteCode.used_at.is_(None), InviteCode.expires_at > now)
+        .filter(InviteCode.expires_at > now, InviteCode.use_count < InviteCode.max_uses)
         .all()
     )
     matched = next(
@@ -116,7 +116,7 @@ def auth_signup(payload: SignupRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Username already taken")
     user = User(username=payload.username, password_hash=hash_password(payload.password))
     db.add(user)
-    matched.used_at = now
+    matched.use_count += 1
     db.commit()
     db.refresh(user)
     return UserResponse(id=user.id, username=user.username, is_admin=user.is_admin)
@@ -163,6 +163,7 @@ def admin_generate_invite(
     row = InviteCode(
         code_hash=hash_password(raw),
         expires_at=expires_at,
+        max_uses=payload.max_uses,
         created_by=admin.id,
     )
     db.add(row)

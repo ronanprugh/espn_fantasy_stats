@@ -50,11 +50,12 @@ export async function signup(
 
 export async function generateInvite(
   expires_in_hours: 1 | 6 | 12 | 24,
+  max_uses: number,
 ): Promise<{ code: string; expires_at: string }> {
   return jsonFetch('/api/admin/invite', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ expires_in_hours }),
+    body: JSON.stringify({ expires_in_hours, max_uses }),
   })
 }
 

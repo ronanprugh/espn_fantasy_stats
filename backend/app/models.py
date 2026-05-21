@@ -52,7 +52,8 @@ class InviteCode(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     expires_at: Mapped[dt.datetime] = mapped_column(nullable=False)
-    used_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
+    max_uses: Mapped[int] = mapped_column(nullable=False)
+    use_count: Mapped[int] = mapped_column(server_default="0", nullable=False)
     created_by: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )

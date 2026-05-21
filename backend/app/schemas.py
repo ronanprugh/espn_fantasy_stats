@@ -26,6 +26,7 @@ class SignupRequest(BaseModel):
 
 class GenerateInviteRequest(BaseModel):
     expires_in_hours: int = Field(..., description="Must be 1, 6, 12, or 24")
+    max_uses: int = Field(default=1, ge=1)
 
 
 class InviteCodeResponse(BaseModel):

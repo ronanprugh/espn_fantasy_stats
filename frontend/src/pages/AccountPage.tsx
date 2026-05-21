@@ -7,6 +7,7 @@ export function AccountPage() {
 
   // Admin: invite code generation
   const [inviteHours, setInviteHours] = useState<1 | 6 | 12 | 24>(24)
+  const [inviteMaxUses, setInviteMaxUses] = useState(1)
   const [inviteResult, setInviteResult] = useState<{ code: string; expires_at: string } | null>(null)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteSubmitting, setInviteSubmitting] = useState(false)
@@ -16,7 +17,7 @@ export function AccountPage() {
     setInviteResult(null)
     setInviteSubmitting(true)
     try {
-      const result = await generateInvite(inviteHours)
+      const result = await generateInvite(inviteHours, inviteMaxUses)
       setInviteResult(result)
     } catch (e: any) {
       setInviteError(e.message || 'Failed to generate invite')
@@ -123,6 +124,14 @@ export function AccountPage() {
             <option value={24}>24 hours</option>
           </select>
 
+          <label>Max uses</label>
+          <input
+            type="number"
+            min={1}
+            value={inviteMaxUses}
+            onChange={(e) => setInviteMaxUses(Math.max(1, parseInt(e.target.value) || 1))}
+          />
+
           {inviteError && <div className="login-error">{inviteError}</div>}
 
           {inviteResult && (
@@ -130,7 +139,7 @@ export function AccountPage() {
               <p className="invite-label">Share this code (shown once):</p>
               <code className="invite-code">{inviteResult.code}</code>
               <p className="invite-expires">
-                Expires: {new Date(inviteResult.expires_at).toLocaleString()}
+                Expires: {new Date(inviteResult.expires_at).toLocaleString()} · up to {inviteMaxUses} use{inviteMaxUses !== 1 ? 's' : ''}
               </p>
             </div>
           )}
