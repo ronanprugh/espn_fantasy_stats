@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import cache
-from .auth import current_user, hash_password, login, logout, verify_password
+from .auth import current_user, hash_password, login, logout, require_admin, verify_password
 from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
 from .crypto import decrypt, encrypt
+import datetime as dt
+import secrets
 from .database import get_db
 from .espn_client import (
     POSITIONS_ORDER,
@@ -24,11 +26,15 @@ from .espn_client import (
     serialize_scoreboard,
     serialize_teams,
 )
+from .models import InviteCode
 from .models import League as LeagueModel
 from .models import User
 from .schemas import (
     ChangePasswordRequest,
     CreateLeagueRequest,
+    GenerateInviteRequest,
+    InviteCodeResponse,
+    SignupRequest,
     HeadToHeadStats,
     LeagueAggregate,
     LeagueInfo,
@@ -89,7 +95,31 @@ def auth_logout(request: Request):
 
 @app.get("/api/auth/me", response_model=UserResponse)
 def auth_me(user: User = Depends(current_user)):
-    return UserResponse(id=user.id, username=user.username)
+    return UserResponse(id=user.id, username=user.username, is_admin=user.is_admin)
+
+
+@app.post("/api/auth/signup", response_model=UserResponse)
+def auth_signup(payload: SignupRequest, db: Session = Depends(get_db)):
+    raw = payload.invite_code.strip()
+    now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+    candidates = (
+        db.query(InviteCode)
+        .filter(InviteCode.used_at.is_(None), InviteCode.expires_at > now)
+        .all()
+    )
+    matched = next(
+        (c for c in candidates if verify_password(raw, c.code_hash)), None
+    )
+    if not matched:
+        raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+    if db.query(User).filter(User.username == payload.username).first():
+        raise HTTPException(status_code=409, detail="Username already taken")
+    user = User(username=payload.username, password_hash=hash_password(payload.password))
+    db.add(user)
+    matched.used_at = now
+    db.commit()
+    db.refresh(user)
+    return UserResponse(id=user.id, username=user.username, is_admin=user.is_admin)
 
 
 @app.post("/api/auth/change_password")
@@ -111,6 +141,33 @@ def auth_change_password(
     user.password_hash = hash_password(payload.new_password)
     db.commit()
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# Admin
+# --------------------------------------------------------------------------- #
+
+_VALID_EXPIRY_HOURS = {1, 6, 12, 24}
+
+
+@app.post("/api/admin/invite", response_model=InviteCodeResponse)
+def admin_generate_invite(
+    payload: GenerateInviteRequest,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    if payload.expires_in_hours not in _VALID_EXPIRY_HOURS:
+        raise HTTPException(status_code=400, detail="expires_in_hours must be 1, 6, 12, or 24")
+    raw = secrets.token_urlsafe(32)
+    expires_at = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + dt.timedelta(hours=payload.expires_in_hours)
+    row = InviteCode(
+        code_hash=hash_password(raw),
+        expires_at=expires_at,
+        created_by=admin.id,
+    )
+    db.add(row)
+    db.commit()
+    return InviteCodeResponse(code=raw, expires_at=expires_at.isoformat() + "Z")
 
 
 # --------------------------------------------------------------------------- #

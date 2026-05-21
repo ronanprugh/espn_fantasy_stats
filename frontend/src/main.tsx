@@ -12,6 +12,7 @@ import { HeadToHeadPage } from './pages/HeadToHeadPage'
 import { HomePage } from './pages/HomePage'
 import { LeaguesPage } from './pages/LeaguesPage'
 import { LoginPage } from './pages/LoginPage'
+import { SignupPage } from './pages/SignupPage'
 import { PlayoffsPage } from './pages/PlayoffsPage'
 import { PositionalStatsPage } from './pages/PositionalStatsPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
@@ -26,6 +27,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <LeagueProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route path="/" element={<App />}>
               <Route index element={<HomePage />} />
               <Route path="playoffs" element={<PlayoffsPage />} />

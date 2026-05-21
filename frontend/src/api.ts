@@ -18,7 +18,7 @@ async function jsonFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
 // Auth
 // --------------------------------------------------------------------- //
 
-export type AuthUser = { id: number; username: string }
+export type AuthUser = { id: number; username: string; is_admin: boolean }
 
 export async function fetchAuthMe(): Promise<AuthUser> {
   return jsonFetch<AuthUser>('/api/auth/me')
@@ -34,6 +34,28 @@ export async function login(username: string, password: string): Promise<AuthUse
 
 export async function logout(): Promise<void> {
   await jsonFetch('/api/auth/logout', { method: 'POST' })
+}
+
+export async function signup(
+  username: string,
+  password: string,
+  invite_code: string,
+): Promise<AuthUser> {
+  return jsonFetch<AuthUser>('/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, invite_code }),
+  })
+}
+
+export async function generateInvite(
+  expires_in_hours: 1 | 6 | 12 | 24,
+): Promise<{ code: string; expires_at: string }> {
+  return jsonFetch('/api/admin/invite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expires_in_hours }),
+  })
 }
 
 export async function changePassword(

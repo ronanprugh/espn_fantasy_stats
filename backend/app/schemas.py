@@ -15,6 +15,22 @@ class ChangePasswordRequest(BaseModel):
 class UserResponse(BaseModel):
     id: int
     username: str
+    is_admin: bool = False
+
+
+class SignupRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=8)
+    invite_code: str
+
+
+class GenerateInviteRequest(BaseModel):
+    expires_in_hours: int = Field(..., description="Must be 1, 6, 12, or 24")
+
+
+class InviteCodeResponse(BaseModel):
+    code: str
+    expires_at: str
 
 
 class LeagueSummary(BaseModel):

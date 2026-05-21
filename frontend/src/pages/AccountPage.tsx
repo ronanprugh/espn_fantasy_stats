@@ -1,9 +1,29 @@
 import { useState } from 'react'
-import { changePassword } from '../api'
+import { changePassword, generateInvite } from '../api'
 import { useAuth } from '../contexts/AuthContext'
 
 export function AccountPage() {
   const { user } = useAuth()
+
+  // Admin: invite code generation
+  const [inviteHours, setInviteHours] = useState<1 | 6 | 12 | 24>(24)
+  const [inviteResult, setInviteResult] = useState<{ code: string; expires_at: string } | null>(null)
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [inviteSubmitting, setInviteSubmitting] = useState(false)
+
+  const generateCode = async () => {
+    setInviteError(null)
+    setInviteResult(null)
+    setInviteSubmitting(true)
+    try {
+      const result = await generateInvite(inviteHours)
+      setInviteResult(result)
+    } catch (e: any) {
+      setInviteError(e.message || 'Failed to generate invite')
+    } finally {
+      setInviteSubmitting(false)
+    }
+  }
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -88,6 +108,45 @@ export function AccountPage() {
           </button>
         </div>
       </form>
+
+      {user?.is_admin && (
+        <div className="league-form" style={{ marginTop: 32 }}>
+          <h3>Invite a new user</h3>
+          <label>Code expires in</label>
+          <select
+            value={inviteHours}
+            onChange={(e) => setInviteHours(Number(e.target.value) as 1 | 6 | 12 | 24)}
+          >
+            <option value={1}>1 hour</option>
+            <option value={6}>6 hours</option>
+            <option value={12}>12 hours</option>
+            <option value={24}>24 hours</option>
+          </select>
+
+          {inviteError && <div className="login-error">{inviteError}</div>}
+
+          {inviteResult && (
+            <div className="invite-result">
+              <p className="invite-label">Share this code (shown once):</p>
+              <code className="invite-code">{inviteResult.code}</code>
+              <p className="invite-expires">
+                Expires: {new Date(inviteResult.expires_at).toLocaleString()}
+              </p>
+            </div>
+          )}
+
+          <div className="form-actions">
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={generateCode}
+              disabled={inviteSubmitting}
+            >
+              {inviteSubmitting ? 'Generating…' : 'Generate invite code'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

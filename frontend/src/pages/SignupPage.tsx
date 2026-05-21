@@ -1,14 +1,12 @@
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useNavigate, Link } from 'react-router-dom'
+import { signup } from '../api'
 
-export function LoginPage() {
-  const { login } = useAuth()
+export function SignupPage() {
   const navigate = useNavigate()
-  const location = useLocation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const justSignedUp = (location.state as { signedUp?: boolean } | null)?.signedUp ?? false
+  const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -17,11 +15,10 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await login(username, password)
-      const dest = (location.state as { from?: string } | null)?.from ?? '/'
-      navigate(dest, { replace: true })
+      await signup(username, password, inviteCode)
+      navigate('/login', { replace: true, state: { signedUp: true } })
     } catch (e: any) {
-      setError(e.message || 'Login failed')
+      setError(e.message || 'Signup failed')
     } finally {
       setSubmitting(false)
     }
@@ -31,40 +28,51 @@ export function LoginPage() {
     <div className="login-wrap">
       <form className="login-card" onSubmit={handleSubmit}>
         <h1>ESPN Fantasy Stats</h1>
-        <p className="subtitle">Sign in to continue</p>
+        <p className="subtitle">Create your account</p>
 
-        <label htmlFor="lg-user">Username</label>
+        <label htmlFor="su-user">Username</label>
         <input
-          id="lg-user"
+          id="su-user"
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           autoComplete="username"
           autoFocus
           required
+          minLength={3}
+          maxLength={64}
         />
 
-        <label htmlFor="lg-pw">Password</label>
+        <label htmlFor="su-pw">Password</label>
         <input
-          id="lg-pw"
+          id="su-pw"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
+          autoComplete="new-password"
           required
+          minLength={8}
         />
 
-        {justSignedUp && (
-          <div className="login-success">Account created — sign in below.</div>
-        )}
+        <label htmlFor="su-code">Invite code</label>
+        <input
+          id="su-code"
+          type="text"
+          value={inviteCode}
+          onChange={(e) => setInviteCode(e.target.value)}
+          autoComplete="off"
+          required
+          placeholder="Paste the code you received"
+        />
+
         {error && <div className="login-error">{error}</div>}
 
         <button type="submit" disabled={submitting}>
-          {submitting ? 'Signing in…' : 'Sign in'}
+          {submitting ? 'Creating account…' : 'Create account'}
         </button>
 
         <p className="login-hint">
-          Have an invite code? <Link to="/signup">Create an account</Link>
+          Already have an account? <Link to="/login">Sign in</Link>
         </p>
       </form>
     </div>

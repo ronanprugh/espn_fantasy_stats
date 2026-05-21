@@ -1,7 +1,7 @@
 import datetime as dt
 from typing import Any
 
-from sqlalchemy import BigInteger, ForeignKey, LargeBinary, String, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, ForeignKey, LargeBinary, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -16,10 +16,14 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
     created_at: Mapped[dt.datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     leagues: Mapped[list["League"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
+    )
+    invite_codes: Mapped[list["InviteCode"]] = relationship(
+        back_populates="created_by_user", cascade="all, delete-orphan"
     )
 
 
@@ -40,6 +44,21 @@ class League(Base):
     created_at: Mapped[dt.datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="leagues")
+
+
+class InviteCode(Base):
+    __tablename__ = "invite_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    expires_at: Mapped[dt.datetime] = mapped_column(nullable=False)
+    used_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
+    created_by: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(server_default=func.now(), nullable=False)
+
+    created_by_user: Mapped["User"] = relationship(back_populates="invite_codes")
 
 
 class Cache(Base):

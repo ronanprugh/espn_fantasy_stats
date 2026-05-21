@@ -43,3 +43,10 @@ def optional_user(request: Request, db: Session = Depends(get_db)) -> User | Non
     if user_id is None:
         return None
     return db.get(User, user_id)
+
+
+def require_admin(user: User = Depends(current_user)) -> User:
+    """Require the current user to have is_admin=True."""
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user
