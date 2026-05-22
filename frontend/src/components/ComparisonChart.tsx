@@ -31,11 +31,12 @@ type Props = {
   statKey: keyof OwnerSeason
   statLabel: string
   yReversed?: boolean
+  yAutoScale?: boolean
 }
 
 type Datum = Record<string, number | null>
 
-export function ComparisonChart({ owners, allYears, statKey, statLabel, yReversed }: Props) {
+export function ComparisonChart({ owners, allYears, statKey, statLabel, yReversed, yAutoScale }: Props) {
   const data: Datum[] = allYears.map((year) => {
     const row: Datum = { year }
     for (const o of owners) {
@@ -77,6 +78,7 @@ export function ComparisonChart({ owners, allYears, statKey, statLabel, yReverse
           <YAxis
             reversed={yReversed}
             allowDecimals={!yReversed}
+            domain={yAutoScale ? ['auto', 'auto'] : [0, 'auto']}
             label={{ value: statLabel, angle: -90, position: 'insideLeft', offset: 0 }}
           />
           <Tooltip content={renderTooltip} />

@@ -20,18 +20,19 @@ type StatOption = {
   key: keyof OwnerSeason
   label: string
   yReversed?: boolean
+  yAutoScale?: boolean  // true = don't force zero baseline
 }
 
 const STAT_OPTIONS: StatOption[] = [
-  { key: 'final_standing', label: 'Final Standing', yReversed: true },
-  { key: 'seed', label: 'Playoff Seed', yReversed: true },
+  { key: 'final_standing', label: 'Final Standing', yReversed: true, yAutoScale: true },
+  { key: 'seed', label: 'Playoff Seed', yReversed: true, yAutoScale: true },
   { key: 'wins', label: 'Wins' },
   { key: 'losses', label: 'Losses' },
-  { key: 'points_for', label: 'Points For (total)' },
-  { key: 'points_against', label: 'Points Against (total)' },
-  { key: 'avg_points_for', label: 'Avg Points For' },
-  { key: 'avg_points_against', label: 'Avg Points Against' },
-  { key: 'avg_plus_minus', label: 'Avg +/−' },
+  { key: 'points_for', label: 'Points For (total)', yAutoScale: true },
+  { key: 'points_against', label: 'Points Against (total)', yAutoScale: true },
+  { key: 'avg_points_for', label: 'Avg Points For', yAutoScale: true },
+  { key: 'avg_points_against', label: 'Avg Points Against', yAutoScale: true },
+  { key: 'avg_plus_minus', label: 'Avg +/−', yAutoScale: true },
   { key: 'playoff_wins', label: 'Playoff Wins' },
   { key: 'playoff_losses', label: 'Playoff Losses' },
 ]
@@ -167,6 +168,7 @@ export function ComparePage() {
                   statKey={stat.key}
                   statLabel={stat.label}
                   yReversed={stat.yReversed}
+                  yAutoScale={stat.yAutoScale}
                 />
                 <aside className="chart-averages">
                   <h4>Avg {stat.label}</h4>
