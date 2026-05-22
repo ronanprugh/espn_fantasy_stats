@@ -792,10 +792,11 @@ def team_hub(
     }
 
     # Career records: scan every season's scoreboard for this owner's team.
-    best_score: tuple[float, int, int, str] | None = None
-    worst_score: tuple[float, int, int, str] | None = None
-    biggest_win: tuple[float, int, int, str] | None = None
-    biggest_loss: tuple[float, int, int, str] | None = None
+    # Tuples: (value, year, week, opp_name, own_team_id, opp_team_id)
+    best_score: tuple[float, int, int, str, int, int] | None = None
+    worst_score: tuple[float, int, int, str, int, int] | None = None
+    biggest_win: tuple[float, int, int, str, int, int] | None = None
+    biggest_loss: tuple[float, int, int, str, int, int] | None = None
     all_results: list[tuple[int, int, str]] = []  # (year, week, W/L/T)
 
     for y in sorted(seasons_by_year.keys()):
@@ -818,21 +819,23 @@ def team_hub(
                 own_sc = mm["team_a_score"]
                 opp_sc = mm["team_b_score"]
                 opp_nm = mm["team_b_name"]
+                opp_id = mm["team_b_id"]
             else:
                 own_sc = mm["team_b_score"]
                 opp_sc = mm["team_a_score"]
                 opp_nm = mm["team_a_name"]
+                opp_id = mm["team_a_id"]
             if best_score is None or own_sc > best_score[0]:
-                best_score = (own_sc, y, mm["week"], opp_nm)
+                best_score = (own_sc, y, mm["week"], opp_nm, team_id_y, opp_id)
             if worst_score is None or own_sc < worst_score[0]:
-                worst_score = (own_sc, y, mm["week"], opp_nm)
+                worst_score = (own_sc, y, mm["week"], opp_nm, team_id_y, opp_id)
             margin = own_sc - opp_sc
             if margin > 0 and (biggest_win is None or margin > biggest_win[0]):
-                biggest_win = (margin, y, mm["week"], opp_nm)
+                biggest_win = (margin, y, mm["week"], opp_nm, team_id_y, opp_id)
             elif margin < 0:
                 deficit = -margin
                 if biggest_loss is None or deficit > biggest_loss[0]:
-                    biggest_loss = (deficit, y, mm["week"], opp_nm)
+                    biggest_loss = (deficit, y, mm["week"], opp_nm, team_id_y, opp_id)
             if mm["winner_id"] == team_id_y:
                 all_results.append((y, mm["week"], "W"))
             elif mm["winner_id"] is None:
@@ -859,7 +862,14 @@ def team_hub(
         return (
             None
             if t is None
-            else {"value": round(t[0], 2), "year": t[1], "week": t[2], "opponent": t[3]}
+            else {
+                "value": round(t[0], 2),
+                "year": t[1],
+                "week": t[2],
+                "opponent": t[3],
+                "own_team_id": t[4],
+                "opp_team_id": t[5],
+            }
         )
 
     records = {

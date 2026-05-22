@@ -104,6 +104,8 @@ class RecordEntry(BaseModel):
     year: int
     week: int
     opponent: str
+    own_team_id: int
+    opp_team_id: int
 
 
 class TeamHubRecords(BaseModel):

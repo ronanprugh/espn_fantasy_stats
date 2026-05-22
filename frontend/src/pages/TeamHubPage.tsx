@@ -204,7 +204,13 @@ export function TeamHubPage() {
                 </section>
               )}
 
-              <RecordsSection records={hub.records} />
+              <RecordsSection
+                records={hub.records}
+                onRecordClick={(r) => {
+                  if (r.year < 2019) return
+                  navigate(`/box_score/${r.year}/${r.week}/${r.own_team_id}/${r.opp_team_id}`)
+                }}
+              />
             </>
           )}
 
@@ -269,11 +275,18 @@ function TrophyCabinet({ accolades }: { accolades: TeamHub['accolades'] }) {
   )
 }
 
-function RecordsSection({ records }: { records: TeamHub['records'] }) {
+function RecordsSection({
+  records,
+  onRecordClick,
+}: {
+  records: TeamHub['records']
+  onRecordClick: (r: RecordEntry) => void
+}) {
   const fmtCtx = (r: RecordEntry | null) =>
     r ? `${r.year} · Wk ${r.week} · vs ${r.opponent}` : '—'
   const fmtVal = (r: RecordEntry | null, sign = '') =>
     r ? `${sign}${r.value.toFixed(1)}` : '—'
+  const clickable = (r: RecordEntry | null) => !!r && r.year >= 2019
   return (
     <section className="hub-records">
       <h3>Career Records</h3>
@@ -282,23 +295,27 @@ function RecordsSection({ records }: { records: TeamHub['records'] }) {
           label="Highest Score"
           value={fmtVal(records.highest_score)}
           sub={fmtCtx(records.highest_score)}
+          onClick={clickable(records.highest_score) ? () => onRecordClick(records.highest_score!) : undefined}
         />
         <RecordCard
           label="Lowest Score"
           value={fmtVal(records.lowest_score)}
           sub={fmtCtx(records.lowest_score)}
+          onClick={clickable(records.lowest_score) ? () => onRecordClick(records.lowest_score!) : undefined}
         />
         <RecordCard
           label="Biggest Win"
           value={fmtVal(records.biggest_win_margin, '+')}
           sub={fmtCtx(records.biggest_win_margin)}
           accent="pos"
+          onClick={clickable(records.biggest_win_margin) ? () => onRecordClick(records.biggest_win_margin!) : undefined}
         />
         <RecordCard
           label="Worst Loss"
           value={fmtVal(records.biggest_loss_margin, '−')}
           sub={fmtCtx(records.biggest_loss_margin)}
           accent="neg"
+          onClick={clickable(records.biggest_loss_margin) ? () => onRecordClick(records.biggest_loss_margin!) : undefined}
         />
         <RecordCard
           label="Longest Win Streak"
@@ -320,14 +337,20 @@ function RecordCard({
   value,
   sub,
   accent,
+  onClick,
 }: {
   label: string
   value: string
   sub?: string
   accent?: 'pos' | 'neg'
+  onClick?: () => void
 }) {
   return (
-    <div className={`record-card${accent ? ` ${accent}` : ''}`}>
+    <div
+      className={`record-card${accent ? ` ${accent}` : ''}${onClick ? ' clickable' : ''}`}
+      onClick={onClick}
+      title={onClick ? 'View box score' : undefined}
+    >
       <div className="record-label">{label}</div>
       <div className="record-value">{value}</div>
       {sub && <div className="record-sub">{sub}</div>}

@@ -807,6 +807,15 @@ body {
   padding: 14px 16px;
 }
 
+.record-card.clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.record-card.clickable:hover {
+  background: var(--surface2);
+}
+
 .record-card.pos {
   border-left: 4px solid var(--success);
 }

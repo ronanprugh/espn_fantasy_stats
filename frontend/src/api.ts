@@ -448,6 +448,8 @@ export type RecordEntry = {
   year: number
   week: number
   opponent: string
+  own_team_id: number
+  opp_team_id: number
 }
 
 export type TeamHubRecords = {
