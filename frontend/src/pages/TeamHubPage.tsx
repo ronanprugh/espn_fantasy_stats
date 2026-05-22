@@ -187,6 +187,27 @@ export function TeamHubPage() {
                   label={`Avg PF / Game (${hub.selected_year})`}
                   value={hub.selected_avg_pf.toFixed(2)}
                 />
+                {hub.ppr_avg_pf != null && (
+                  <StatCard
+                    label="Avg PF / Game"
+                    value={hub.ppr_avg_pf.toFixed(2)}
+                    sub="PPR seasons"
+                  />
+                )}
+                {hub.half_ppr_avg_pf != null && (
+                  <StatCard
+                    label="Avg PF / Game"
+                    value={hub.half_ppr_avg_pf.toFixed(2)}
+                    sub="Half-PPR seasons"
+                  />
+                )}
+                {hub.standard_avg_pf != null && (
+                  <StatCard
+                    label="Avg PF / Game"
+                    value={hub.standard_avg_pf.toFixed(2)}
+                    sub="Standard seasons"
+                  />
+                )}
               </section>
 
               {hub.last_matchup && (

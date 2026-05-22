@@ -64,6 +64,21 @@ def discover_years(
     )
 
 
+def get_scoring_type(league: League) -> str:
+    """Return 'ppr', 'half_ppr', or 'standard' based on reception points."""
+    rec_item = next(
+        (x for x in league.settings.scoring_format if x.get("id") == 53), None
+    )
+    if rec_item is None:
+        return "standard"
+    pts = rec_item.get("points", 0)
+    if pts >= 1.0:
+        return "ppr"
+    if pts >= 0.5:
+        return "half_ppr"
+    return "standard"
+
+
 def _playoff_record(team, reg_season_count: int, playoff_team_count: int) -> tuple[int, int]:
     """Single-elimination playoff record. Stops counting after first loss."""
     if team.standing > playoff_team_count:

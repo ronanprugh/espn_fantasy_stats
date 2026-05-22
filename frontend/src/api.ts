@@ -158,6 +158,7 @@ export type Team = {
 export type SeasonTeams = {
   league_id: number
   year: number
+  scoring_type: 'ppr' | 'half_ppr' | 'standard'
   teams: Team[]
 }
 
@@ -488,6 +489,9 @@ export type TeamHub = {
   seasons_played: number
   avg_finish: number
   career_avg_pf: number
+  ppr_avg_pf: number | null
+  half_ppr_avg_pf: number | null
+  standard_avg_pf: number | null
   available_years: number[]
   roster: TeamHubPlayer[]
   last_matchup: TeamHubLastMatchup | null

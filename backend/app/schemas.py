@@ -199,6 +199,9 @@ class TeamHub(BaseModel):
     seasons_played: int
     avg_finish: float
     career_avg_pf: float
+    ppr_avg_pf: float | None = None
+    half_ppr_avg_pf: float | None = None
+    standard_avg_pf: float | None = None
 
     # Years this owner has data for, ascending — for the year dropdown
     available_years: List[int]
@@ -239,6 +242,7 @@ class Team(BaseModel):
 class SeasonTeams(BaseModel):
     league_id: int
     year: int
+    scoring_type: str = "standard"  # 'ppr', 'half_ppr', or 'standard'
     teams: List[Team]
 
 

@@ -19,6 +19,7 @@ from .espn_client import (
     compute_positional_week_points,
     discover_years,
     get_league,
+    get_scoring_type,
     serialize_all_matchups,
     serialize_box_scores,
     serialize_playoffs,
@@ -329,16 +330,17 @@ def _get_season_teams(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> dict:
     if not refresh:
-        cached = cache.get(league_id, year, "teams_v2")
+        cached = cache.get(league_id, year, "teams_v3")
         if cached:
             return cached
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
     payload = {
         "league_id": league_id,
         "year": year,
+        "scoring_type": get_scoring_type(league),
         "teams": serialize_teams(league),
     }
-    cache.put(league_id, year, "teams_v2", payload)
+    cache.put(league_id, year, "teams_v3", payload)
     return payload
 
 
@@ -746,6 +748,24 @@ def team_hub(
     )
     career_avg_pf = total_pf / total_games if total_games else 0.0
 
+    # Per-scoring-format avg PPG (seasons are already fetched via _get_season_teams above)
+    _scoring_pf: dict[str, float] = {}
+    _scoring_games: dict[str, int] = {}
+    for y, td in seasons_by_year.items():
+        teams_payload = _get_season_teams(ctx.espn_league_id, y, ctx.espn_s2, ctx.swid)
+        st = teams_payload.get("scoring_type", "standard")
+        games = td["wins"] + td["losses"] + td["ties"]
+        _scoring_pf[st] = _scoring_pf.get(st, 0.0) + td["points_for"]
+        _scoring_games[st] = _scoring_games.get(st, 0) + games
+
+    def _avg_for_type(key: str) -> float | None:
+        g = _scoring_games.get(key, 0)
+        return round(_scoring_pf[key] / g, 2) if g else None
+
+    ppr_avg_pf = _avg_for_type("ppr")
+    half_ppr_avg_pf = _avg_for_type("half_ppr")
+    standard_avg_pf = _avg_for_type("standard")
+
     # Roster from the selected year.
     roster: list[dict] = []
     try:
@@ -974,6 +994,9 @@ def team_hub(
         "seasons_played": len(seasons_by_year),
         "avg_finish": round(avg_finish, 2),
         "career_avg_pf": round(career_avg_pf, 2),
+        "ppr_avg_pf": ppr_avg_pf,
+        "half_ppr_avg_pf": half_ppr_avg_pf,
+        "standard_avg_pf": standard_avg_pf,
         "available_years": available_years,
         "roster": roster,
         "last_matchup": last_matchup,
