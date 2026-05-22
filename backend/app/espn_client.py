@@ -471,8 +471,21 @@ def serialize_box_scores(league: League, week: int) -> list[dict]:
             ],
         }
 
+    # Consolation/toilet-bowl matchups (neither team is in the real playoff
+    # bracket) are excluded — ESPN data for these games is unreliable and
+    # they don't represent meaningful competition.
+    playoff_team_ids = {
+        t.team_id for t in league.teams if t.standing <= s.playoff_team_count
+    } if is_playoff else set()
+
     result = []
     for bs in box_scores:
+        if is_playoff:
+            home_id = bs.home_team.team_id if hasattr(bs.home_team, "team_id") else None
+            away_id = bs.away_team.team_id if hasattr(bs.away_team, "team_id") else None
+            # Skip if neither team made the playoffs (consolation bracket)
+            if home_id not in playoff_team_ids and away_id not in playoff_team_ids:
+                continue
         result.append({
             "week": week,
             "is_playoff": is_playoff,

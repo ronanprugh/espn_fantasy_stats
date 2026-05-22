@@ -41,6 +41,7 @@ export function ScoreboardPage() {
   const goToBoxScore = (m: ScoreboardMatchup) => {
     if (m.is_bye) return
     if ((year as number) < 2019) return
+    if (m.round_label === 'consolation') return
     navigate(`/box_score/${year}/${m.week}/${m.team_a_id}/${m.team_b_id}`)
   }
 
@@ -107,7 +108,7 @@ export function ScoreboardPage() {
                 key={i}
                 matchup={m}
                 onClick={() => goToBoxScore(m)}
-                disabled={!boxScoresAvailable || m.is_bye}
+                disabled={!boxScoresAvailable || m.is_bye || m.round_label === 'consolation'}
               />
             ))}
           </div>

@@ -810,6 +810,8 @@ def team_hub(
         for mm in sb_y["matchups"]:
             if mm["is_bye"]:
                 continue
+            if mm.get("round_label") == "consolation":
+                continue
             if mm["team_a_id"] != team_id_y and mm["team_b_id"] != team_id_y:
                 continue
             if mm["team_a_id"] == team_id_y:
