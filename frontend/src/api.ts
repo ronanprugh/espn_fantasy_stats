@@ -1,6 +1,15 @@
+import { BASE_PATH } from './base'
+
 // All fetches use credentials:'include' so the session cookie is sent.
+// Root-relative URLs get the base-path prefix here — fetch() is not aware
+// of it, and every caller in this file passes a plain '/api/...' string.
 const baseFetch = (input: RequestInfo, init: RequestInit = {}) =>
-  fetch(input, { ...init, credentials: 'include' })
+  fetch(
+    typeof input === 'string' && input.startsWith('/')
+      ? `${BASE_PATH}${input}`
+      : input,
+    { ...init, credentials: 'include' },
+  )
 
 async function jsonFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
   const r = await baseFetch(url, init)

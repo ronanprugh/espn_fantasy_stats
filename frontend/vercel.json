@@ -1,11 +1,15 @@
 {
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/espn-fantasy-stats/api/:path*",
       "destination": "https://espn-fantasy-stats-api-158503771308.us-east1.run.app/api/:path*"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/espn-fantasy-stats/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
+      "source": "/espn-fantasy-stats/:path*",
       "destination": "/index.html"
     }
   ]
