@@ -153,8 +153,8 @@ function TeamLineup({ team }: { team: BoxScoreTeam }) {
             <th>Player</th>
             <th>Pos</th>
             <th>NFL</th>
-            <th className="right">Pts</th>
-            <th className="right">Proj</th>
+            <th className="right num">Pts</th>
+            <th className="right num">Proj</th>
           </tr>
         </thead>
         <tbody>
@@ -172,8 +172,8 @@ function TeamLineup({ team }: { team: BoxScoreTeam }) {
                   <td className="player-name">{p.name || '—'}</td>
                   <td>{p.position}</td>
                   <td>{p.pro_team}</td>
-                  <td className="points">{p.points.toFixed(2)}</td>
-                  <td className="proj">{p.projected_points.toFixed(2)}</td>
+                  <td className="points num">{p.points.toFixed(2)}</td>
+                  <td className="proj num">{p.projected_points.toFixed(2)}</td>
                 </tr>
               </Fragment>
             )

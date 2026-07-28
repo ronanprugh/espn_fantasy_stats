@@ -90,6 +90,7 @@ export function TeamList({ teams }: { teams: Team[] }) {
       dir={sortDir}
       onClick={handleSort}
       title={title}
+      numeric={key !== 'team_name' && key !== 'owner'}
     >
       {label}
     </SortableTh>
@@ -121,20 +122,20 @@ export function TeamList({ teams }: { teams: Team[] }) {
             const owner = t.owners[0]
             return (
               <tr key={t.team_id}>
-                <td>{finishOf(t)}</td>
-                <td>{t.team_id}</td>
+                <td className="num">{finishOf(t)}</td>
+                <td className="num">{t.team_id}</td>
                 <td>{t.team_name}</td>
                 <td>{owner ? `${owner.first_name} ${owner.last_name}` : '—'}</td>
-                <td>{t.wins}</td>
-                <td>{t.losses}</td>
-                <td>{t.ties}</td>
-                <td>{t.playoff_wins}</td>
-                <td>{t.playoff_losses}</td>
-                <td>{t.points_for.toFixed(1)}</td>
-                <td>{t.points_against.toFixed(1)}</td>
-                <td>{t.avg_points_for.toFixed(2)}</td>
-                <td>{t.avg_points_against.toFixed(2)}</td>
-                <td className={t.avg_plus_minus >= 0 ? 'pos' : 'neg'}>
+                <td className="num">{t.wins}</td>
+                <td className="num">{t.losses}</td>
+                <td className="num">{t.ties}</td>
+                <td className="num">{t.playoff_wins}</td>
+                <td className="num">{t.playoff_losses}</td>
+                <td className="num">{t.points_for.toFixed(1)}</td>
+                <td className="num">{t.points_against.toFixed(1)}</td>
+                <td className="num">{t.avg_points_for.toFixed(2)}</td>
+                <td className="num">{t.avg_points_against.toFixed(2)}</td>
+                <td className={`num ${t.avg_plus_minus >= 0 ? 'pos' : 'neg'}`}>
                   {t.avg_plus_minus >= 0 ? '+' : ''}
                   {t.avg_plus_minus.toFixed(2)}
                 </td>

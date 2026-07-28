@@ -217,7 +217,8 @@ export function PositionalStatsPage() {
           <table className="teams">
             <thead>
               <tr>
-                <SortableTh sortKey="rank" activeKey={sortKey} dir={sortDir} onClick={handleSort}>
+                <SortableTh sortKey="rank" activeKey={sortKey} dir={sortDir} onClick={handleSort}
+                  numeric>
                   #
                 </SortableTh>
                 <SortableTh sortKey="label" activeKey={sortKey} dir={sortDir} onClick={handleSort}>
@@ -229,6 +230,7 @@ export function PositionalStatsPage() {
                     activeKey={sortKey}
                     dir={sortDir}
                     onClick={handleSort}
+                  numeric
                     title="Seasons with box-score data"
                   >
                     Sns
@@ -239,6 +241,7 @@ export function PositionalStatsPage() {
                   activeKey={sortKey}
                   dir={sortDir}
                   onClick={handleSort}
+                  numeric
                   title="Total points scored at this position"
                 >
                   Total Pts
@@ -248,6 +251,7 @@ export function PositionalStatsPage() {
                   activeKey={sortKey}
                   dir={sortDir}
                   onClick={handleSort}
+                  numeric
                   title="Games where a starter was rostered at this position"
                 >
                   GP
@@ -257,6 +261,7 @@ export function PositionalStatsPage() {
                   activeKey={sortKey}
                   dir={sortDir}
                   onClick={handleSort}
+                  numeric
                   title="Average points per game at this position"
                 >
                   PPG
@@ -266,6 +271,7 @@ export function PositionalStatsPage() {
                   activeKey={sortKey}
                   dir={sortDir}
                   onClick={handleSort}
+                  numeric
                   title="Points scored in weeks after the regular season"
                 >
                   Playoff Pts
@@ -275,6 +281,7 @@ export function PositionalStatsPage() {
                   activeKey={sortKey}
                   dir={sortDir}
                   onClick={handleSort}
+                  numeric
                   title="Number of playoff-week games played"
                 >
                   Playoff GP
@@ -284,6 +291,7 @@ export function PositionalStatsPage() {
                   activeKey={sortKey}
                   dir={sortDir}
                   onClick={handleSort}
+                  numeric
                   title="Playoff points per game"
                 >
                   Playoff PPG
@@ -293,18 +301,18 @@ export function PositionalStatsPage() {
             <tbody>
               {sorted.map((r) => (
                 <tr key={r.label + r.sublabel}>
-                  <td>{r.rank}</td>
+                  <td className="num">{r.rank}</td>
                   <td>
                     <div>{r.label}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{r.sublabel}</div>
                   </td>
-                  {yearMode === 'all' && <td>{r.seasons}</td>}
-                  <td>{r.total_points.toFixed(1)}</td>
-                  <td>{r.games_played}</td>
-                  <td>{r.avg_ppg.toFixed(2)}</td>
-                  <td>{r.playoff_points.toFixed(1)}</td>
-                  <td>{r.playoff_games}</td>
-                  <td>{r.playoff_ppg.toFixed(2)}</td>
+                  {yearMode === 'all' && <td className="num">{r.seasons}</td>}
+                  <td className="num">{r.total_points.toFixed(1)}</td>
+                  <td className="num">{r.games_played}</td>
+                  <td className="num">{r.avg_ppg.toFixed(2)}</td>
+                  <td className="num">{r.playoff_points.toFixed(1)}</td>
+                  <td className="num">{r.playoff_games}</td>
+                  <td className="num">{r.playoff_ppg.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>

@@ -76,6 +76,7 @@ export function AggregateTable({ owners }: { owners: OwnerAggregate[] }) {
     return sortDir === 'asc' ? cmp : -cmp
   })
 
+  // Every column except Owner and Teams holds a statistical figure.
   const th = (key: SortKey, label: string, title?: string) => (
     <SortableTh
       sortKey={key}
@@ -83,6 +84,7 @@ export function AggregateTable({ owners }: { owners: OwnerAggregate[] }) {
       dir={sortDir}
       onClick={handleSort}
       title={title}
+      numeric={key !== 'owner_name' && key !== 'team_names'}
     >
       {label}
     </SortableTh>
@@ -112,24 +114,24 @@ export function AggregateTable({ owners }: { owners: OwnerAggregate[] }) {
         <tbody>
           {sorted.map((o) => (
             <tr key={o.owner_id}>
-              <td>{o.avg_finish.toFixed(2)}</td>
+              <td className="num">{o.avg_finish.toFixed(2)}</td>
               <td>{o.owner_name}</td>
               <td title={o.team_names.join(' / ')}>
                 {o.team_names.length === 1
                   ? o.team_names[0]
                   : `${o.team_names[0]} +${o.team_names.length - 1}`}
               </td>
-              <td>{o.seasons_played}</td>
-              <td>{o.wins}</td>
-              <td>{o.losses}</td>
-              <td>{o.ties}</td>
-              <td>{o.playoff_wins}</td>
-              <td>{o.playoff_losses}</td>
-              <td>{o.points_for.toFixed(1)}</td>
-              <td>{o.points_against.toFixed(1)}</td>
-              <td>{o.avg_points_for.toFixed(2)}</td>
-              <td>{o.avg_points_against.toFixed(2)}</td>
-              <td className={o.avg_plus_minus >= 0 ? 'pos' : 'neg'}>
+              <td className="num">{o.seasons_played}</td>
+              <td className="num">{o.wins}</td>
+              <td className="num">{o.losses}</td>
+              <td className="num">{o.ties}</td>
+              <td className="num">{o.playoff_wins}</td>
+              <td className="num">{o.playoff_losses}</td>
+              <td className="num">{o.points_for.toFixed(1)}</td>
+              <td className="num">{o.points_against.toFixed(1)}</td>
+              <td className="num">{o.avg_points_for.toFixed(2)}</td>
+              <td className="num">{o.avg_points_against.toFixed(2)}</td>
+              <td className={`num ${o.avg_plus_minus >= 0 ? 'pos' : 'neg'}`}>
                 {o.avg_plus_minus >= 0 ? '+' : ''}
                 {o.avg_plus_minus.toFixed(2)}
               </td>

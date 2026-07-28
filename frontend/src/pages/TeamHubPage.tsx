@@ -425,7 +425,7 @@ function RosterTable({ roster }: { roster: TeamHubPlayer[] }) {
           <th>Player</th>
           <th>Pos</th>
           <th>NFL</th>
-          <th className="right">Total Pts</th>
+          <th className="right num">Total Pts</th>
         </tr>
       </thead>
       <tbody>
@@ -448,7 +448,7 @@ function RosterTable({ roster }: { roster: TeamHubPlayer[] }) {
                 </td>
                 <td>{p.position}</td>
                 <td>{p.pro_team}</td>
-                <td className="points right">{p.total_points.toFixed(1)}</td>
+                <td className="points right num">{p.total_points.toFixed(1)}</td>
               </tr>
             </Fragment>
           )
@@ -472,11 +472,11 @@ function ScheduleTable({
     <table className="schedule-table">
       <thead>
         <tr>
-          <th>Wk</th>
+          <th className="num">Wk</th>
           <th>Round</th>
           <th>Opponent</th>
-          <th className="right">Score</th>
-          <th className="right">Opp Score</th>
+          <th className="right num">Score</th>
+          <th className="right num">Opp Score</th>
           <th>Result</th>
         </tr>
       </thead>
@@ -492,7 +492,7 @@ function ScheduleTable({
               onClick={clickable ? () => onGameClick(g) : undefined}
               title={clickable ? 'View box score' : ''}
             >
-              <td>{g.week}</td>
+              <td className="num">{g.week}</td>
               <td>
                 <RoundBadge round={g.round_label} />
               </td>
@@ -506,8 +506,8 @@ function ScheduleTable({
                   </>
                 )}
               </td>
-              <td className="right">{g.is_bye ? '—' : g.own_score.toFixed(1)}</td>
-              <td className="right">{g.is_bye ? '—' : g.opp_score.toFixed(1)}</td>
+              <td className="right num">{g.is_bye ? '—' : g.own_score.toFixed(1)}</td>
+              <td className="right num">{g.is_bye ? '—' : g.opp_score.toFixed(1)}</td>
               <td>
                 {g.is_bye ? (
                   <span className="result-tag bye">BYE</span>

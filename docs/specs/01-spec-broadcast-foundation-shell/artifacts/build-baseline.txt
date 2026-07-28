@@ -1,0 +1,31 @@
+# Build baseline
+commit: a4d19568f38d380998de37c3b564e623439ebb93
+branch: feat/broadcast-foundation-shell
+date: 2026-07-25T14:46:18Z
+node: v26.0.0  npm: 11.12.1
+
+$ npm run build
+
+> espn-fantasy-stats-frontend@0.0.0 build
+> tsc && vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 772 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.52 kB │ gzip:   0.31 kB
+dist/assets/index-B51xVQPC.css   26.52 kB │ gzip:   4.99 kB
+dist/assets/index-Cuz3KQLB.js   607.45 kB │ gzip: 182.04 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.23s
+npm notice
+npm notice New major version of npm available! 11.12.1 -> 12.0.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.1
+npm notice To update run: npm install -g npm@12.0.1
+npm notice
+exit: 0

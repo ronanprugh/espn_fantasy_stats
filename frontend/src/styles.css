@@ -1,79 +1,123 @@
+/* Broadcast light theme.
+ *
+ * Designed as a counterpart to the dark theme, not an inversion of it. The dark
+ * theme raises panels above the ground by lightness; light does the same in the
+ * other direction — a warm paper ground with cards lifted to pure white.
+ *
+ * The amber accent cannot survive the move unchanged: #f0a92c on white measures
+ * 1.9:1, nowhere near legible. It is darkened to an amber-brown that holds the
+ * same hue family while clearing 4.5:1 on every surface.
+ *
+ * Verified by src/lib/contrast.test.ts, which writes the full pairing matrix to
+ * docs/specs/01-spec-broadcast-foundation-shell/artifacts/contrast-report.md.
+ */
 :root {
   font-family: system-ui, -apple-system, sans-serif;
   color-scheme: light;
 
+  /* Numerals. A system stack, deliberately: no font CDN is in use, and adding
+   * one would introduce a network dependency and a layout-shift risk for a
+   * purely typographic gain. Where no condensed face is installed this
+   * degrades to the UI sans — still tabular, just not condensed. */
+  --font-numeric: "Roboto Condensed", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+
   /* Surfaces */
-  --bg-page: #fafafa;
+  --bg-page: #f4f2ef;
   --bg-card: #ffffff;
   --bg-subtle: rgba(0, 0, 0, 0.04);
-  --bg-hover: rgba(0, 0, 0, 0.08);
-  --bg-selected: #f5faff;
-  --bg-row-stripe: rgba(0, 0, 0, 0.02);
+  --bg-hover: rgba(0, 0, 0, 0.07);
+  --bg-selected: rgba(176, 110, 0, 0.1);
+  --bg-row-stripe: rgba(0, 0, 0, 0.022);
 
   /* Text */
-  --text-strong: #0a0a0a;
-  --text-primary: #1a1a1a;
-  --text-secondary: #555;
-  --text-muted: #888;
-  --text-faint: #aaa;
+  --text-strong: #14120f;
+  --text-primary: #262320;
+  --text-secondary: #55504a;
+  --text-muted: #6a645c;
+  --text-faint: #716b63;
 
-  /* Borders */
-  --border: #e0e0e0;
-  --border-soft: #eee;
-  --border-strong: #d0d0d0;
-  --border-divider: #f0f0f0;
+  /* Borders. --border-strong bounds interactive controls (select, input,
+   * buttons) and is held to the WCAG 1.4.11 3:1 floor. The others are
+   * structural hairlines and are exempt — see contrast.test.ts. */
+  --border: #ded9d2;
+  --border-soft: #e9e5df;
+  --border-strong: #8b847c;
+  --border-divider: #efece7;
 
-  /* Accent (blue) */
-  --accent: #0066cc;
-  --accent-hover: #0052a3;
-  --accent-soft: rgba(0, 102, 204, 0.12);
-  --accent-softer: rgba(0, 102, 204, 0.08);
-  --accent-tint: rgba(0, 102, 204, 0.06);
+  /* Accent (amber, darkened for a light ground) */
+  --accent: #926100;
+  --accent-hover: #734d00;
+  --accent-soft: rgba(146, 97, 0, 0.12);
+  --accent-softer: rgba(146, 97, 0, 0.08);
+  --accent-tint: rgba(146, 97, 0, 0.06);
 
   /* Status */
-  --success: #0a7a25;
-  --success-soft: rgba(10, 122, 37, 0.12);
-  --success-tint: #f3fbf5;
-  --danger: #c00;
-  --danger-soft: #fee;
-  --warn: #b85c00;
-  --warn-soft: #fff5e6;
+  --success: #16702e;
+  --success-soft: rgba(22, 112, 46, 0.12);
+  --success-tint: #f1f8f3;
+  --danger: #c2382f;
+  --danger-soft: rgba(194, 56, 47, 0.1);
+  --warn: #8a5a2b;
+  --warn-soft: rgba(138, 90, 43, 0.12);
 }
 
+/* Broadcast dark theme.
+ *
+ * Dark is the designed default. Ground is a blue-biased charcoal; panels are
+ * raised by lightness rather than by shadow. A single amber accent marks the
+ * active nav item, the selected segment, and rank-one emphasis — nothing else.
+ *
+ * Values only: every token name here is load-bearing because all twelve pages
+ * style through these variables. Renaming one converts a palette change into an
+ * app-wide refactor. Enforced by src/lib/tokens.test.ts.
+ *
+ * All text/surface pairings are verified >= 4.5:1 by src/lib/contrast.test.ts.
+ */
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg-page: #141416;
-  --bg-card: #1e1f22;
-  --bg-subtle: rgba(255, 255, 255, 0.05);
-  --bg-hover: rgba(255, 255, 255, 0.08);
-  --bg-selected: #1c2a3d;
-  --bg-row-stripe: rgba(255, 255, 255, 0.03);
+  --bg-page: #0e1116;
+  --bg-card: #161b23;
+  --bg-subtle: rgba(255, 255, 255, 0.045);
+  --bg-hover: rgba(255, 255, 255, 0.075);
+  /* Selected rows read as selected via a warm tint tied to the accent, rather
+   * than the previous blue wash, which no longer belongs to the palette. */
+  --bg-selected: rgba(240, 169, 44, 0.1);
+  --bg-row-stripe: rgba(255, 255, 255, 0.025);
 
-  --text-strong: #f5f5f5;
-  --text-primary: #e6e6e6;
-  --text-secondary: #b0b0b0;
-  --text-muted: #888;
-  --text-faint: #666;
+  --text-strong: #f4f7fa;
+  --text-primary: #e3e9f0;
+  --text-secondary: #aeb9c6;
+  --text-muted: #939eac;
+  --text-faint: #8a95a3;
 
-  --border: #2d2f33;
-  --border-soft: #26282b;
-  --border-strong: #3a3c41;
-  --border-divider: #26282b;
+  /* Hairlines, not boxes: the design assumes the reader came for the numbers,
+   * so chrome recedes. Borders are boundaries, held to the 3:1 UI floor. */
+  --border: #2a323d;
+  --border-soft: #212831;
+  --border-strong: #5f6b7b;
+  --border-divider: #1d242c;
 
-  --accent: #4da3ff;
-  --accent-hover: #6cb4ff;
-  --accent-soft: rgba(77, 163, 255, 0.18);
-  --accent-softer: rgba(77, 163, 255, 0.12);
-  --accent-tint: rgba(77, 163, 255, 0.08);
+  --accent: #f0a92c;
+  --accent-hover: #f7bc55;
+  --accent-soft: rgba(240, 169, 44, 0.18);
+  --accent-softer: rgba(240, 169, 44, 0.12);
+  --accent-tint: rgba(240, 169, 44, 0.08);
 
-  --success: #4caf50;
-  --success-soft: rgba(76, 175, 80, 0.16);
-  --success-tint: rgba(76, 175, 80, 0.08);
-  --danger: #ef5350;
-  --danger-soft: rgba(239, 83, 80, 0.16);
-  --warn: #ff9d3a;
-  --warn-soft: rgba(255, 157, 58, 0.16);
+  /* Delta semantics (FR U1-5): --success and --danger carry positive/negative
+   * deltas and must not be mistaken for the accent. Separation is a hue
+   * question, not a luminance one — see src/lib/perceptual.ts. Measured:
+   * success 70.8deg and danger 47.7deg from the accent. */
+  --success: #4ec26f;
+  --success-soft: rgba(78, 194, 111, 0.16);
+  --success-tint: rgba(78, 194, 111, 0.08);
+  --danger: #f0716b;
+  --danger-soft: rgba(240, 113, 107, 0.16);
+  /* --warn is not a delta token: it styles the Manage Leagues edit button and
+   * the championship round badge. It sits 16.7deg from the accent, which is
+   * the closest any orange can get. See task 1.0 proofs. */
+  --warn: #d98b52;
+  --warn-soft: rgba(217, 139, 82, 0.16);
 }
 
 *,
@@ -91,7 +135,7 @@ body {
 .layout {
   display: grid;
   grid-template-columns: 220px 1fr;
-  height: 100vh;
+  height: 100svh;
   overflow: hidden;
   transition: grid-template-columns 0.2s ease;
 }
@@ -106,7 +150,7 @@ body {
   padding: 12px 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100svh;
   overflow: hidden;
   position: relative;
 }
@@ -120,7 +164,7 @@ body {
 
 .sidebar-collapse-btn {
   background: var(--bg-subtle);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
   width: 24px;
   height: 24px;
@@ -156,7 +200,281 @@ body {
   padding: 24px 32px;
   min-width: 0;
   overflow-y: auto;
-  height: 100vh;
+  height: 100svh;
+}
+
+/* ===========================================================================
+   Bottom tab bar and More sheet — below 900px
+   ===========================================================================
+   Four primary destinations plus a More trigger; the remaining five live in the
+   sheet. Both components are always mounted and hidden by CSS, so no JS
+   breakpoint has to stay in agreement with this stylesheet.
+
+   --tab-bar-height is declared on .layout rather than :root deliberately:
+   .layout is the common ancestor of .content and .tab-bar, which is everything
+   that needs it, and the theme token blocks stay purely about colour. */
+.layout {
+  --tab-bar-height: 56px;
+}
+
+.tab-bar {
+  display: none;
+  /* Kept in agreement with the reservation .content makes below: if the bar
+   * grew past --tab-bar-height, it would start covering page content. */
+  min-height: var(--tab-bar-height);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  /* env() resolves non-zero only because index.html sets viewport-fit=cover
+   * (task 4.1). The 0px fallback keeps the bar correct on every other device. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.tab-bar-item {
+  flex: 1 1 0;
+  /* FR U2-4: 44x44 minimum. At 320px five equal tabs are 64px wide, so height
+   * is the binding constraint. */
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-top: 2px solid transparent;
+  cursor: pointer;
+}
+
+/* The single accent marks the active destination, matching the sidebar's rule.
+ * `.active` covers both NavLink's own class and the More button's open state. */
+.tab-bar-item.active {
+  color: var(--accent);
+  border-top-color: var(--accent);
+  background: var(--accent-tint);
+}
+
+/* Sheet
+ *
+ * Not CSS-hidden above 900px, unlike the tab bar: the only trigger is the More
+ * button, which is itself mobile-only, and hiding an open sheet on resize would
+ * leave `body { overflow: hidden }` applied with no visible way to dismiss it. */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.sheet {
+  width: 100%;
+  max-height: 80svh;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  border-radius: 14px 14px 0 0;
+  padding: 8px 0 calc(env(safe-area-inset-bottom, 0px) + 8px);
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  margin: 4px auto 8px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+.sheet-league {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 20px 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.sheet-league label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+/* The sidebar's copy of this control is 30px tall, sized for a mouse. On a
+ * phone it is a primary control, so it is raised to the 44px target floor
+ * rather than the 24px WCAG 2.2 minimum. */
+.sheet-league select {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+/* The no-leagues fallback is the same kind of target as the select it replaces,
+ * so it gets the same floor — 27px inherited from the sidebar is not enough. */
+.sheet-league .add-league-link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.sheet-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* 48px keeps sheet rows above the 44px target floor as well, even though
+   * WCAG 2.2 SC 2.5.8 would allow 24px here. */
+  min-height: 48px;
+  padding: 12px 20px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.sheet-item:hover {
+  background: var(--bg-subtle);
+}
+
+/* The sheet traps Tab, so its rows are the only thing a keyboard user can move
+ * between while it is open — the ring has to be unmistakable. Drawn inset
+ * because a full-bleed row would otherwise clip the outline at both edges. */
+.tab-bar-item:focus-visible,
+.sheet-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.sheet-nav .sheet-item.active {
+  color: var(--accent);
+  background: var(--accent-softer);
+  font-weight: 600;
+}
+
+.sheet-footer {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.sheet-action {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.sheet-logout:hover {
+  color: var(--danger);
+}
+
+/* ===========================================================================
+   Mobile shell — below 900px
+   ===========================================================================
+   900px is reused deliberately: it is the breakpoint the stylesheet already
+   used for .box-score-grid, and introducing a second value would leave two
+   competing definitions of "small". Note this puts portrait tablets (768px) on
+   the mobile shell rather than the sidebar.
+
+   The desktop shell is a fixed-height grid whose .content pane scrolls
+   internally. On mobile that is the wrong model: an internal scroller prevents
+   the browser toolbars from collapsing, which is the behaviour svh units are
+   sized around. So below the breakpoint the layout becomes a normal block and
+   the page itself scrolls. */
+@media (max-width: 900px) {
+  .layout {
+    display: block;
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+  }
+
+  /* The collapsed state is persisted in localStorage under `sidebar_collapsed`.
+   * Without this reset, anyone who collapsed the sidebar on desktop would carry
+   * a 36px phantom column into the mobile layout on their next phone visit. */
+  .layout.sidebar-collapsed {
+    grid-template-columns: none;
+  }
+
+  /* The collapse-to-36px control is a desktop affordance and is not a mobile
+   * answer; navigation moves to the bottom tab bar (task 5.0). */
+  .sidebar,
+  .sidebar-collapse-btn {
+    display: none;
+  }
+
+  .content {
+    height: auto;
+    min-height: 100svh;
+    overflow-y: visible;
+    /* Bottom padding clears the fixed tab bar plus the home indicator. Without
+     * it the last row of every page sits underneath the bar. */
+    padding: 16px 12px calc(var(--tab-bar-height) + env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  .tab-bar {
+    display: flex;
+  }
+}
+
+/* Horizontal containment
+ *
+ * Success Metric 1 requires no page-level horizontal scroll at 320px on every
+ * route. Content that genuinely cannot narrow — 14-column stat tables, the
+ * playoff bracket SVG, the comparison chart — scrolls inside its own container
+ * instead. Reshaping those into mobile layouts is deferred to later per-page
+ * specs; this is containment only.
+ *
+ * `min-width: 0` matters as much as `overflow-x`: a grid or flex child defaults
+ * to `min-width: auto`, which refuses to shrink below its content and pushes
+ * the page wider. It is the usual cause of page-level overflow. */
+.h2h-summary,
+.h2h-matchups,
+.hub-roster,
+.hub-schedule {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.chart-with-averages {
+  min-width: 0;
+}
+
+/* The chart is a non-goal (its internals are untouched), but the page it sits
+ * on is not exempt from the no-overflow requirement. Recharts'
+ * ResponsiveContainer measures its parent, so the parent must be allowed to
+ * shrink. */
+.chart-wrap {
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .sidebar .brand {
@@ -290,7 +608,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: 100svh;
   color: var(--text-muted);
   font-size: 14px;
   background: var(--bg-page);
@@ -298,7 +616,7 @@ body {
 
 /* Login */
 .login-wrap {
-  min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -849,16 +1167,27 @@ body {
   color: var(--text-muted);
 }
 
+/* The tab strip on Positional Stats and Team Hub is a nowrap flex row, so at
+ * 375px its buttons pushed the page 73px wider than the viewport — the only
+ * cross-route overflow the task 6.1 matrix found. It scrolls in-container
+ * instead, the same containment answer the tables use. Above the breakpoint the
+ * strip fits and the scroller is inert. */
 .hub-tabs {
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
   border-bottom: 1px solid var(--border-strong);
+  min-width: 0;
+  overflow-x: auto;
+  /* Without this the buttons compress instead of scrolling, and the labels wrap
+   * to two lines at 320px. */
+  scrollbar-width: thin;
 }
 
 .hub-tabs button {
   background: none;
   border: none;
+  flex: 0 0 auto;
   padding: 10px 18px;
   font-size: 14px;
   font-weight: 600;
@@ -917,6 +1246,8 @@ body {
   font-size: 26px;
   font-weight: 700;
   color: var(--text-strong);
+  /* tabular-nums was already here; the condensed face is what task 3.7 adds. */
+  font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1158,6 +1489,35 @@ table.teams td.neg {
   color: var(--danger);
 }
 
+/* Numerals
+ *
+ * tabular-nums gives every digit the same advance width, so a 1 occupies the
+ * same space as an 8 and columns stop shifting between rows. That alone is not
+ * enough when values differ in digit count (9 vs 10 wins), so numeric cells are
+ * also right-aligned: the units place is what a reader scans down.
+ *
+ * The tables set `text-align: left` on all th/td at (0,1,2) specificity, so the
+ * alignment override has to name each table to outrank it. The font properties
+ * carry no such conflict and are set once. */
+td.num,
+th.num {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Right alignment applies only to the left-aligned tables. The two head-to-head
+ * tables are centred on purpose — they compare two owners side by side, and
+ * centring is what pairs each figure with the team heading above it. They get
+ * tabular numerals without the alignment change. */
+table.teams td.num,
+table.teams th.num,
+.lineup-table td.num,
+.lineup-table th.num,
+.schedule-table td.num,
+.schedule-table th.num {
+  text-align: right;
+}
+
 /* Compare page */
 .compare-controls {
   display: flex;
@@ -1170,6 +1530,7 @@ table.teams td.neg {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .compare-controls label {
@@ -1184,7 +1545,8 @@ table.teams td.neg {
   font-size: 14px;
   background: var(--bg-card);
   color: var(--text-primary);
-  min-width: 240px;
+  min-width: min(240px, 100%);
+  max-width: 100%;
 }
 
 .selected-pills {

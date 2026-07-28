@@ -1,7 +1,9 @@
+import { Fragment } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLeague } from '../contexts/LeagueContext'
 import { useTheme } from '../contexts/ThemeContext'
+import { NAV_DESTINATIONS, NAV_GROUPS } from './navDestinations'
 
 type Props = {
   collapsed: boolean
@@ -54,23 +56,22 @@ export function Sidebar({ collapsed, onToggle }: Props) {
           )}
         </div>
 
+        {/* Rendered from NAV_DESTINATIONS rather than literal JSX so the
+         * sidebar and the mobile tab bar cannot drift apart: a destination
+         * added in one place appears in both. */}
         <nav className="sidebar-nav">
-          <div className="nav-section">Season Data</div>
-          <NavLink to="/" end>
-            Season Stats
-          </NavLink>
-          <NavLink to="/playoffs">Playoff History</NavLink>
-          <NavLink to="/scoreboard">Scoreboard</NavLink>
-          <NavLink to="/positional">Positional Stats</NavLink>
-
-          <div className="nav-section">Team Data</div>
-          <NavLink to="/team_hub">Team Hub</NavLink>
-          <NavLink to="/compare">Team Comparison</NavLink>
-          <NavLink to="/h2h">Head to Head</NavLink>
-
-          <div className="nav-section">Account</div>
-          <NavLink to="/leagues">Manage Leagues</NavLink>
-          <NavLink to="/account">Account</NavLink>
+          {NAV_GROUPS.map((group) => (
+            <Fragment key={group}>
+              <div className="nav-section">{group}</div>
+              {NAV_DESTINATIONS.filter((d) => d.group === group).map((d) => (
+                // `end` on "/" only — without it the index route matches every
+                // path and every item renders active.
+                <NavLink key={d.path} to={d.path} end={d.path === '/'}>
+                  {d.label}
+                </NavLink>
+              ))}
+            </Fragment>
+          ))}
         </nav>
       </div>
 

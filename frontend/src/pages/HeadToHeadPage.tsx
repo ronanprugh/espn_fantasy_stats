@@ -193,8 +193,8 @@ function H2HSummary({ data }: { data: HeadToHeadStats }) {
           {rows.map((r) => (
             <tr key={r.label}>
               <td className="label">{r.label}</td>
-              <td className={r.highlight === 'a' ? 'winner-cell' : ''}>{r.a}</td>
-              <td className={r.highlight === 'b' ? 'winner-cell' : ''}>{r.b}</td>
+              <td className={`num ${r.highlight === 'a' ? 'winner-cell' : ''}`}>{r.a}</td>
+              <td className={`num ${r.highlight === 'b' ? 'winner-cell' : ''}`}>{r.b}</td>
             </tr>
           ))}
         </tbody>
@@ -238,12 +238,12 @@ function H2HMatchupsList({
                 className={m.year >= 2019 ? 'clickable-row' : ''}
                 title={m.year >= 2019 ? 'View box score' : 'Box scores not available before 2019'}
               >
-                <td>{m.year}</td>
-                <td>Wk {m.week}</td>
+                <td className="num">{m.year}</td>
+                <td className="num">Wk {m.week}</td>
                 <td><RoundBadge round={m.round_label} /></td>
-                <td className={aWon ? 'winner-cell' : ''}>{m.owner_a_score.toFixed(1)}</td>
+                <td className={`num ${aWon ? 'winner-cell' : ''}`}>{m.owner_a_score.toFixed(1)}</td>
                 <td className="vs">vs</td>
-                <td className={bWon ? 'winner-cell' : ''}>{m.owner_b_score.toFixed(1)}</td>
+                <td className={`num ${bWon ? 'winner-cell' : ''}`}>{m.owner_b_score.toFixed(1)}</td>
                 <td>
                   {aWon
                     ? data.owner_a_team_name

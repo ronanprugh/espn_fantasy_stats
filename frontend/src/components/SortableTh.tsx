@@ -8,6 +8,9 @@ type Props<K extends string> = {
   dir: SortDir
   onClick: (key: K) => void
   title?: string
+  /** Marks a statistical column: applies tabular numerals and right alignment
+   * to the header so it sits over its own digits rather than beside them. */
+  numeric?: boolean
   children: ReactNode
 }
 
@@ -17,6 +20,7 @@ export function SortableTh<K extends string>({
   dir,
   onClick,
   title,
+  numeric,
   children,
 }: Props<K>) {
   const isActive = activeKey === sortKey
@@ -24,7 +28,7 @@ export function SortableTh<K extends string>({
     <th
       title={title}
       onClick={() => onClick(sortKey)}
-      className={`sortable${isActive ? ' active' : ''}`}
+      className={`sortable${isActive ? ' active' : ''}${numeric ? ' num' : ''}`}
     >
       {children}
       <span className="sort-arrow">{isActive ? (dir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
