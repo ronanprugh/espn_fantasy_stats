@@ -7,6 +7,7 @@ import {
   type BoxScoreTeam,
 } from '../api'
 import { useLeague } from '../contexts/LeagueContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const STARTER_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'WR/TE', 'OP', 'FLEX', 'K', 'D/ST']
 
@@ -85,15 +86,137 @@ export function BoxScorePage() {
         <p className="subtitle">Couldn't find that matchup.</p>
       )}
 
-      {matchup && (
-        <>
-          <MatchupHeader matchup={matchup} />
-          <div className="box-score-grid">
-            {matchup.home && <TeamLineup team={matchup.home} />}
-            {matchup.away && <TeamLineup team={matchup.away} />}
-          </div>
-        </>
+      {matchup && <MatchupBody matchup={matchup} />}
+    </div>
+  )
+}
+
+/* Two lineups, two shapes. On a wide screen they sit side by side as full
+ * tables. On a phone the side-by-side grid collapsed to one column, which turned
+ * a matchup into two lists a reader had to scroll between to compare — the one
+ * thing a box score exists to make easy. The mobile shape interleaves them into
+ * a single slot-per-row sheet instead, mirrored about the slot column. */
+function MatchupBody({ matchup }: { matchup: BoxScoreMatchup }) {
+  const isMobile = useIsMobile()
+  const { home, away } = matchup
+
+  return (
+    <>
+      <MatchupHeader matchup={matchup} />
+      {isMobile && home && away ? (
+        <MobileLineups home={home} away={away} />
+      ) : (
+        <div className="box-score-grid">
+          {home && <TeamLineup team={home} />}
+          {away && <TeamLineup team={away} />}
+        </div>
       )}
+    </>
+  )
+}
+
+type PairedRow = { slot: string; home: BoxPlayer | null; away: BoxPlayer | null }
+
+/* The slot column is the narrowest in the mirrored layout, and ESPN's own
+ * multi-position slot names are its longest labels — "RB/WR/TE" ran straight
+ * through the points column beside it. These are the conventional short forms. */
+const SLOT_ABBREV: Record<string, string> = {
+  'RB/WR/TE': 'FLEX',
+  'WR/TE': 'W/T',
+  'RB/WR': 'R/W',
+  'D/ST': 'DST',
+}
+
+const shortSlot = (slot: string) => SLOT_ABBREV[slot] ?? slot
+
+/* Rows are paired positionally within each group after sorting, which is what
+ * makes the mirrored layout line up: both lineups come out of sortLineup in the
+ * same slot order, so index i is the same slot on both sides. Where the two
+ * differ in length (a short bench, an IR spot on one side only) the shorter side
+ * contributes an empty cell rather than shifting every row below it. */
+function pairLineups(home: BoxScoreTeam, away: BoxScoreTeam): {
+  starters: PairedRow[]
+  bench: PairedRow[]
+} {
+  const group = (team: BoxScoreTeam, starters: boolean) =>
+    sortLineup(team.lineup).filter((p) => isStarter(p.slot_position) === starters)
+
+  const zip = (h: BoxPlayer[], a: BoxPlayer[]): PairedRow[] =>
+    Array.from({ length: Math.max(h.length, a.length) }, (_, i) => ({
+      slot: h[i]?.slot_position ?? a[i]?.slot_position ?? '',
+      home: h[i] ?? null,
+      away: a[i] ?? null,
+    }))
+
+  return {
+    starters: zip(group(home, true), group(away, true)),
+    bench: zip(group(home, false), group(away, false)),
+  }
+}
+
+function MobileLineups({ home, away }: { home: BoxScoreTeam; away: BoxScoreTeam }) {
+  const { starters, bench } = pairLineups(home, away)
+
+  return (
+    <section className="bs-mobile">
+      <div className="bs-m-legend">
+        <span className="bs-m-legend-side">Proj · Pts</span>
+        <span className="bs-m-legend-slot">Slot</span>
+        <span className="bs-m-legend-side right">Pts · Proj</span>
+      </div>
+      {starters.map((r, i) => (
+        <MobileLineupRow key={`s${i}`} row={r} />
+      ))}
+      {bench.length > 0 && <div className="bs-m-divider">Bench</div>}
+      {bench.map((r, i) => (
+        <MobileLineupRow key={`b${i}`} row={r} bench />
+      ))}
+    </section>
+  )
+}
+
+function MobileLineupRow({ row, bench = false }: { row: PairedRow; bench?: boolean }) {
+  const { home, away } = row
+  // The higher score is the only thing worth colouring here; the reader is
+  // scanning for who won each slot.
+  const homeAhead = home && away ? home.points > away.points : false
+  const awayAhead = home && away ? away.points > home.points : false
+
+  return (
+    <div className={`bs-m-row${bench ? ' bench' : ''}`}>
+      <PlayerCell player={home} side="left" />
+      <div className="bs-m-proj">{home ? home.projected_points.toFixed(1) : ''}</div>
+      <div className={`bs-m-pts${homeAhead ? ' ahead' : ''}`}>
+        {home ? home.points.toFixed(1) : ''}
+      </div>
+      <div className="bs-m-slot">{shortSlot(row.slot)}</div>
+      <div className={`bs-m-pts${awayAhead ? ' ahead' : ''}`}>
+        {away ? away.points.toFixed(1) : ''}
+      </div>
+      <div className="bs-m-proj">{away ? away.projected_points.toFixed(1) : ''}</div>
+      <PlayerCell player={away} side="right" />
+    </div>
+  )
+}
+
+/* Two name columns and five numeric ones do not fit a 320px phone at full first
+ * names, and truncating "Christian McCaffrey" to "Christian…" hides the half of
+ * the name that identifies the player. Initialising the first name is what the
+ * scoring apps do, and it keeps the surname whole. Team defenses ("49ers D/ST")
+ * are left alone — there is no first name to shorten. */
+function shortName(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length < 2 || parts[parts.length - 1] === 'D/ST') return name
+  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
+}
+
+function PlayerCell({ player, side }: { player: BoxPlayer | null; side: 'left' | 'right' }) {
+  if (!player) return <div className={`bs-m-player ${side} empty`}>—</div>
+  const meta = [player.position, player.pro_team].filter(Boolean).join(' · ')
+  return (
+    <div className={`bs-m-player ${side}`}>
+      <div className="bs-m-name">{player.name ? shortName(player.name) : '—'}</div>
+      {meta && <div className="bs-m-meta">{meta}</div>}
     </div>
   )
 }

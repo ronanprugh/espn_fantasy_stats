@@ -1,12 +1,53 @@
+import { createContext, useContext } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { PlayoffMatchup, PlayoffTeam, SeasonPlayoffs } from '../api'
+import { useIsMobile } from '../hooks/useIsMobile'
 
-const BOX_W = 320
-const BOX_H = 88
-const ROW_H = 44
-const COL_GAP = 48
-const Y_GAP = 28
-const TEXT_PAD_X = 18
+/* Bracket geometry.
+ *
+ * The SVG is laid out in absolute user units, so "make it fit a phone" is not a
+ * CSS question — every coordinate below feeds the width the browser is asked to
+ * paint. Two metric sets rather than one scale factor: shrinking the desktop
+ * bracket uniformly would take the 13px labels down to ~9px, and a bracket you
+ * cannot read is no better than one you cannot reach. Compact keeps type at a
+ * legible size and takes the space out of the padding and the gutters instead.
+ *
+ * A three-round bracket is still wider than a phone at compact metrics. That is
+ * expected: it scrolls inside .bracket-section, which is the fix for the clipped
+ * SVG (the old `max-width: 100%` shrank the element without a viewBox, cropping
+ * the right-hand rounds with no way to scroll to them). */
+type BracketMetrics = {
+  BOX_W: number
+  BOX_H: number
+  ROW_H: number
+  COL_GAP: number
+  Y_GAP: number
+  TEXT_PAD_X: number
+  FONT: number
+}
+
+const DESKTOP_METRICS: BracketMetrics = {
+  BOX_W: 320,
+  BOX_H: 88,
+  ROW_H: 44,
+  COL_GAP: 48,
+  Y_GAP: 28,
+  TEXT_PAD_X: 18,
+  FONT: 13,
+}
+
+const COMPACT_METRICS: BracketMetrics = {
+  BOX_W: 208,
+  BOX_H: 72,
+  ROW_H: 36,
+  COL_GAP: 24,
+  Y_GAP: 18,
+  TEXT_PAD_X: 10,
+  FONT: 12,
+}
+
+const MetricsContext = createContext<BracketMetrics>(DESKTOP_METRICS)
+const useMetrics = () => useContext(MetricsContext)
 
 type BracketNode = {
   match: PlayoffMatchup
@@ -149,8 +190,16 @@ function collectNodes(node: BracketNode | null, acc: BracketNode[] = []): Bracke
   return acc
 }
 
-const xOf = (week: number, earliestWeek: number) => (week - earliestWeek) * (BOX_W + COL_GAP)
-const pixelY = (yUnit: number) => yUnit * (BOX_H + Y_GAP)
+const xOf = (week: number, earliestWeek: number, m: BracketMetrics) =>
+  (week - earliestWeek) * (m.BOX_W + m.COL_GAP)
+const pixelY = (yUnit: number, m: BracketMetrics) => yUnit * (m.BOX_H + m.Y_GAP)
+
+/* SVG text neither wraps nor clips, so a long team name would paint straight
+ * through the score and out of the box. Truncation is by character count, which
+ * is approximate for a proportional face but errs on the safe side at the width
+ * budget each metric set allows. */
+const nameLimit = (m: BracketMetrics) => (m === COMPACT_METRICS ? 18 : 30)
+const truncate = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s)
 
 function Connector({
   from,
@@ -161,16 +210,17 @@ function Connector({
   to: BracketNode
   earliestWeek: number
 }) {
-  const fromX = xOf(from.week, earliestWeek) + BOX_W
-  const fromYBox = pixelY(from.y)
-  const toX = xOf(to.week, earliestWeek)
-  const toYBox = pixelY(to.y)
+  const m = useMetrics()
+  const fromX = xOf(from.week, earliestWeek, m) + m.BOX_W
+  const fromYBox = pixelY(from.y, m)
+  const toX = xOf(to.week, earliestWeek, m)
+  const toYBox = pixelY(to.y, m)
 
   // Both ends attach at the vertical midpoint of their boxes.
-  const fromYMid = fromYBox + BOX_H / 2
-  const toYMid = toYBox + BOX_H / 2
+  const fromYMid = fromYBox + m.BOX_H / 2
+  const toYMid = toYBox + m.BOX_H / 2
 
-  const midX = fromX + COL_GAP / 2
+  const midX = fromX + m.COL_GAP / 2
   return (
     <path
       className="bracket-connector"
@@ -190,8 +240,9 @@ function MatchBox({
   earliestWeek: number
   onClick?: (n: BracketNode) => void
 }) {
-  const x = xOf(node.week, earliestWeek)
-  const y = pixelY(node.y)
+  const m = useMetrics()
+  const x = xOf(node.week, earliestWeek, m)
+  const y = pixelY(node.y, m)
   const winnerIsTop = node.winnerId === node.teamTop.team_id
   const winnerIsBot = node.winnerId === node.teamBottom.team_id
   // Bye boxes aren't clickable — there's no box score for a bye.
@@ -204,17 +255,17 @@ function MatchBox({
       className={`bracket-match${clickable ? ' clickable' : ''}${node.isByeMatchup ? ' bye' : ''}`}
     >
       <rect
-        width={BOX_W}
-        height={BOX_H}
+        width={m.BOX_W}
+        height={m.BOX_H}
         rx={8}
         className="bracket-match-rect"
       />
       <line
         className="bracket-row-divider"
         x1={0}
-        y1={ROW_H}
-        x2={BOX_W}
-        y2={ROW_H}
+        y1={m.ROW_H}
+        x2={m.BOX_W}
+        y2={m.ROW_H}
       />
       <TeamRow
         team={node.teamTop}
@@ -228,7 +279,7 @@ function MatchBox({
         score={node.scoreBottom}
         isWinner={winnerIsBot}
         isPlaceholder={node.isByeMatchup}
-        yOffset={ROW_H}
+        yOffset={m.ROW_H}
       />
       {clickable && <title>View box score</title>}
     </g>
@@ -248,15 +299,16 @@ function TeamRow({
   isPlaceholder: boolean
   yOffset: number
 }) {
-  const textY = ROW_H / 2 + 5 // visual vertical center for 13px text
+  const m = useMetrics()
+  const textY = m.ROW_H / 2 + m.FONT * 0.38 // visual vertical center
   if (isPlaceholder) {
     return (
       <g transform={`translate(0,${yOffset})`}>
         <text
           className="bracket-text-muted"
-          x={TEXT_PAD_X}
+          x={m.TEXT_PAD_X}
           y={textY}
-          fontSize={13}
+          fontSize={m.FONT}
           fontStyle="italic"
         >
           BYE
@@ -268,19 +320,19 @@ function TeamRow({
     <g transform={`translate(0,${yOffset})`}>
       <text
         className="bracket-text"
-        x={TEXT_PAD_X}
+        x={m.TEXT_PAD_X}
         y={textY}
-        fontSize={13}
+        fontSize={m.FONT}
         fontWeight={isWinner ? 600 : 400}
       >
         <tspan className="bracket-text-muted">{team.seed}.</tspan>
-        <tspan dx={6}>{team.team_name}</tspan>
+        <tspan dx={6}>{truncate(team.team_name, nameLimit(m))}</tspan>
       </text>
       <text
         className="bracket-text"
-        x={BOX_W - TEXT_PAD_X}
+        x={m.BOX_W - m.TEXT_PAD_X}
         y={textY}
-        fontSize={13}
+        fontSize={m.FONT}
         fontWeight={isWinner ? 600 : 400}
         textAnchor="end"
       >
@@ -301,14 +353,15 @@ function BracketSection({
   weekLabels?: Record<number, string>
   onMatchClick?: (n: BracketNode) => void
 }) {
+  const m = useMetrics()
   if (!root) return null
   assignY(root, { v: 0 })
   const nodes = collectNodes(root)
   const weeks = Array.from(new Set(nodes.map((n) => n.week))).sort((a, b) => a - b)
   const earliestWeek = weeks[0]
   const maxY = Math.max(...nodes.map((n) => n.y))
-  const width = xOf(weeks[weeks.length - 1], earliestWeek) + BOX_W + 4
-  const height = pixelY(maxY) + BOX_H + 28
+  const width = xOf(weeks[weeks.length - 1], earliestWeek, m) + m.BOX_W + 4
+  const height = pixelY(maxY, m) + m.BOX_H + 28
 
   // Pair up feeder→parent for connectors
   const pairs: Array<[BracketNode, BracketNode]> = []
@@ -320,14 +373,19 @@ function BracketSection({
   return (
     <section className="bracket-section">
       <h3>{title}</h3>
-      <svg width={width} height={height} className="bracket-svg">
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        className="bracket-svg"
+      >
         {/* Week column labels */}
         <g>
           {weeks.map((w) => (
             <text
               className="bracket-text-muted"
               key={w}
-              x={xOf(w, earliestWeek) + BOX_W / 2}
+              x={xOf(w, earliestWeek, m) + m.BOX_W / 2}
               y={14}
               fontSize={11}
               textAnchor="middle"
@@ -365,6 +423,7 @@ function StandalonePlacementGame({
   teamsById: Map<number, PlayoffTeam>
   onMatchClick?: (n: BracketNode) => void
 }) {
+  const m = useMetrics()
   if (!match) return null
   const teamA = teamsById.get(match.team_a_id)!
   const teamB = teamsById.get(match.team_b_id)!
@@ -388,11 +447,16 @@ function StandalonePlacementGame({
   return (
     <section className="bracket-section">
       <h3>{title}</h3>
-      <svg width={BOX_W + 4} height={BOX_H + 28} className="bracket-svg">
+      <svg
+        width={m.BOX_W + 4}
+        height={m.BOX_H + 28}
+        viewBox={`0 0 ${m.BOX_W + 4} ${m.BOX_H + 28}`}
+        className="bracket-svg"
+      >
         <g>
           <text
             className="bracket-text-muted"
-            x={BOX_W / 2}
+            x={m.BOX_W / 2}
             y={14}
             fontSize={11}
             textAnchor="middle"
@@ -410,6 +474,8 @@ function StandalonePlacementGame({
 
 export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
+  const metrics = isMobile ? COMPACT_METRICS : DESKTOP_METRICS
   const teamsById = new Map(data.teams.map((t) => [t.team_id, t]))
   const weeks = data.playoff_weeks
   if (weeks.length === 0) {
@@ -450,39 +516,41 @@ export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
   const standings = [...data.teams].sort((a, b) => a.final_standing - b.final_standing)
 
   return (
-    <div className="playoffs">
-      <BracketSection title="Championship" root={championship} onMatchClick={onMatchClick} />
-      <StandalonePlacementGame
-        title="3rd-place game"
-        match={thirdPlace}
-        teamsById={teamsById}
-        onMatchClick={onMatchClick}
-      />
-      <BracketSection
-        title="Consolation (5th place)"
-        root={fifthBracket}
-        onMatchClick={onMatchClick}
-      />
-      <StandalonePlacementGame
-        title="7th-place game"
-        match={seventhPlace}
-        teamsById={teamsById}
-        onMatchClick={onMatchClick}
-      />
+    <MetricsContext.Provider value={metrics}>
+      <div className="playoffs">
+        <BracketSection title="Championship" root={championship} onMatchClick={onMatchClick} />
+        <StandalonePlacementGame
+          title="3rd-place game"
+          match={thirdPlace}
+          teamsById={teamsById}
+          onMatchClick={onMatchClick}
+        />
+        <BracketSection
+          title="Consolation (5th place)"
+          root={fifthBracket}
+          onMatchClick={onMatchClick}
+        />
+        <StandalonePlacementGame
+          title="7th-place game"
+          match={seventhPlace}
+          teamsById={teamsById}
+          onMatchClick={onMatchClick}
+        />
 
-      <section className="standings-section">
-        <h3>Final Standings</h3>
-        <ol className="standings-list">
-          {standings.map((t) => (
-            <li key={t.team_id}>
-              <span className="rank">{t.final_standing}.</span>
-              <span className="team">{t.team_name}</span>
-              <span className="owner">— {t.owner_name}</span>
-              <span className="seed-tag">seed {t.seed}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </div>
+        <section className="standings-section">
+          <h3>Final Standings</h3>
+          <ol className="standings-list">
+            {standings.map((t) => (
+              <li key={t.team_id}>
+                <span className="rank">{t.final_standing}.</span>
+                <span className="team">{t.team_name}</span>
+                <span className="owner">— {t.owner_name}</span>
+                <span className="seed-tag">seed {t.seed}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    </MetricsContext.Provider>
   )
 }
