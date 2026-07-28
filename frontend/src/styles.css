@@ -17,9 +17,17 @@
 
   /* Numerals. A system stack, deliberately: no font CDN is in use, and adding
    * one would introduce a network dependency and a layout-shift risk for a
-   * purely typographic gain. Where no condensed face is installed this
-   * degrades to the UI sans — still tabular, just not condensed. */
-  --font-numeric: "Roboto Condensed", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+   * purely typographic gain.
+   *
+   * This stack used to lead with condensed faces. macOS ships Arial Narrow, so
+   * that fallback resolved on most machines and every figure in the app came out
+   * narrow and light against the UI sans around it — scores read as thinner than
+   * the labels above them, which is backwards for the one thing a stats app is
+   * for. Numerals now use the same face as the rest of the interface; what makes
+   * them a column is font-variant-numeric: tabular-nums at each use site, not the
+   * width of the face. */
+  --font-numeric: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 
   /* Surfaces */
   --bg-page: #f4f2ef;
@@ -1673,6 +1681,80 @@ table.teams th.num,
   margin-top: 2px;
 }
 
+/* Compare — mobile
+   ===========================================================================
+   The averages panel is a 220px sidebar on desktop. On a phone that column
+   steals width the plot cannot spare, so it moves below the chart and becomes a
+   two-across strip of tiles. The chart itself is shortened in JS (see
+   ComparisonChart), since ResponsiveContainer takes its height as a prop. */
+@media (max-width: 900px) {
+  .compare-controls {
+    gap: 10px;
+    margin: 12px 0 4px;
+  }
+
+  .compare-controls .control {
+    flex: 1 1 100%;
+  }
+
+  .compare-controls select {
+    width: 100%;
+    /* Below 16px iOS Safari zooms the page on focus, and it does not zoom back
+     * out — the page is left scrolled sideways for the rest of the session. */
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .chart-with-averages {
+    flex-direction: column;
+    gap: 10px;
+    /* The base rule aligns to flex-start, which once the direction is column
+     * means "shrink to content width" — and ResponsiveContainer reports no
+     * intrinsic width, so the chart collapsed to nothing. */
+    align-items: stretch;
+  }
+
+  .chart-averages {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .chart-averages h4 {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+
+  .avg-row {
+    margin-bottom: 0;
+    padding: 4px 0 4px 8px;
+  }
+
+  .avg-team {
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .avg-value {
+    font-size: 16px;
+    font-family: var(--font-numeric);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chart-wrap {
+    padding: 4px 2px;
+  }
+
+  .chart-title {
+    margin: 12px 0 4px;
+    font-size: 15px;
+  }
+}
+
 .chart-tooltip {
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
@@ -1999,6 +2081,212 @@ table.teams th.num,
   padding: 4px 8px;
 }
 
+/* Box score — mobile mirrored lineup
+   ===========================================================================
+   One row per slot, mirrored about the slot column: name, projected, points |
+   SLOT | points, projected, name. Reading in from either edge goes from least
+   to most important, so the two teams' actual scores end up adjacent in the
+   middle where they can be compared without moving your eyes.
+
+   The column budget is the whole design constraint. At 320px the card has about
+   280px of usable width; the five numeric columns take 142 of it and the two
+   name columns split what is left, which is why names are initialised in JS and
+   ellipsised here. */
+.bs-mobile {
+  margin-top: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 4px 6px 8px;
+}
+
+/* Column widths are sized to the numerals they hold. They were 24/32/30 when
+ * figures were set in a condensed face; the UI sans that replaced it is wider,
+ * and at the old widths the projections bled into the points beside them. */
+.bs-m-legend,
+.bs-m-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) 28px 36px 34px 36px 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 2px;
+}
+
+.bs-m-legend {
+  padding: 6px 2px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+/* The legend labels sit over groups of columns rather than single ones, so they
+ * are placed by span instead of riding the seven-column rhythm. */
+.bs-m-legend-side {
+  grid-column: 2 / 4;
+  text-align: center;
+}
+
+.bs-m-legend-side.right {
+  grid-column: 5 / 7;
+}
+
+.bs-m-legend-slot {
+  grid-column: 4;
+  text-align: center;
+}
+
+.bs-m-row {
+  padding: 5px 2px;
+  border-bottom: 1px solid var(--border-divider);
+  /* 44px targets are a tap-target rule; these rows are not tappable, so the
+   * height is set by content and the two-line name cell instead. */
+  min-height: 38px;
+}
+
+.bs-m-row:last-child {
+  border-bottom: none;
+}
+
+.bs-m-player {
+  min-width: 0;
+}
+
+.bs-m-player.right {
+  text-align: right;
+}
+
+.bs-m-player.empty {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.bs-m-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-m-meta {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-m-pts {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.bs-m-pts.ahead {
+  color: var(--success);
+}
+
+.bs-m-proj {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.bs-m-slot {
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+  border-radius: 4px;
+  padding: 3px 0;
+  letter-spacing: 0.02em;
+  /* Belt and braces with shortSlot(): a slot name this column has never seen
+   * gets clipped rather than painted over the score next to it. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-m-divider {
+  margin: 4px -6px;
+  padding: 4px 8px;
+  background: var(--bg-subtle);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.bs-m-row.bench .bs-m-name,
+.bs-m-row.bench .bs-m-pts {
+  color: var(--text-secondary);
+}
+
+.bs-m-row.bench .bs-m-pts.ahead {
+  color: var(--success);
+}
+
+/* The header is a three-across flex row built for a 900px-wide card. On a phone
+ * the 32px scores and two team names cannot share a line, so the scores move
+ * under the names and "vs" shrinks to a divider between the two halves. */
+@media (max-width: 900px) {
+  .box-matchup-header {
+    padding: 12px 8px;
+    gap: 4px;
+    /* One team name wrapping to two lines while the other does not left the two
+     * scores at different heights — the one pairing in this header that has to
+     * line up. Stretching the sides and pushing the score down with auto margin
+     * keeps them level whatever the names do. */
+    align-items: stretch;
+  }
+
+  .box-matchup-header .bs-side {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 2px;
+    min-width: 0;
+  }
+
+  .box-matchup-header .bs-vs {
+    align-self: center;
+  }
+
+  .box-matchup-header .bs-score {
+    margin-top: auto;
+  }
+
+  .box-matchup-header .bs-team-name {
+    font-size: 13px;
+    line-height: 1.25;
+  }
+
+  .box-matchup-header .bs-team-owner {
+    font-size: 11px;
+  }
+
+  .box-matchup-header .bs-score {
+    font-size: 24px;
+    padding-top: 4px;
+  }
+
+  .box-matchup-header .bs-vs {
+    font-size: 11px;
+    flex: 0 0 auto;
+  }
+}
+
 /* Head to Head */
 .h2h-summary {
   margin-top: 20px;
@@ -2103,6 +2391,200 @@ table.teams th.num,
   background: var(--accent-tint);
 }
 
+/* Head to Head — mobile
+   ===========================================================================
+   Both desktop shapes are tables that assume horizontal room the phone does not
+   have (the summary table alone declares a 480px floor). The mobile markup is
+   separate — see H2HSummaryMobile / H2HMatchupsMobile — so these rules describe
+   the card shapes rather than overriding table rules. */
+.h2h-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 10px;
+  margin-bottom: 24px;
+}
+
+.h2h-card-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.h2h-card-team {
+  min-width: 0;
+}
+
+.h2h-card-team.right {
+  text-align: right;
+}
+
+.h2h-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.h2h-card-team.leading .h2h-card-name {
+  color: var(--text-strong);
+}
+
+.h2h-card-owner {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.h2h-card-record {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.h2h-card-record .leading {
+  color: var(--success);
+}
+
+.h2h-card-record .dash {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.h2h-card-record .ties {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.h2h-stat-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--border-divider);
+}
+
+.h2h-stat-row:last-child {
+  border-bottom: none;
+}
+
+.h2h-stat-val {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.h2h-stat-val.right {
+  text-align: right;
+}
+
+/* .winner-cell is declared earlier in the sheet at the same specificity, so on
+ * its own it loses to the .h2h-stat-val / .h2h-m-score colours above. These
+ * restate it where it has to win. */
+.h2h-stat-val.winner-cell,
+.h2h-m-score.winner-cell {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.h2h-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.h2h-m-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.h2h-m-head .right {
+  text-align: right;
+}
+
+.h2h-m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.h2h-m-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 8px 12px 10px;
+}
+
+.h2h-m-card.clickable {
+  cursor: pointer;
+}
+
+.h2h-m-card.clickable:active {
+  background: var(--bg-selected);
+  border-color: var(--accent);
+}
+
+.h2h-m-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.h2h-m-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.h2h-m-scores {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.h2h-m-score {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.h2h-m-score.right {
+  text-align: right;
+}
+
+.h2h-m-vs {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* Playoff brackets */
 .playoffs {
   display: flex;
@@ -2118,18 +2600,44 @@ table.teams th.num,
   padding: 20px 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   overflow-x: auto;
+  /* Without this the flex/grid ancestors let the section grow to the SVG's
+   * intrinsic width instead of scrolling, which is what pushed the page sideways
+   * on a phone. */
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
+/* The heading lives inside the horizontal scroller, so it would slide out of
+ * view as the reader pans to the later rounds — leaving the bracket unlabelled
+ * exactly when they are deepest in it. Pinning it to the left edge keeps
+ * "Championship" on screen for the whole pan. */
 .bracket-section h3 {
+  position: sticky;
+  left: 0;
+  width: fit-content;
   margin: 0 0 14px;
   font-size: 16px;
   font-weight: 600;
   color: var(--text-strong);
 }
 
+/* `max-width: 100%` used to live here, and it was the bug: an SVG sized by
+ * width/height attributes with no viewBox does not scale when CSS narrows it —
+ * it crops. On a phone that hid the later rounds entirely, and because the
+ * element had been shrunk to fit, the scroll container above had nothing to
+ * scroll. The element now keeps its intrinsic width and .bracket-section
+ * scrolls; a viewBox is declared as well so any future scaling is proportional. */
 .bracket-svg {
   display: block;
-  max-width: 100%;
+  max-width: none;
+}
+
+@media (max-width: 900px) {
+  .bracket-section {
+    padding: 14px 12px;
+    border-radius: 8px;
+  }
 }
 
 .bracket-match-rect {

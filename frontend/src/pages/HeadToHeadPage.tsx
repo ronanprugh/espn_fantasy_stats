@@ -10,9 +10,11 @@ import {
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
 import { useLeague } from '../contexts/LeagueContext'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 export function HeadToHeadPage() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const { selectedLeague } = useLeague()
   const [owners, setOwners] = useState<OwnerHistory[]>([])
   const [ownerA, setOwnerA] = useState<string>('')
@@ -112,16 +114,27 @@ export function HeadToHeadPage() {
 
       {!loading && data && data.total_matchups > 0 && (
         <>
-          <H2HSummary data={data} />
-          <H2HMatchupsList matchups={data.matchups} data={data} onClick={handleMatchupClick} />
+          {isMobile ? <H2HSummaryMobile data={data} /> : <H2HSummary data={data} />}
+          {isMobile ? (
+            <H2HMatchupsMobile matchups={data.matchups} data={data} onClick={handleMatchupClick} />
+          ) : (
+            <H2HMatchupsList matchups={data.matchups} data={data} onClick={handleMatchupClick} />
+          )}
         </>
       )}
     </div>
   )
 }
 
-function H2HSummary({ data }: { data: HeadToHeadStats }) {
-  const rows: Array<{ label: string; a: string | number; b: string | number; highlight?: 'a' | 'b' | null }> = [
+type SummaryRow = {
+  label: string
+  a: string | number
+  b: string | number
+  highlight?: 'a' | 'b' | null
+}
+
+function summaryRows(data: HeadToHeadStats): SummaryRow[] {
+  return [
     {
       label: 'All-time record',
       a: `${data.owner_a_wins}-${data.owner_b_wins}${data.ties ? `-${data.ties}` : ''}`,
@@ -171,6 +184,10 @@ function H2HSummary({ data }: { data: HeadToHeadStats }) {
       b: data.owner_a_playoff_wins,
     },
   ]
+}
+
+function H2HSummary({ data }: { data: HeadToHeadStats }) {
+  const rows = summaryRows(data)
 
   return (
     <section className="h2h-summary">
@@ -199,6 +216,128 @@ function H2HSummary({ data }: { data: HeadToHeadStats }) {
           ))}
         </tbody>
       </table>
+    </section>
+  )
+}
+
+/* The desktop summary is a table with a 480px floor, so on a phone it could only
+ * scroll sideways — and a two-column comparison read through a scroll window is
+ * exactly the thing that stops being a comparison. The mobile shape keeps the
+ * same three parts (left value, label, right value) but drops the table: the
+ * team headings become a sticky-free banner at the top, and each stat is a row
+ * that fits the width because the label sits between the two figures rather
+ * than in a column of its own. */
+function H2HSummaryMobile({ data }: { data: HeadToHeadStats }) {
+  const rows = summaryRows(data)
+  const aLeads = data.owner_a_wins > data.owner_b_wins
+  const bLeads = data.owner_b_wins > data.owner_a_wins
+
+  return (
+    <section className="h2h-summary">
+      <h3>Head-to-Head Summary</h3>
+      <div className="h2h-card">
+        <div className="h2h-card-head">
+          <div className={`h2h-card-team${aLeads ? ' leading' : ''}`}>
+            <div className="h2h-card-name">{data.owner_a_team_name}</div>
+            <div className="h2h-card-owner">{data.owner_a_name}</div>
+          </div>
+          <div className="h2h-card-record">
+            <span className={aLeads ? 'leading' : ''}>{data.owner_a_wins}</span>
+            <span className="dash">–</span>
+            <span className={bLeads ? 'leading' : ''}>{data.owner_b_wins}</span>
+            {data.ties > 0 && <span className="ties">({data.ties} T)</span>}
+          </div>
+          <div className={`h2h-card-team right${bLeads ? ' leading' : ''}`}>
+            <div className="h2h-card-name">{data.owner_b_team_name}</div>
+            <div className="h2h-card-owner">{data.owner_b_name}</div>
+          </div>
+        </div>
+
+        {/* The all-time record is what the banner above already states. */}
+        {rows
+          .filter((r) => r.label !== 'All-time record')
+          .map((r) => (
+            <div key={r.label} className="h2h-stat-row">
+              <span className={`h2h-stat-val${r.highlight === 'a' ? ' winner-cell' : ''}`}>
+                {r.a}
+              </span>
+              <span className="h2h-stat-label">{r.label}</span>
+              <span
+                className={`h2h-stat-val right${r.highlight === 'b' ? ' winner-cell' : ''}`}
+              >
+                {r.b}
+              </span>
+            </div>
+          ))}
+      </div>
+    </section>
+  )
+}
+
+/* Seven columns of matchup history do not survive a phone width, and the two
+ * that matter — who scored what — are the ones a table would squeeze. Each
+ * matchup becomes a card: meta line on top, then the two scores facing each
+ * other with the winner marked. Rows stay tappable through to the box score. */
+function H2HMatchupsMobile({
+  matchups,
+  data,
+  onClick,
+}: {
+  matchups: HeadToHeadMatchup[]
+  data: HeadToHeadStats
+  onClick: (m: HeadToHeadMatchup) => void
+}) {
+  return (
+    <section className="h2h-matchups">
+      <h3>All Matchups ({matchups.length})</h3>
+      {/* Which side is whose is stated once, above the list, rather than
+        * repeated on every card where it would crowd out the scores. */}
+      <div className="h2h-m-head">
+        <span>{data.owner_a_team_name}</span>
+        <span className="right">{data.owner_b_team_name}</span>
+      </div>
+      <div className="h2h-m-list">
+        {matchups.map((m, i) => {
+          const aWon = m.winner_owner_id === data.owner_a_id
+          const bWon = m.winner_owner_id === data.owner_b_id
+          const clickable = m.year >= 2019
+          return (
+            <div
+              key={i}
+              className={`h2h-m-card${clickable ? ' clickable' : ''}`}
+              onClick={clickable ? () => onClick(m) : undefined}
+              role={clickable ? 'button' : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onKeyDown={
+                clickable
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onClick(m)
+                      }
+                    }
+                  : undefined
+              }
+            >
+              <div className="h2h-m-meta">
+                <span>
+                  {m.year} · Wk {m.week}
+                </span>
+                <RoundBadge round={m.round_label} />
+              </div>
+              <div className="h2h-m-scores">
+                <span className={`h2h-m-score${aWon ? ' winner-cell' : ''}`}>
+                  {m.owner_a_score.toFixed(1)}
+                </span>
+                <span className="h2h-m-vs">vs</span>
+                <span className={`h2h-m-score right${bWon ? ' winner-cell' : ''}`}>
+                  {m.owner_b_score.toFixed(1)}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </section>
   )
 }
