@@ -1,0 +1,40 @@
+# Keeps the Render free instance from spinning down during waking hours.
+#
+# Render spins a free service down after 15 minutes without inbound traffic,
+# and the cold start back up is roughly a minute. Pinging every 10 minutes
+# stays comfortably inside that window even when GitHub delays a run.
+#
+# Why not 24/7: the free plan allows 750 instance-hours per month and a month
+# is ~730 hours, so running around the clock would leave almost no headroom for
+# redeploys and restarts. The 11:00-03:50 UTC window below is ~7am to midnight
+# Eastern — about 520 hours a month, a comfortable margin.
+#
+# Two caveats worth knowing:
+#   - GitHub delays scheduled workflows under load, sometimes by 10+ minutes.
+#     A missed ping costs one cold start, nothing worse.
+#   - GitHub disables cron workflows on public repos after 60 days with no
+#     commits. If the app goes quiet for two months, re-enable it in the
+#     Actions tab.
+
+name: keep-warm
+
+on:
+  schedule:
+    - cron: "*/10 0-3,11-23 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping health endpoint
+        run: |
+          curl --silent --show-error --fail \
+               --max-time 120 --retry 3 --retry-all-errors --retry-delay 20 \
+               -o /dev/null -w 'status=%{http_code} time=%{time_total}s\n' \
+               "${{ vars.BACKEND_URL }}/api/health"

@@ -1,0 +1,44 @@
+# Render blueprint for the FastAPI backend.
+#
+# Free instance type: 512MB RAM / 0.1 CPU, 750 instance-hours per month across
+# the workspace. Render never bills a free service — if limits are exceeded it
+# throttles or suspends, which is the whole reason we're here rather than on a
+# platform with a card on file.
+#
+# Free services spin down after 15 minutes with no inbound traffic; the
+# keep-warm cron in .github/workflows/keep-warm.yml covers daytime hours.
+# Render's own health checks do NOT prevent spin-down.
+#
+# Postgres stays on Neon — Render's free Postgres is deleted 30 days after
+# creation. Migrations are still run by hand against Neon (`alembic upgrade
+# head`), same as under Cloud Build.
+
+services:
+  - name: espn-fantasy-stats-api
+    type: web
+    runtime: docker
+    plan: free
+    region: virginia
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Neon pooled connection string:
+      #   postgresql+psycopg://user:pass@host/db?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      # Rotating this invalidates every session.
+      - key: SECRET_KEY
+        sync: false
+      # Fernet key for the ESPN cookies at rest. Must match the value the
+      # existing rows were encrypted with, or every stored league breaks.
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://espn-fantasy-stats.vercel.app,https://ronanprugh.com
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: lax

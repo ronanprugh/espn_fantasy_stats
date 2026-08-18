@@ -73,6 +73,19 @@ app.add_middleware(
 
 
 # --------------------------------------------------------------------------- #
+# Health
+# --------------------------------------------------------------------------- #
+
+
+@app.get("/api/health")
+def health():
+    """Liveness probe. Deliberately does not touch Postgres — the keep-warm
+    cron hits this every few minutes, and waking Neon that often would burn
+    its free compute-hour budget for no benefit."""
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
 # Auth
 # --------------------------------------------------------------------------- #
 
