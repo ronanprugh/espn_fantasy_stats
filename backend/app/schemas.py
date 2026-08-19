@@ -15,7 +15,9 @@ class ChangePasswordRequest(BaseModel):
 class UserResponse(BaseModel):
     id: int
     username: str
-    is_admin: bool = False
+    # Required on purpose: a default here silently shipped is_admin=False from
+    # /auth/login, which hid every admin-only control until the next page load.
+    is_admin: bool
 
 
 class SignupRequest(BaseModel):

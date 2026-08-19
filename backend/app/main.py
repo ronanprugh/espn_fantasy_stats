@@ -98,7 +98,7 @@ def auth_login(payload: LoginRequest, request: Request, db: Session = Depends(ge
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )
     login(request, user)
-    return UserResponse(id=user.id, username=user.username)
+    return UserResponse(id=user.id, username=user.username, is_admin=user.is_admin)
 
 
 @app.post("/api/auth/logout")
