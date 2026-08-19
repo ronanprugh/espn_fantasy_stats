@@ -37,4 +37,4 @@ jobs:
           curl --silent --show-error --fail \
                --max-time 120 --retry 3 --retry-all-errors --retry-delay 20 \
                -o /dev/null -w 'status=%{http_code} time=%{time_total}s\n' \
-               "${{ vars.BACKEND_URL }}/api/health"
+               "https://espn-fantasy-stats-api.onrender.com/api/health"

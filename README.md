@@ -10,7 +10,9 @@ Multi-user web app for analyzing ESPN Fantasy Football leagues across seasons.
 - **Frontend**: React + Vite + TypeScript with Recharts for visualization.
 - **Auth**: invite-only, bcrypt-hashed passwords, cookie sessions.
 - **Storage**: Postgres (local via Docker; Neon in production). ESPN credentials encrypted at rest with Fernet.
-- **Hosting**: Cloud Run (backend) + Vercel (frontend). Push to `main` triggers auto-deploy via Cloud Build.
+- **Hosting**: Render (backend, free tier) + Vercel (frontend). Push to `main` auto-deploys both.
+  Render's free instance sleeps after 15 min idle; `.github/workflows/keep-warm.yml` pings it
+  during waking hours, so expect a ~50s cold start on the day's first visit.
 
 What's in it:
 

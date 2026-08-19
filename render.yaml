@@ -10,8 +10,8 @@
 # Render's own health checks do NOT prevent spin-down.
 #
 # Postgres stays on Neon — Render's free Postgres is deleted 30 days after
-# creation. Migrations are still run by hand against Neon (`alembic upgrade
-# head`), same as under Cloud Build.
+# creation. Migrations are not run by this blueprint; apply them by hand
+# against Neon (`alembic upgrade head`) before deploying a schema change.
 
 services:
   - name: espn-fantasy-stats-api
