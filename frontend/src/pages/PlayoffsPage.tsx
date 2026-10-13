@@ -8,6 +8,10 @@ import { Loading } from '../components/Loading'
 export function PlayoffsPage() {
   const { leagueId, years } = useLeagueYears()
   const [year, setYear] = useState<number | null>(null)
+  // Set when the latest season had no bracket yet and the page fell back to
+  // the one before it. Cleared as soon as a year is picked by hand.
+  const [fellBackFrom, setFellBackFrom] = useState<number | null>(null)
+  const [pickedByHand, setPickedByHand] = useState(false)
   const [data, setData] = useState<SeasonPlayoffs | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,9 +32,30 @@ export function PlayoffsPage() {
       .finally(() => setLoading(false))
   }, [leagueId, year])
 
+  const hasBracket = (d: SeasonPlayoffs) => d.playoff_weeks.length > 0
+  const latestYear = years[years.length - 1]
+
+  // During the regular season the latest year has no bracket, so opening on it
+  // showed an empty page. Fall back once to the previous season, unless the
+  // year was chosen by hand.
+  useEffect(() => {
+    if (pickedByHand || !data || data.year !== year || hasBracket(data)) return
+    const earlier = years.filter((y) => y < data.year)
+    const previous = earlier[earlier.length - 1]
+    if (previous !== undefined) {
+      setFellBackFrom(data.year)
+      setYear(previous)
+    }
+  }, [data, year, years, pickedByHand])
+
   if (!leagueId) return <NoLeagueSelected />
 
   const yearsDesc = [...years].reverse()
+  const pick = (y: number) => {
+    setPickedByHand(true)
+    setFellBackFrom(null)
+    setYear(y)
+  }
 
   return (
     <div className="page">
@@ -44,14 +69,24 @@ export function PlayoffsPage() {
       </header>
       <nav className="years">
         {yearsDesc.map((y) => (
-          <button key={y} onClick={() => setYear(y)} className={y === year ? 'active' : ''}>
+          <button key={y} onClick={() => pick(y)} className={y === year ? 'active' : ''}>
             {y}
           </button>
         ))}
       </nav>
       {error && <p className="error">{error}</p>}
       {loading && <Loading />}
-      {data && !loading && <PlayoffBracket data={data} />}
+      {fellBackFrom !== null && data?.year === year && !loading && (
+        <p className="subtitle">The {fellBackFrom} playoffs haven't started yet, so here's {year}.</p>
+      )}
+      {data && !loading && !hasBracket(data) && data.year === latestYear ? (
+        <p className="subtitle">
+          The {data.year} playoffs haven't started yet. They begin after week{' '}
+          {data.reg_season_count}.
+        </p>
+      ) : (
+        data && !loading && <PlayoffBracket data={data} />
+      )}
     </div>
   )
 }

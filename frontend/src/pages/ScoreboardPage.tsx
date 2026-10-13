@@ -32,6 +32,21 @@ export function ScoreboardPage() {
       .finally(() => setLoading(false))
   }, [leagueId, year])
 
+  // Open on the latest season rather than an empty "pick a year" screen.
+  useEffect(() => {
+    if (year === '' && years.length) setYear(years[years.length - 1])
+  }, [years, year])
+
+  // ...and on its latest played week, once that season's data is in. Matching
+  // on seasonData.year matters: right after a year change, the previous year's
+  // data is still loaded and would pick that year's week.
+  useEffect(() => {
+    if (!seasonData || seasonData.year !== year || week !== '') return
+    const played = seasonData.matchups.filter((m) => !isUnplayed(m)).map((m) => m.week)
+    const latest = played.length ? Math.max(...played) : seasonData.weeks[0]
+    if (latest !== undefined) setWeek(latest)
+  }, [seasonData, year, week])
+
   if (!leagueId) return <NoLeagueSelected />
 
   const yearsDesc = [...years].reverse()
@@ -67,7 +82,6 @@ export function ScoreboardPage() {
               setWeek('')
             }}
           >
-            <option value="">— pick a year —</option>
             {yearsDesc.map((y) => (
               <option key={y} value={y}>
                 {y}
@@ -84,7 +98,6 @@ export function ScoreboardPage() {
             onChange={(e) => setWeek(e.target.value ? Number(e.target.value) : '')}
             disabled={!weeks.length}
           >
-            <option value="">— pick a week —</option>
             {weeks.map((w) => (
               <option key={w} value={w}>
                 Week {w}
