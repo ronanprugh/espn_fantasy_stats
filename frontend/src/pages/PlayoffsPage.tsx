@@ -3,25 +3,30 @@ import { fetchPlayoffs, type SeasonPlayoffs } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { PlayoffBracket } from '../components/PlayoffBracket'
 import { useLeagueYears } from '../hooks/useLeagueYears'
+import { numberParam, useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
 export function PlayoffsPage() {
   const { leagueId, years } = useLeagueYears()
-  const [year, setYear] = useState<number | null>(null)
-  // Set when the latest season had no bracket yet and the page fell back to
-  // the one before it. Cleared as soon as a year is picked by hand.
+  // A year in the URL was chosen (by hand or via a shared link) and is shown
+  // as-is. Without one the page picks a default, which can fall back below.
+  const [params, update] = useUrlState()
+  const urlYear = numberParam(params, 'year')
+  const [defaultYear, setDefaultYear] = useState<number | null>(null)
+  const year = urlYear ?? defaultYear
+  // Set when the latest season had no bracket yet and the default fell back
+  // to the one before it.
   const [fellBackFrom, setFellBackFrom] = useState<number | null>(null)
-  const [pickedByHand, setPickedByHand] = useState(false)
   const [data, setData] = useState<SeasonPlayoffs | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (years.length > 0 && year === null) {
-      setYear(years[years.length - 1])
+    if (years.length > 0 && defaultYear === null) {
+      setDefaultYear(years[years.length - 1])
     }
-  }, [years, year])
+  }, [years, defaultYear])
 
   useEffect(() => {
     if (!leagueId || year == null) return
@@ -40,22 +45,21 @@ export function PlayoffsPage() {
   // showed an empty page. Fall back once to the previous season, unless the
   // year was chosen by hand.
   useEffect(() => {
-    if (pickedByHand || !data || data.year !== year || hasBracket(data)) return
+    if (urlYear !== null || !data || data.year !== year || hasBracket(data)) return
     const earlier = years.filter((y) => y < data.year)
     const previous = earlier[earlier.length - 1]
     if (previous !== undefined) {
       setFellBackFrom(data.year)
-      setYear(previous)
+      setDefaultYear(previous)
     }
-  }, [data, year, years, pickedByHand])
+  }, [data, year, years, urlYear])
 
   if (!leagueId) return <NoLeagueSelected />
 
   const yearsDesc = [...years].reverse()
   const pick = (y: number) => {
-    setPickedByHand(true)
     setFellBackFrom(null)
-    setYear(y)
+    update({ year: String(y) })
   }
 
   return (
@@ -77,7 +81,7 @@ export function PlayoffsPage() {
       </nav>
       {error && <ErrorMessage message={error} />}
       {loading && <Loading />}
-      {fellBackFrom !== null && data?.year === year && !loading && (
+      {fellBackFrom !== null && urlYear === null && data?.year === year && !loading && (
         <p className="subtitle">The {fellBackFrom} playoffs haven't started yet, so here's {year}.</p>
       )}
       {data && !loading && !hasBracket(data) && data.year === latestYear ? (

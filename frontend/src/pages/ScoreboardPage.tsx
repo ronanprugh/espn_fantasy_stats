@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   fetchScoreboard,
   type ScoreboardMatchup,
@@ -8,14 +8,17 @@ import {
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
 import { useLeagueYears } from '../hooks/useLeagueYears'
+import { numberParam, useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
 export function ScoreboardPage() {
-  const navigate = useNavigate()
   const { leagueId, years } = useLeagueYears()
-  const [year, setYear] = useState<number | ''>('')
-  const [week, setWeek] = useState<number | ''>('')
+  // Year and week live in the URL, so a box score's back link, the browser's
+  // Back button and a shared link all return to the same week.
+  const [params, update] = useUrlState()
+  const year: number | '' = numberParam(params, 'year') ?? ''
+  const week: number | '' = numberParam(params, 'week') ?? ''
   const [seasonData, setSeasonData] = useState<SeasonScoreboard | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -35,8 +38,8 @@ export function ScoreboardPage() {
 
   // Open on the latest season rather than an empty "pick a year" screen.
   useEffect(() => {
-    if (year === '' && years.length) setYear(years[years.length - 1])
-  }, [years, year])
+    if (year === '' && years.length) update({ year: String(years[years.length - 1]) })
+  }, [years, year, update])
 
   // ...and on its latest played week, once that season's data is in. Matching
   // on seasonData.year matters: right after a year change, the previous year's
@@ -45,8 +48,8 @@ export function ScoreboardPage() {
     if (!seasonData || seasonData.year !== year || week !== '') return
     const played = seasonData.matchups.filter((m) => !isUnplayed(m)).map((m) => m.week)
     const latest = played.length ? Math.max(...played) : seasonData.weeks[0]
-    if (latest !== undefined) setWeek(latest)
-  }, [seasonData, year, week])
+    if (latest !== undefined) update({ week: String(latest) })
+  }, [seasonData, year, week, update])
 
   if (!leagueId) return <NoLeagueSelected />
 
@@ -55,12 +58,8 @@ export function ScoreboardPage() {
   const weekMatchups =
     seasonData && week !== '' ? seasonData.matchups.filter((m) => m.week === week) : []
 
-  const goToBoxScore = (m: ScoreboardMatchup) => {
-    if (m.is_bye) return
-    if ((year as number) < 2019) return
-    if (m.round_label === 'consolation') return
-    navigate(`/box_score/${year}/${m.week}/${m.team_a_id}/${m.team_b_id}`)
-  }
+  const boxScoreHref = (m: ScoreboardMatchup) =>
+    `/box_score/${year}/${m.week}/${m.team_a_id}/${m.team_b_id}`
 
   const boxScoresAvailable = year !== '' && (year as number) >= 2019
 
@@ -78,10 +77,7 @@ export function ScoreboardPage() {
           <select
             id="sb-year"
             value={year}
-            onChange={(e) => {
-              setYear(e.target.value ? Number(e.target.value) : '')
-              setWeek('')
-            }}
+            onChange={(e) => update({ year: e.target.value || null, week: null })}
           >
             {yearsDesc.map((y) => (
               <option key={y} value={y}>
@@ -96,7 +92,7 @@ export function ScoreboardPage() {
           <select
             id="sb-week"
             value={week}
-            onChange={(e) => setWeek(e.target.value ? Number(e.target.value) : '')}
+            onChange={(e) => update({ week: e.target.value || null })}
             disabled={!weeks.length}
           >
             {weeks.map((w) => (
@@ -122,7 +118,7 @@ export function ScoreboardPage() {
               <ScoreboardCard
                 key={i}
                 matchup={m}
-                onClick={() => goToBoxScore(m)}
+                href={boxScoreHref(m)}
                 disabled={
                   !boxScoresAvailable || m.is_bye || m.round_label === 'consolation' || isUnplayed(m)
                 }
@@ -155,11 +151,11 @@ function isUnplayed(m: ScoreboardMatchup): boolean {
 
 function ScoreboardCard({
   matchup,
-  onClick,
+  href,
   disabled,
 }: {
   matchup: ScoreboardMatchup
-  onClick: () => void
+  href: string
   disabled: boolean
 }) {
   if (matchup.is_bye) {
@@ -183,12 +179,8 @@ function ScoreboardCard({
   const aWon = matchup.winner_id === matchup.team_a_id
   const bWon = matchup.winner_id === matchup.team_b_id
 
-  return (
-    <div
-      className={`scoreboard-card ${disabled ? 'disabled' : 'clickable'}`}
-      onClick={disabled ? undefined : onClick}
-      title={disabled ? '' : 'View box score'}
-    >
+  const content = (
+    <>
       <div className="card-badge">
         <RoundBadge round={matchup.round_label} hideRegular />
       </div>
@@ -206,6 +198,16 @@ function ScoreboardCard({
         </div>
         <div className="score">{matchup.team_b_score.toFixed(1)}</div>
       </div>
-    </div>
+    </>
+  )
+
+  // A real link when clickable: keyboard focus, screen readers, and
+  // open-in-new-tab all work, which an onClick on a div gave none of.
+  return disabled ? (
+    <div className="scoreboard-card disabled">{content}</div>
+  ) : (
+    <Link to={href} className="scoreboard-card clickable" title="View box score">
+      {content}
+    </Link>
   )
 }
