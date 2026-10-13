@@ -8,6 +8,7 @@ import { COLORS, ComparisonChart } from '../components/ComparisonChart'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
+import { ErrorMessage } from '../components/ErrorMessage'
 
 function average(seasons: OwnerSeason[], key: keyof OwnerSeason): number | null {
   const values = seasons
@@ -84,7 +85,7 @@ export function ComparePage() {
         )}
       </header>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorMessage message={error} />}
       {loading && <Loading />}
 
       {history && (

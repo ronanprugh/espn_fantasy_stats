@@ -149,8 +149,11 @@ def auth_change_password(
     db: Session = Depends(get_db),
 ):
     if not verify_password(payload.current_password, user.password_hash):
+        # 400, not 401: the session is fine, the input is wrong. The client
+        # treats a 401 from a signed-in user as an expired session and signs
+        # them out, which a typo in this field shouldn't do.
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect",
         )
     if payload.current_password == payload.new_password:

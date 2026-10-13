@@ -4,6 +4,7 @@ import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { PlayoffBracket } from '../components/PlayoffBracket'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { Loading } from '../components/Loading'
+import { ErrorMessage } from '../components/ErrorMessage'
 
 export function PlayoffsPage() {
   const { leagueId, years } = useLeagueYears()
@@ -74,7 +75,7 @@ export function PlayoffsPage() {
           </button>
         ))}
       </nav>
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorMessage message={error} />}
       {loading && <Loading />}
       {fellBackFrom !== null && data?.year === year && !loading && (
         <p className="subtitle">The {fellBackFrom} playoffs haven't started yet, so here's {year}.</p>

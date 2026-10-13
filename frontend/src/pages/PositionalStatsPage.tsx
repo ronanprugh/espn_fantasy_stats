@@ -10,6 +10,7 @@ import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { SortableTh, type SortDir } from '../components/SortableTh'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { Loading } from '../components/Loading'
+import { ErrorMessage } from '../components/ErrorMessage'
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'D/ST']
 
@@ -204,7 +205,7 @@ export function PositionalStatsPage() {
         ))}
       </nav>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorMessage message={error} />}
       {loading && <Loading />}
 
       {!loading && rows.length === 0 && !error && (

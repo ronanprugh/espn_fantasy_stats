@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { SlowHint } from '../components/Loading'
 
 export function LoginPage() {
-  const { login } = useAuth()
+  const { login, sessionExpired } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [username, setUsername] = useState('')
@@ -55,6 +55,9 @@ export function LoginPage() {
           required
         />
 
+        {sessionExpired && !justSignedUp && (
+          <div className="login-success">Your session expired. Sign in again to pick up where you left off.</div>
+        )}
         {justSignedUp && (
           <div className="login-success">Account created — sign in below.</div>
         )}

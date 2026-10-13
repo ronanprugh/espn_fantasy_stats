@@ -12,6 +12,7 @@ import { RoundBadge } from '../components/RoundBadge'
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { Loading } from '../components/Loading'
+import { ErrorMessage } from '../components/ErrorMessage'
 
 export function HeadToHeadPage() {
   const navigate = useNavigate()
@@ -65,7 +66,7 @@ export function HeadToHeadPage() {
         <h2>Head to Head</h2>
       </header>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorMessage message={error} />}
 
       <div className="compare-controls">
         <div className="control">
