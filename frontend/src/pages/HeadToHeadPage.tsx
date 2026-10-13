@@ -13,14 +13,16 @@ import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
+import { useUrlState } from '../hooks/useUrlState'
 
 export function HeadToHeadPage() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { selectedLeague } = useLeague()
   const [owners, setOwners] = useState<OwnerHistory[]>([])
-  const [ownerA, setOwnerA] = useState<string>('')
-  const [ownerB, setOwnerB] = useState<string>('')
+  const [params, update] = useUrlState()
+  const ownerA = params.get('a') ?? ''
+  const ownerB = params.get('b') ?? ''
   const [data, setData] = useState<HeadToHeadStats | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -32,7 +34,7 @@ export function HeadToHeadPage() {
         setOwners(h.owners)
         if (!ownerA && selectedLeague.favorite_owner_id) {
           const fav = h.owners.find((o) => o.owner_id === selectedLeague.favorite_owner_id)
-          if (fav) setOwnerA(fav.owner_id)
+          if (fav) update({ a: fav.owner_id })
         }
       })
       .catch((e: Error) => setError(e.message))
@@ -74,7 +76,7 @@ export function HeadToHeadPage() {
           <select
             id="owner-a"
             value={ownerA}
-            onChange={(e) => setOwnerA(e.target.value)}
+            onChange={(e) => update({ a: e.target.value || null })}
           >
             <option value="">— pick a team —</option>
             {owners
@@ -92,7 +94,7 @@ export function HeadToHeadPage() {
           <select
             id="owner-b"
             value={ownerB}
-            onChange={(e) => setOwnerB(e.target.value)}
+            onChange={(e) => update({ b: e.target.value || null })}
           >
             <option value="">— pick a team —</option>
             {owners

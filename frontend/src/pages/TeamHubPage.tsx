@@ -14,6 +14,7 @@ import { RoundBadge } from '../components/RoundBadge'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
+import { numberParam, useUrlState } from '../hooks/useUrlState'
 
 const STARTER_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'WR/TE', 'OP', 'FLEX', 'K', 'D/ST']
 
@@ -43,8 +44,11 @@ export function TeamHubPage() {
   const { selectedLeague } = useLeague()
   const navigate = useNavigate()
   const [owners, setOwners] = useState<OwnerHistory[]>([])
-  const [ownerId, setOwnerId] = useState<string>('')
-  const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  // ?team=<owner id>&year=. No year means the hub's default (most recent),
+  // which is shown but not written back, so a link stays exactly as shared.
+  const [params, update] = useUrlState()
+  const ownerId = params.get('team') ?? ''
+  const selectedYear = numberParam(params, 'year')
   const [hub, setHub] = useState<TeamHub | null>(null)
   const [tab, setTab] = useState<HubTab>('summary')
   const [loading, setLoading] = useState(false)
@@ -57,18 +61,12 @@ export function TeamHubPage() {
         setOwners(h.owners)
         if (!ownerId && selectedLeague.favorite_owner_id) {
           const fav = h.owners.find((o) => o.owner_id === selectedLeague.favorite_owner_id)
-          if (fav) setOwnerId(fav.owner_id)
+          if (fav) update({ team: fav.owner_id })
         }
       })
       .catch((e: Error) => setError(e.message))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLeague?.espn_league_id])
-
-  // Reset the selected year whenever owner or league changes; the hub fetch
-  // will default to the most recent year and we'll pick up that value.
-  useEffect(() => {
-    setSelectedYear(null)
-  }, [ownerId, selectedLeague?.espn_league_id])
 
   useEffect(() => {
     if (!selectedLeague || !ownerId) {
@@ -82,10 +80,7 @@ export function TeamHubPage() {
       ownerId,
       selectedYear ?? undefined,
     )
-      .then((h) => {
-        setHub(h)
-        if (selectedYear == null) setSelectedYear(h.selected_year)
-      })
+      .then(setHub)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [selectedLeague?.espn_league_id, ownerId, selectedYear])
@@ -104,7 +99,8 @@ export function TeamHubPage() {
           <select
             id="hub-owner"
             value={ownerId}
-            onChange={(e) => setOwnerId(e.target.value)}
+            // A new team starts on its own most recent season.
+            onChange={(e) => update({ team: e.target.value || null, year: null })}
           >
             <option value="">— pick a team —</option>
             {owners.map((o) => (
@@ -121,7 +117,7 @@ export function TeamHubPage() {
             <select
               id="hub-year"
               value={selectedYear ?? hub.selected_year}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              onChange={(e) => update({ year: e.target.value })}
             >
               {[...hub.available_years].reverse().map((y) => (
                 <option key={y} value={y}>

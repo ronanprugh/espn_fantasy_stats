@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   fetchOwnerHistory,
   type LeagueOwnerHistory,
@@ -9,6 +9,7 @@ import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
+import { useUrlState } from '../hooks/useUrlState'
 
 function average(seasons: OwnerSeason[], key: keyof OwnerSeason): number | null {
   const values = seasons
@@ -42,8 +43,15 @@ const STAT_OPTIONS: StatOption[] = [
 export function ComparePage() {
   const { selectedLeague } = useLeague()
   const [history, setHistory] = useState<LeagueOwnerHistory | null>(null)
-  const [selected, setSelected] = useState<string[]>([])
-  const [statKey, setStatKey] = useState<keyof OwnerSeason>('final_standing')
+  // ?teams=<id>,<id>&stat=<key>. Memoised on the raw string so the list
+  // keeps its identity between renders.
+  const [params, update] = useUrlState()
+  const teamsParam = params.get('teams') ?? ''
+  const selected = useMemo(() => teamsParam.split(',').filter(Boolean), [teamsParam])
+  const setSelected = (ids: string[]) => update({ teams: ids.length ? ids.join(',') : null })
+  const statParam = params.get('stat')
+  const statKey: keyof OwnerSeason =
+    STAT_OPTIONS.find((o) => o.key === statParam)?.key ?? 'final_standing'
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -96,7 +104,7 @@ export function ComparePage() {
               <select
                 id="stat-select"
                 value={statKey}
-                onChange={(e) => setStatKey(e.target.value as keyof OwnerSeason)}
+                onChange={(e) => update({ stat: e.target.value })}
               >
                 {STAT_OPTIONS.map((o) => (
                   <option key={o.key} value={o.key}>
@@ -112,7 +120,7 @@ export function ComparePage() {
                 id="owner-select"
                 value=""
                 onChange={(e) => {
-                  if (e.target.value) setSelected((s) => [...s, e.target.value])
+                  if (e.target.value) setSelected([...selected, e.target.value])
                 }}
               >
                 <option value="">
@@ -138,7 +146,7 @@ export function ComparePage() {
                     <span className="pill-owner"> — {o.owner_name}</span>
                     <button
                       type="button"
-                      onClick={() => setSelected((s) => s.filter((x) => x !== oid))}
+                      onClick={() => setSelected(selected.filter((x) => x !== oid))}
                       aria-label={`Remove ${o.owner_name}`}
                     >
                       ×
