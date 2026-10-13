@@ -1489,6 +1489,27 @@ body {
   margin-left: 12px;
 }
 
+/* "Which team is yours?" on Team Hub; see YourTeamPrompt.tsx. */
+.your-team-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 12px 0 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-tint);
+  font-size: 14px;
+}
+
+.your-team-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
 /* Tables */
 .teams-wrap {
   overflow-x: auto;

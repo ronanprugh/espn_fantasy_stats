@@ -11,6 +11,7 @@ import {
 } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
+import { YourTeamPrompt } from '../components/YourTeamPrompt'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
@@ -128,6 +129,8 @@ export function TeamHubPage() {
           </div>
         )}
       </div>
+
+      <YourTeamPrompt league={selectedLeague} owners={owners} selectedOwnerId={ownerId} />
 
       {error && <ErrorMessage message={error} />}
       {loading && <Loading />}
