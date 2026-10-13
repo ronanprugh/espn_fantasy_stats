@@ -108,7 +108,9 @@ export function ScoreboardPage() {
                 key={i}
                 matchup={m}
                 onClick={() => goToBoxScore(m)}
-                disabled={!boxScoresAvailable || m.is_bye || m.round_label === 'consolation'}
+                disabled={
+                  !boxScoresAvailable || m.is_bye || m.round_label === 'consolation' || isUnplayed(m)
+                }
               />
             ))}
           </div>
@@ -128,6 +130,12 @@ export function ScoreboardPage() {
       )}
     </div>
   )
+}
+
+/** A future week: no points on either side and no result. Its box score
+ * would be ESPN's current week under the wrong label, so it isn't offered. */
+function isUnplayed(m: ScoreboardMatchup): boolean {
+  return m.team_a_score === 0 && m.team_b_score === 0 && m.winner_id === null
 }
 
 function ScoreboardCard({
