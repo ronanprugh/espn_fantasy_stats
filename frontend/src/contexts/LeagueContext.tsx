@@ -15,6 +15,9 @@ type LeagueState = {
   leagues: LeagueSummary[]
   selectedLeague: LeagueSummary | null
   loading: boolean
+  /** The league list has arrived at least once since sign-in. Until then an
+   * empty list means "not loaded yet", not "no leagues". */
+  loaded: boolean
   refresh: () => Promise<void>
   select: (espnLeagueId: number) => void
 }
@@ -29,6 +32,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     return raw ? Number(raw) : null
   })
   const [loading, setLoading] = useState(false)
+  const [loaded, setLoaded] = useState(false)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -43,6 +47,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       }
     } finally {
       setLoading(false)
+      setLoaded(true)
     }
   }, [selectedId])
 
@@ -52,6 +57,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     } else {
       setLeagues([])
       setSelectedId(null)
+      setLoaded(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
@@ -72,7 +78,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     selectedId != null ? leagues.find((l) => l.espn_league_id === selectedId) ?? null : null
 
   return (
-    <LeagueContext.Provider value={{ leagues, selectedLeague, loading, refresh, select }}>
+    <LeagueContext.Provider value={{ leagues, selectedLeague, loading, loaded, refresh, select }}>
       {children}
     </LeagueContext.Provider>
   )
