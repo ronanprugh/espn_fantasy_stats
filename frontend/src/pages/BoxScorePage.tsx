@@ -9,6 +9,7 @@ import {
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { Loading } from '../components/Loading'
+import { ErrorMessage } from '../components/ErrorMessage'
 
 const STARTER_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'WR/TE', 'OP', 'FLEX', 'K', 'D/ST']
 
@@ -80,7 +81,7 @@ export function BoxScorePage() {
         {year}, Week {week}
       </p>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorMessage message={error} />}
       {loading && <Loading />}
 
       {!loading && !matchup && !error && (

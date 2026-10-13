@@ -9,6 +9,7 @@ import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { Loading } from '../components/Loading'
+import { ErrorMessage } from '../components/ErrorMessage'
 
 export function ScoreboardPage() {
   const navigate = useNavigate()
@@ -69,7 +70,7 @@ export function ScoreboardPage() {
         <h2>Scoreboard</h2>
       </header>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorMessage message={error} />}
 
       <div className="compare-controls">
         <div className="control">

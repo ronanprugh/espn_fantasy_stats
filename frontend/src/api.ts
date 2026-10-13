@@ -11,14 +11,43 @@ const baseFetch = (input: RequestInfo, init: RequestInit = {}) =>
     { ...init, credentials: 'include' },
   )
 
+/**
+ * Fired when an API call comes back 401. The backend uses 401 only for "no
+ * valid session" (wrong passwords are 400s), so for a signed-in user it means
+ * the session expired; AuthContext drops the user and App sends them to login.
+ * Login's own 401 also fires it, harmlessly, since nobody is signed in yet.
+ */
+export const SESSION_EXPIRED_EVENT = 'session-expired'
+
+const NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again."
+const SERVER_ERROR =
+  "Couldn't load this right now. The server or ESPN may be slow; try again in a minute."
+
+/** Messages for failures worth retrying; ErrorMessage offers a retry for these. */
+export const RETRYABLE_ERRORS: ReadonlySet<string> = new Set([NETWORK_ERROR, SERVER_ERROR])
+
 async function jsonFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
-  const r = await baseFetch(url, init)
+  let r: Response
+  try {
+    r = await baseFetch(url, init)
+  } catch {
+    throw Object.assign(new Error(NETWORK_ERROR), { status: 0 })
+  }
   if (!r.ok) {
     const body = await r.json().catch(() => ({}))
-    const message = body.detail ?? `HTTP ${r.status}`
-    const err = new Error(message) as Error & { status: number }
-    err.status = r.status
-    throw err
+    if (r.status === 401) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
+    // 4xx details are written for people ("Week 6 of 2026 hasn't been played
+    // yet."). 5xx details are exception text, and a gateway timeout from
+    // Vercel or Render has no JSON body at all, so those get a plain message
+    // and the original goes to the console.
+    let message: string
+    if (r.status >= 500) {
+      if (body.detail) console.error(`${url} failed (${r.status}): ${body.detail}`)
+      message = SERVER_ERROR
+    } else {
+      message = body.detail ?? `Request failed (${r.status}).`
+    }
+    throw Object.assign(new Error(message), { status: r.status })
   }
   return r.json()
 }

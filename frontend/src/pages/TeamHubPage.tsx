@@ -13,6 +13,7 @@ import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
+import { ErrorMessage } from '../components/ErrorMessage'
 
 const STARTER_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'WR/TE', 'OP', 'FLEX', 'K', 'D/ST']
 
@@ -132,7 +133,7 @@ export function TeamHubPage() {
         )}
       </div>
 
-      {error && <p className="error">{error}</p>}
+      {error && <ErrorMessage message={error} />}
       {loading && <Loading />}
 
       {!loading && hub && (
