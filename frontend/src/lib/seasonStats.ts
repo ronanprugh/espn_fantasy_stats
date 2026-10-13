@@ -39,6 +39,13 @@ export function gamesPlayed(season: SeasonTeams): number {
   return Math.max(0, ...season.teams.map((t) => t.wins + t.losses + t.ties))
 }
 
+/** A season is in progress until ESPN assigns final standings, which happens
+ * once its playoffs finish. Read from the data rather than the calendar, so a
+ * season stops counting as current the moment it's actually over. */
+export function isInProgress(season: SeasonTeams): boolean {
+  return season.teams.some((t) => !t.final_standing)
+}
+
 const winsWithTies = (w: number, t: number) => w + t / 2
 
 /** Stats keyed by team_id. Empty for a season with no completed games. */

@@ -1497,6 +1497,55 @@ table.teams td.neg {
   color: var(--danger);
 }
 
+/* Every Season keeps every row to a single line. Most cells are short numbers
+ * and only need nowrap; owner and team names can run long, so they also cut
+ * off with an ellipsis past ~20ch (about 27 characters of proportional text).
+ * The truncation sits on an inner block rather than the td because browsers
+ * ignore max-width on cells in an auto-layout table. The full text is in the
+ * span's title. */
+table.season-history td {
+  white-space: nowrap;
+}
+
+/* In-progress season rows: tinted, with an accent bar on the leading edge, so
+ * partial-season numbers aren't mistaken for final ones. */
+table.season-history tr.current-season td {
+  background: var(--accent-tint);
+}
+
+table.season-history tr.current-season td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.season-history-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.season-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.season-toggle input {
+  accent-color: var(--accent);
+}
+
+table.season-history .truncate {
+  display: block;
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Numerals
  *
  * tabular-nums gives every digit the same advance width, so a 1 occupies the

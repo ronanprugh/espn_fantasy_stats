@@ -4,6 +4,7 @@ import {
   computeSeasonStats,
   formatRate,
   formatRecord,
+  isInProgress,
   type TeamSeasonStats,
 } from '../lib/seasonStats'
 import { SortableTh, type SortDir } from './SortableTh'
@@ -20,6 +21,8 @@ type SeasonRow = {
   year: number
   scoring_type: SeasonTeams['scoring_type']
   team: Team
+  /** Partial-season numbers, highlighted so they aren't read as final. */
+  inProgress: boolean
   /** Absent for a season with no completed games. */
   stats: TeamSeasonStats | undefined
   /** Absent until the close-games request lands. */
@@ -149,21 +152,23 @@ export function SeasonHistoryTable({
     )
   }, [closeGames])
 
-  const rows: SeasonRow[] = seasons.flatMap((s) =>
-    s.teams.map((team) => {
+  const rows: SeasonRow[] = seasons.flatMap((s) => {
+    const inProgress = isInProgress(s)
+    return s.teams.map((team) => {
       const yearClose = closeByYear?.get(s.year)
       return {
         year: s.year,
         scoring_type: s.scoring_type,
         team,
+        inProgress,
         stats: statsByYear.get(s.year)?.get(team.team_id),
         // A team with no close games is missing from the response, not 0-0.
         close: yearClose
           ? (yearClose.get(team.team_id) ?? { team_id: team.team_id, wins: 0, losses: 0, ties: 0 })
           : undefined,
       }
-    }),
-  )
+    })
+  })
 
   const handleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -209,25 +214,12 @@ export function SeasonHistoryTable({
 
   return (
     <div className="teams-wrap">
-      <table className="teams">
+      <table className="teams season-history">
         <thead>
           <tr>
             {th('year', 'Year')}
-            {th('scoring', 'Scoring', 'Scoring format that season')}
-            {th('finish', 'Finish')}
-            {th('team_name', 'Name')}
             {th('owner', 'Owner')}
-            {th('wins', 'W', 'Wins')}
-            {th('losses', 'L', 'Losses')}
-            {th('ties', 'T', 'Ties')}
-            {th('win_pct', 'Win %', 'Regular-season win percentage, with ties counted as half a win.')}
-            {th('playoff_wins', 'PO W', 'Playoff Wins')}
-            {th('playoff_losses', 'PO L', 'Playoff Losses')}
-            {th('points_for', 'PF', 'Points For')}
-            {th('points_against', 'PA', 'Points Against')}
-            {th('avg_points_for', 'Avg PF', 'Average Points For per regular season game')}
-            {th('avg_points_against', 'Avg PA', 'Average Points Against per regular season game')}
-            {th('avg_plus_minus', 'Avg +/−', 'Avg PF − Avg PA (positive = scored more than allowed)')}
+            {th('points_for', 'PF', 'Total points scored in the regular season.')}
             {th(
               'pts_vs_avg',
               'vs Avg',
@@ -261,31 +253,54 @@ export function SeasonHistoryTable({
               `Record in regular-season games decided by fewer than ${margin} points. ` +
                 'Sorts by close wins minus close losses.',
             )}
+            {th(
+              'scoring',
+              'Scoring',
+              "The league's scoring format that season. PPR gives a point per reception, " +
+                'Half PPR half a point, Standard none, so raw points are only comparable ' +
+                'within the same format. Use vs Avg to compare across formats.',
+            )}
+            {th(
+              'finish',
+              'Finish',
+              'Final place after the playoffs; 1 is the champion. For a season still in ' +
+                'progress, the current regular-season standing.',
+            )}
+            {th('wins', 'W', 'Regular-season wins.')}
+            {th('losses', 'L', 'Regular-season losses.')}
+            {th('ties', 'T', 'Regular-season ties.')}
+            {th('win_pct', 'Win %', 'Regular-season win percentage, with ties counted as half a win.')}
+            {th('playoff_wins', 'PO W', 'Wins in the championship bracket. Zero for teams that missed the playoffs.')}
+            {th(
+              'playoff_losses',
+              'PO L',
+              'Losses in the championship bracket: at most one, since a loss ends the run. ' +
+                'Consolation games are not counted.',
+            )}
+            {th('points_against', 'PA', 'Total points opponents scored against this team in the regular season.')}
+            {th('avg_points_for', 'Avg PF', 'Points scored per regular-season game played.')}
+            {th('avg_points_against', 'Avg PA', 'Points allowed per regular-season game played.')}
+            {th(
+              'avg_plus_minus',
+              'Avg +/−',
+              'Avg PF minus Avg PA. Positive means the team outscored its opponents on ' +
+                'average; negative means it was outscored.',
+            )}
+            {th('team_name', 'Name')}
           </tr>
         </thead>
         <tbody>
           {sorted.map((r) => {
             const { year, scoring_type, team: t, stats: s } = r
             return (
-              <tr key={`${year}-${t.team_id}`}>
+              <tr key={`${year}-${t.team_id}`} className={r.inProgress ? 'current-season' : undefined}>
                 <td className="num">{year}</td>
-                <td>{SCORING_LABEL[scoring_type]}</td>
-                <td className="num">{finishOf(t)}</td>
-                <td>{t.team_name}</td>
-                <td>{ownerName(t) || '—'}</td>
-                <td className="num">{t.wins}</td>
-                <td className="num">{t.losses}</td>
-                <td className="num">{t.ties}</td>
-                <td className="num">{s ? formatRate(s.winPct) : '—'}</td>
-                <td className="num">{t.playoff_wins}</td>
-                <td className="num">{t.playoff_losses}</td>
-                <td className="num">{t.points_for.toFixed(1)}</td>
-                <td className="num">{t.points_against.toFixed(1)}</td>
-                <td className="num">{t.avg_points_for.toFixed(2)}</td>
-                <td className="num">{t.avg_points_against.toFixed(2)}</td>
-                <td className={`num ${t.avg_plus_minus >= 0 ? 'pos' : 'neg'}`}>
-                  {signed(t.avg_plus_minus, 2)}
+                <td>
+                  <span className="truncate" title={ownerName(t) || undefined}>
+                    {ownerName(t) || '—'}
+                  </span>
                 </td>
+                <td className="num">{t.points_for.toFixed(1)}</td>
                 <td className={`num ${s ? (s.ptsVsAvg >= 0 ? 'pos' : 'neg') : ''}`}>
                   {s ? `${signed(s.ptsVsAvg * 100, 1)}%` : '—'}
                 </td>
@@ -304,6 +319,25 @@ export function SeasonHistoryTable({
                 <td className="num">{s ? s.topScorerWeeks : '—'}</td>
                 <td className="num">{s ? s.stdDev.toFixed(1) : '—'}</td>
                 <td className="num">{closeCell(r)}</td>
+                <td>{SCORING_LABEL[scoring_type]}</td>
+                <td className="num">{finishOf(t)}</td>
+                <td className="num">{t.wins}</td>
+                <td className="num">{t.losses}</td>
+                <td className="num">{t.ties}</td>
+                <td className="num">{s ? formatRate(s.winPct) : '—'}</td>
+                <td className="num">{t.playoff_wins}</td>
+                <td className="num">{t.playoff_losses}</td>
+                <td className="num">{t.points_against.toFixed(1)}</td>
+                <td className="num">{t.avg_points_for.toFixed(2)}</td>
+                <td className="num">{t.avg_points_against.toFixed(2)}</td>
+                <td className={`num ${t.avg_plus_minus >= 0 ? 'pos' : 'neg'}`}>
+                  {signed(t.avg_plus_minus, 2)}
+                </td>
+                <td>
+                  <span className="truncate" title={t.team_name}>
+                    {t.team_name}
+                  </span>
+                </td>
               </tr>
             )
           })}
