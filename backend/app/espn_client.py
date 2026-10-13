@@ -1,17 +1,26 @@
-import time
-from datetime import datetime, timedelta
+from datetime import datetime, time as clock_time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from espn_api.football import League
 
-# How long data for the season in progress may be served before re-fetching
-# from ESPN. Finished seasons never change, so they are kept indefinitely.
-LIVE_DATA_MAX_AGE = timedelta(minutes=15)
+EASTERN = ZoneInfo("America/New_York")
 
-# (League, monotonic time it was fetched). A League object is a snapshot taken
-# at construction, so for the live season it has to age out like the DB cache
-# does — otherwise an expired DB row is just rebuilt from the same stale
-# snapshot, for as long as the process lives.
-_leagues: dict[tuple[int, int], tuple[League, float]] = {}
+# Weekly points, in Eastern time, at which data for the season in progress goes
+# stale and is re-fetched from ESPN on its next request. (weekday, time), with
+# Monday as 0. Midnight Tuesday catches Monday night's results; 9am catches
+# them again once ESPN has finished processing the week. This is a stats app,
+# not live scoring, so nothing needs refreshing between those points. Finished
+# seasons never change and are kept indefinitely.
+REFRESH_POINTS: tuple[tuple[int, clock_time], ...] = (
+    (1, clock_time(0, 0)),
+    (1, clock_time(9, 0)),
+)
+
+# (League, UTC time it was fetched). A League object is a snapshot taken at
+# construction, so for the live season it has to go stale at the same refresh
+# points as the DB cache — otherwise an expired DB row is just rebuilt from the
+# same stale snapshot, for as long as the process lives.
+_leagues: dict[tuple[int, int], tuple[League, datetime]] = {}
 _years_cache: dict[int, list[int]] = {}
 
 
@@ -29,6 +38,23 @@ def is_live_season(year: int) -> bool:
     return year >= current_season_year()
 
 
+def last_refresh_point(now: datetime | None = None) -> datetime:
+    """The most recent point in REFRESH_POINTS at or before `now`.
+
+    Live-season data fetched before this is stale. Computed on Eastern wall
+    clock dates, so 9am stays 9am across daylight-saving changes.
+    """
+    now = (now or datetime.now(timezone.utc)).astimezone(EASTERN)
+    points = []
+    for weekday, at in REFRESH_POINTS:
+        day = now.date() - timedelta(days=(now.weekday() - weekday) % 7)
+        point = datetime.combine(day, at, tzinfo=EASTERN)
+        if point > now:
+            point = datetime.combine(day - timedelta(days=7), at, tzinfo=EASTERN)
+        points.append(point)
+    return max(points)
+
+
 def get_league(
     league_id: int,
     year: int,
@@ -39,14 +65,10 @@ def get_league(
     hit = _leagues.get(key)
     if hit is not None:
         league, fetched_at = hit
-        expired = (
-            is_live_season(year)
-            and time.monotonic() - fetched_at > LIVE_DATA_MAX_AGE.total_seconds()
-        )
-        if not expired:
+        if not (is_live_season(year) and fetched_at < last_refresh_point()):
             return league
     league = League(league_id=league_id, year=year, espn_s2=espn_s2, swid=swid)
-    _leagues[key] = (league, time.monotonic())
+    _leagues[key] = (league, datetime.now(timezone.utc))
     return league
 
 
