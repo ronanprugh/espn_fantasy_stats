@@ -1433,6 +1433,30 @@ body {
   margin: 16px 0;
 }
 
+/* On phones the year buttons stay on one row and scroll sideways. A league
+ * gains a button every season, and wrapping had grown the row to three lines
+ * at 375px. The newest seasons come first, so they stay in reach. The row
+ * runs to the screen edges (cancelling .content's 12px side padding) so
+ * buttons visibly slide under the edge rather than looking cut off. */
+@media (max-width: 900px) {
+  .years {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -12px;
+    padding-inline: 12px;
+    scroll-padding-inline: 12px;
+  }
+
+  .years::-webkit-scrollbar {
+    display: none;
+  }
+
+  .years button {
+    flex: 0 0 auto;
+  }
+}
+
 .years button {
   padding: 6px 14px;
   border: 1px solid var(--border-strong);
