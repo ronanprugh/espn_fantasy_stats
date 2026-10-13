@@ -270,42 +270,55 @@ function AddLeagueForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCa
     <form className="league-form" onSubmit={submit}>
       <h3>Add a League</h3>
 
-      <label>ESPN League ID</label>
+      <label htmlFor="al-id">ESPN League ID</label>
       <input
+        id="al-id"
         type="number"
+        inputMode="numeric"
         value={leagueId}
         onChange={(e) => setLeagueId(e.target.value)}
-        placeholder="1375368"
+        placeholder="e.g. 123456"
+        aria-describedby="al-id-hint"
         required
       />
+      <p className="hint" id="al-id-hint">
+        The number after <code>leagueId=</code> in your league's address on fantasy.espn.com.
+      </p>
 
-      <label>Display name</label>
+      <label htmlFor="al-name">Display name</label>
       <input
+        id="al-name"
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="The Payton Bowl"
+        placeholder="e.g. Sunday League"
         required
       />
 
-      <label>espn_s2 cookie <span className="hint">(private leagues only)</span></label>
+      <label htmlFor="al-s2">espn_s2 cookie <span className="hint">(private leagues only)</span></label>
       <input
+        id="al-s2"
         type="password"
         value={s2}
         onChange={(e) => setS2(e.target.value)}
-        placeholder="AEACjGBB..."
+        placeholder="A long value, usually starting AEA…"
+        aria-describedby="al-cookie-hint"
       />
 
-      <label>SWID cookie <span className="hint">(private leagues only)</span></label>
+      <label htmlFor="al-swid">SWID cookie <span className="hint">(private leagues only)</span></label>
       <input
+        id="al-swid"
         type="text"
         value={swid}
         onChange={(e) => setSwid(e.target.value)}
-        placeholder="{...}"
+        placeholder="{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}"
+        aria-describedby="al-cookie-hint"
       />
 
-      <p className="hint">
-        Get these from fantasy.espn.com → DevTools → Application → Cookies. Stored encrypted.
+      <p className="hint" id="al-cookie-hint">
+        Only needed for private leagues, and it takes a computer: sign in at fantasy.espn.com,
+        open the browser's developer tools → Application (Storage in Firefox) → Cookies, and copy
+        espn_s2 and SWID. Stored encrypted.
       </p>
 
       {error && <div className="login-error">{error}</div>}
