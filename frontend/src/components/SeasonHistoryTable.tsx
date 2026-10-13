@@ -58,7 +58,7 @@ type SortKey =
 const ASC_BY_DEFAULT: Set<SortKey> = new Set(['finish', 'team_name', 'owner', 'scoring', 'std_dev'])
 const TEXT_COLUMNS: Set<SortKey> = new Set(['team_name', 'owner', 'scoring'])
 
-const SCORING_LABEL: Record<SeasonTeams['scoring_type'], string> = {
+export const SCORING_LABEL: Record<SeasonTeams['scoring_type'], string> = {
   ppr: 'PPR',
   half_ppr: 'Half PPR',
   standard: 'Standard',
@@ -131,14 +131,19 @@ const valueOf = (r: SeasonRow, key: SortKey): string | number | null => {
 export function SeasonHistoryTable({
   seasons,
   closeGames,
+  singleSeason = false,
 }: {
   seasons: SeasonTeams[]
   closeGames: CloseGamesState
+  /** One season's standings rather than a cross-season ranking: sorted by
+   * finish, without the Year and Scoring columns (constant within a season),
+   * and without the in-progress tint, which would cover every row. */
+  singleSeason?: boolean
 }) {
-  // Avg PF rather than total PF: regular-season length can differ between
-  // years, and totals would favour the longer seasons.
-  const [sortKey, setSortKey] = useState<SortKey>('avg_points_for')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  // Across seasons, Avg PF rather than total PF: regular-season length can
+  // differ between years, and totals would favour the longer seasons.
+  const [sortKey, setSortKey] = useState<SortKey>(singleSeason ? 'finish' : 'avg_points_for')
+  const [sortDir, setSortDir] = useState<SortDir>(singleSeason ? 'asc' : 'desc')
 
   const statsByYear = useMemo(
     () => new Map(seasons.map((s) => [s.year, computeSeasonStats(s)])),
@@ -217,7 +222,7 @@ export function SeasonHistoryTable({
       <table className="teams season-history">
         <thead>
           <tr>
-            {th('year', 'Year')}
+            {!singleSeason && th('year', 'Year')}
             {th('owner', 'Owner')}
             {th('points_for', 'PF', 'Total points scored in the regular season.')}
             {th(
@@ -253,7 +258,7 @@ export function SeasonHistoryTable({
               `Record in regular-season games decided by fewer than ${margin} points. ` +
                 'Sorts by close wins minus close losses.',
             )}
-            {th(
+            {!singleSeason && th(
               'scoring',
               'Scoring',
               "The league's scoring format that season. PPR gives a point per reception, " +
@@ -293,8 +298,11 @@ export function SeasonHistoryTable({
           {sorted.map((r) => {
             const { year, scoring_type, team: t, stats: s } = r
             return (
-              <tr key={`${year}-${t.team_id}`} className={r.inProgress ? 'current-season' : undefined}>
-                <td className="num">{year}</td>
+              <tr
+                key={`${year}-${t.team_id}`}
+                className={r.inProgress && !singleSeason ? 'current-season' : undefined}
+              >
+                {!singleSeason && <td className="num">{year}</td>}
                 <td>
                   <span className="truncate" title={ownerName(t) || undefined}>
                     {ownerName(t) || '—'}
@@ -319,7 +327,7 @@ export function SeasonHistoryTable({
                 <td className="num">{s ? s.topScorerWeeks : '—'}</td>
                 <td className="num">{s ? s.stdDev.toFixed(1) : '—'}</td>
                 <td className="num">{closeCell(r)}</td>
-                <td>{SCORING_LABEL[scoring_type]}</td>
+                {!singleSeason && <td>{SCORING_LABEL[scoring_type]}</td>}
                 <td className="num">{finishOf(t)}</td>
                 <td className="num">{t.wins}</td>
                 <td className="num">{t.losses}</td>
