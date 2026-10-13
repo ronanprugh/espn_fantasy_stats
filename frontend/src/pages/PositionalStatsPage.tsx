@@ -9,6 +9,7 @@ import {
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { SortableTh, type SortDir } from '../components/SortableTh'
 import { useLeagueYears } from '../hooks/useLeagueYears'
+import { useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
@@ -41,8 +42,14 @@ type SortKey =
 
 export function PositionalStatsPage() {
   const { leagueId, years } = useLeagueYears()
-  const [yearMode, setYearMode] = useState<YearMode | null>(null)
-  const [position, setPosition] = useState<string>('QB')
+  // ?year=<year>|all&pos=<position>. With no year, the latest eligible
+  // season is shown without being written to the URL.
+  const [params, update] = useUrlState()
+  const yearParam = params.get('year')
+  const posParam = params.get('pos')
+  const position = posParam && POSITIONS.includes(posParam) ? posParam : 'QB'
+  const setYearMode = (m: YearMode) => update({ year: String(m) })
+  const setPosition = (p: string) => update({ pos: p })
   const [seasonData, setSeasonData] = useState<SeasonPositionalStats | null>(null)
   const [aggData, setAggData] = useState<LeaguePositionalAggregate | null>(null)
   const [loading, setLoading] = useState(false)
@@ -52,12 +59,9 @@ export function PositionalStatsPage() {
 
   const eligibleYears = useMemo(() => years.filter((y) => y >= 2019), [years])
 
-  // Default year on first load (latest eligible)
-  useEffect(() => {
-    if (yearMode === null && eligibleYears.length > 0) {
-      setYearMode(eligibleYears[eligibleYears.length - 1])
-    }
-  }, [eligibleYears, yearMode])
+  const urlYear = yearParam === 'all' ? 'all' : yearParam && /^\d{4}$/.test(yearParam) ? Number(yearParam) : null
+  const yearMode: YearMode | null =
+    urlYear ?? (eligibleYears.length > 0 ? eligibleYears[eligibleYears.length - 1] : null)
 
   useEffect(() => {
     if (!leagueId || yearMode === null) return
