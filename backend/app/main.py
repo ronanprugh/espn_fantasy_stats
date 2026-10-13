@@ -14,6 +14,7 @@ import secrets
 from .database import get_db
 from .espn_client import (
     POSITIONS_ORDER,
+    WeekNotPlayedError,
     CLOSE_GAME_MARGIN,
     aggregate_by_owner,
     close_game_records,
@@ -395,6 +396,11 @@ def _get_season_box_scores(
     picked up.
     """
     from .espn_client import serialize_box_scores as _ser  # local import for clarity
+    # Before the cache lookup, so box scores cached under a future week's key
+    # back when nothing guarded this (they hold the then-current week's data)
+    # are never served. They're replaced once that week is actually played.
+    if is_live_season(year) and week > get_league(league_id, year, espn_s2, swid).current_week:
+        raise WeekNotPlayedError(f"Week {week} of {year} hasn't been played yet.")
     cache_key = f"box_scores_v1_w{week}"
     fresh_since = None
     if is_live_season(year):
@@ -447,8 +453,11 @@ def _compute_positional_stats_for_year(
         played = max(
             (t["wins"] + t["losses"] + t["ties"] for t in teams_payload["teams"]), default=0
         )
-        # Through the week in progress; later weeks have no box scores yet.
-        total_weeks = min(total_weeks, played + 1)
+        # Completed weeks only. The week in progress would count partial
+        # points as a full game, and right after ESPN closes out a week the
+        # next one is "current" before a snap is played, so it would count
+        # every lineup slot as a 0-point game.
+        total_weeks = min(total_weeks, played)
 
     # Build per-week set of team_ids that played a real championship-bracket game.
     championship_teams_by_week: dict[int, set[int]] = {}
@@ -590,6 +599,8 @@ def box_scores(
         return _get_season_box_scores(
             ctx.espn_league_id, year, week, ctx.espn_s2, ctx.swid, refresh
         )
+    except WeekNotPlayedError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
 

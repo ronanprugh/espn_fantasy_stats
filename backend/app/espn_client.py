@@ -24,6 +24,15 @@ _leagues: dict[tuple[int, int], tuple[League, datetime]] = {}
 _years_cache: dict[int, list[int]] = {}
 
 
+class WeekNotPlayedError(ValueError):
+    """Raised for a week of the live season that ESPN hasn't reached yet.
+
+    espn_api doesn't refuse these: it silently clamps any week past
+    `current_week` to `current_week`, so asking for week 6 during week 5
+    returns week 5's box scores labelled as week 6.
+    """
+
+
 def current_season_year(now: datetime | None = None) -> int:
     """The fantasy season in progress, or most recently finished.
 
