@@ -8,6 +8,7 @@ import {
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
 import { useLeagueYears } from '../hooks/useLeagueYears'
+import { Loading } from '../components/Loading'
 
 export function ScoreboardPage() {
   const navigate = useNavigate()
@@ -93,7 +94,7 @@ export function ScoreboardPage() {
         </div>
       </div>
 
-      {loading && <p>Loading…</p>}
+      {loading && <Loading />}
 
       {!loading && year !== '' && week !== '' && weekMatchups.length > 0 && (
         <>
