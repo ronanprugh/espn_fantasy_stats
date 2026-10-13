@@ -1871,6 +1871,18 @@ table.teams th.num,
   cursor: pointer;
 }
 
+/* Clickable cards are links (see ScoreboardPage); keep them looking like cards. */
+a.scoreboard-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.scoreboard-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .scoreboard-card.clickable:hover {
   border-color: var(--accent);
   background: var(--bg-selected);

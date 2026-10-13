@@ -72,7 +72,7 @@ export function BoxScorePage() {
     <div className="page">
       <header className="page-header">
         <h2>Box Score</h2>
-        <Link to="/scoreboard" className="back-link">
+        <Link to={`/scoreboard?year=${year}&week=${week}`} className="back-link">
           ← Back to scoreboard
         </Link>
       </header>

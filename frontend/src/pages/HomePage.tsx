@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   fetchAggregate,
   fetchAllSeasons,
@@ -14,6 +14,7 @@ import { isInProgress } from '../lib/seasonStats'
 import { SeasonHistoryTable, type CloseGamesState } from '../components/SeasonHistoryTable'
 import { TeamList } from '../components/TeamList'
 import { useLeagueYears } from '../hooks/useLeagueYears'
+import { useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
@@ -21,7 +22,18 @@ type View = { mode: 'year'; year: number } | { mode: 'all' } | { mode: 'seasons'
 
 export function HomePage() {
   const { leagueId, leagueName, years } = useLeagueYears()
-  const [view, setView] = useState<View>({ mode: 'all' })
+  // ?view=seasons, ?view=2024, or nothing for All Time. Memoised on the raw
+  // string: the fetch effect depends on `view`, and a fresh object every
+  // render would refetch forever.
+  const [params, update] = useUrlState()
+  const viewParam = params.get('view')
+  const view = useMemo<View>(() => {
+    if (viewParam === 'seasons') return { mode: 'seasons' }
+    if (viewParam && /^\d{4}$/.test(viewParam)) return { mode: 'year', year: Number(viewParam) }
+    return { mode: 'all' }
+  }, [viewParam])
+  const setView = (v: View) =>
+    update({ view: v.mode === 'all' ? null : v.mode === 'seasons' ? 'seasons' : String(v.year) })
   const [seasonData, setSeasonData] = useState<SeasonTeams | null>(null)
   const [aggregateData, setAggregateData] = useState<LeagueAggregate | null>(null)
   const [allSeasonsData, setAllSeasonsData] = useState<AllSeasons | null>(null)
