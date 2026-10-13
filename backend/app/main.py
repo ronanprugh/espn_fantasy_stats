@@ -14,7 +14,9 @@ import secrets
 from .database import get_db
 from .espn_client import (
     POSITIONS_ORDER,
+    CLOSE_GAME_MARGIN,
     aggregate_by_owner,
+    close_game_records,
     build_owner_history,
     compute_positional_week_points,
     discover_years,
@@ -37,6 +39,8 @@ from .schemas import (
     InviteCodeResponse,
     SignupRequest,
     HeadToHeadStats,
+    AllSeasons,
+    CloseGames,
     LeagueAggregate,
     LeagueInfo,
     LeagueOwnerHistory,
@@ -1040,6 +1044,69 @@ def owner_history(refresh: bool = False, ctx: LeagueContext = Depends(get_user_l
     }
 
 
+def _load_season_teams(ctx: LeagueContext, years: list[int], refresh: bool) -> list[dict]:
+    seasons = []
+    for year in years:
+        try:
+            seasons.append(
+                _get_season_teams(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+    return seasons
+
+
+@app.get("/api/leagues/{league_id}/seasons", response_model=AllSeasons)
+def all_seasons(refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
+    """Every team-season the league has played, one SeasonTeams per year.
+
+    Unlike /aggregate this keeps each season separate, so the client can rank
+    individual seasons against each other. scoring_type rides along per year
+    because the league has changed formats, and a PPR points total isn't
+    comparable to a standard one.
+    """
+    try:
+        years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+    return {
+        "league_id": ctx.espn_league_id,
+        "years": years,
+        "seasons": _load_season_teams(ctx, years, refresh),
+    }
+
+
+@app.get("/api/leagues/{league_id}/close_games", response_model=CloseGames)
+def close_games(refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
+    """Close-game records for every season.
+
+    Split from /seasons because it needs each season's full matchup list, which
+    on a cold cache means a fresh ESPN fetch per year. The client renders the
+    season table first and fills this column in when it arrives.
+    """
+    try:
+        years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+    seasons = []
+    for year, teams_payload in zip(years, _load_season_teams(ctx, years, refresh)):
+        games = max(
+            (t["wins"] + t["losses"] + t["ties"] for t in teams_payload["teams"]), default=0
+        )
+        try:
+            matchups = _get_season_matchups(
+                ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+        records = close_game_records(matchups, games)
+        seasons.append({
+            "year": year,
+            "records": [{"team_id": tid, **rec} for tid, rec in records.items()],
+        })
+    return {"league_id": ctx.espn_league_id, "margin": CLOSE_GAME_MARGIN, "seasons": seasons}
+
+
 @app.get("/api/leagues/{league_id}/aggregate", response_model=LeagueAggregate)
 def aggregate(
     start_year: int | None = None,
@@ -1054,14 +1121,7 @@ def aggregate(
     sy = start_year if start_year is not None else available[0]
     ey = end_year if end_year is not None else available[-1]
     years = [y for y in available if sy <= y <= ey]
-    seasons = []
-    for year in years:
-        try:
-            seasons.append(
-                _get_season_teams(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
-            )
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+    seasons = _load_season_teams(ctx, years, refresh)
     return {
         "league_id": ctx.espn_league_id,
         "start_year": sy,

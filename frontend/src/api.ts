@@ -180,6 +180,34 @@ export async function fetchTeams(
   return jsonFetch<SeasonTeams>(url)
 }
 
+export type AllSeasons = {
+  league_id: number
+  years: number[]
+  seasons: SeasonTeams[]
+}
+
+export async function fetchAllSeasons(
+  leagueId: number,
+  refresh = false,
+): Promise<AllSeasons> {
+  const url = `/api/leagues/${leagueId}/seasons${refresh ? '?refresh=true' : ''}`
+  return jsonFetch<AllSeasons>(url)
+}
+
+export type CloseGameRecord = { team_id: number; wins: number; losses: number; ties: number }
+
+export type CloseGames = {
+  league_id: number
+  /** Games decided by fewer than this many points count as close. */
+  margin: number
+  seasons: { year: number; records: CloseGameRecord[] }[]
+}
+
+export async function fetchCloseGames(leagueId: number, refresh = false): Promise<CloseGames> {
+  const url = `/api/leagues/${leagueId}/close_games${refresh ? '?refresh=true' : ''}`
+  return jsonFetch<CloseGames>(url)
+}
+
 export type OwnerAggregate = {
   owner_id: string
   owner_name: string

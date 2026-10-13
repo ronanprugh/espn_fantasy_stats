@@ -248,6 +248,30 @@ class SeasonTeams(BaseModel):
     teams: List[Team]
 
 
+class AllSeasons(BaseModel):
+    league_id: int
+    years: List[int]
+    seasons: List[SeasonTeams]
+
+
+class CloseGameRecord(BaseModel):
+    team_id: int
+    wins: int
+    losses: int
+    ties: int
+
+
+class SeasonCloseGames(BaseModel):
+    year: int
+    records: List[CloseGameRecord]
+
+
+class CloseGames(BaseModel):
+    league_id: int
+    margin: float
+    seasons: List[SeasonCloseGames]
+
+
 class OwnerAggregate(BaseModel):
     owner_id: str
     owner_name: str
