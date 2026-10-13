@@ -15,7 +15,6 @@ from .database import get_db
 from .espn_client import (
     POSITIONS_ORDER,
     CLOSE_GAME_MARGIN,
-    LIVE_DATA_MAX_AGE,
     aggregate_by_owner,
     close_game_records,
     build_owner_history,
@@ -24,6 +23,7 @@ from .espn_client import (
     get_league,
     get_scoring_type,
     is_live_season,
+    last_refresh_point,
     serialize_all_matchups,
     serialize_playoffs,
     serialize_roster,
@@ -344,17 +344,17 @@ def get_user_league(
 # --------------------------------------------------------------------------- #
 
 
-def _max_age(year: int) -> dt.timedelta | None:
-    """Cache lifetime for a season's data: bounded while it's being played,
-    unbounded once it's over."""
-    return LIVE_DATA_MAX_AGE if is_live_season(year) else None
+def _fresh_since(year: int) -> dt.datetime | None:
+    """Oldest acceptable fetch time for a season's cached data: the latest
+    weekly refresh point while it's being played, none once it's over."""
+    return last_refresh_point() if is_live_season(year) else None
 
 
 def _get_season_teams(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> dict:
     if not refresh:
-        cached = cache.get(league_id, year, "teams_v3", max_age=_max_age(year))
+        cached = cache.get(league_id, year, "teams_v3", fresh_since=_fresh_since(year))
         if cached:
             return cached
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
@@ -372,7 +372,7 @@ def _get_season_matchups(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> list[dict]:
     if not refresh:
-        cached = cache.get(league_id, year, "matchups_v2", max_age=_max_age(year))
+        cached = cache.get(league_id, year, "matchups_v2", fresh_since=_fresh_since(year))
         if cached:
             return cached["matchups"]
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
@@ -387,21 +387,23 @@ def _get_season_box_scores(
 ) -> dict:
     """Cached per-week box scores (the same payload the API endpoint serves).
 
-    In a live season only the most recently completed week and later expire.
-    Earlier weeks are final, and expiring them would turn every positional-stats
-    rebuild into one ESPN fetch per week of the season. The most recent
-    completed week stays live to pick up ESPN's stat corrections.
+    In a live season only the two most recently completed weeks and later go
+    stale. Earlier weeks are final, and refreshing them would turn every
+    positional-stats rebuild into one ESPN fetch per week of the season. A
+    completed week stays refreshable through one more weekly refresh after it
+    ends, so ESPN's stat corrections, which land days after the games, are
+    picked up.
     """
     from .espn_client import serialize_box_scores as _ser  # local import for clarity
     cache_key = f"box_scores_v1_w{week}"
-    max_age = None
+    fresh_since = None
     if is_live_season(year):
         teams = _get_season_teams(league_id, year, espn_s2, swid)["teams"]
         played = max((t["wins"] + t["losses"] + t["ties"] for t in teams), default=0)
-        if week >= played:
-            max_age = LIVE_DATA_MAX_AGE
+        if week >= played - 1:
+            fresh_since = last_refresh_point()
     if not refresh:
-        cached = cache.get(league_id, year, cache_key, max_age=max_age)
+        cached = cache.get(league_id, year, cache_key, fresh_since=fresh_since)
         if cached:
             return cached
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
@@ -430,7 +432,7 @@ def _compute_positional_stats_for_year(
         raise ValueError("Positional stats require 2019 or later")
 
     if not refresh:
-        cached = cache.get(league_id, year, "positional_stats_v3", max_age=_max_age(year))
+        cached = cache.get(league_id, year, "positional_stats_v3", fresh_since=_fresh_since(year))
         if cached:
             return cached
 
@@ -520,7 +522,7 @@ def _get_season_scoreboard(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> dict:
     if not refresh:
-        cached = cache.get(league_id, year, "scoreboard_v2", max_age=_max_age(year))
+        cached = cache.get(league_id, year, "scoreboard_v2", fresh_since=_fresh_since(year))
         if cached:
             return cached
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
@@ -701,7 +703,7 @@ def positional_stats_aggregate(
 )
 def playoffs(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
     if not refresh:
-        cached = cache.get(ctx.espn_league_id, year, "playoffs_v1", max_age=_max_age(year))
+        cached = cache.get(ctx.espn_league_id, year, "playoffs_v1", fresh_since=_fresh_since(year))
         if cached:
             return cached
     try:
