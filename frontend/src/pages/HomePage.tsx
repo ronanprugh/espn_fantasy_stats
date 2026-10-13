@@ -10,6 +10,7 @@ import {
 } from '../api'
 import { AggregateTable } from '../components/AggregateTable'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
+import { isInProgress } from '../lib/seasonStats'
 import { SeasonHistoryTable, type CloseGamesState } from '../components/SeasonHistoryTable'
 import { TeamList } from '../components/TeamList'
 import { useLeagueYears } from '../hooks/useLeagueYears'
@@ -23,6 +24,7 @@ export function HomePage() {
   const [aggregateData, setAggregateData] = useState<LeagueAggregate | null>(null)
   const [allSeasonsData, setAllSeasonsData] = useState<AllSeasons | null>(null)
   const [closeGames, setCloseGames] = useState<CloseGamesState>({ status: 'loading' })
+  const [showCurrent, setShowCurrent] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -60,6 +62,9 @@ export function HomePage() {
   if (!leagueId) return <NoLeagueSelected />
 
   const yearsDesc = [...years].reverse()
+  const hasCurrent = allSeasonsData?.seasons.some(isInProgress) ?? false
+  const shownSeasons =
+    allSeasonsData?.seasons.filter((s) => showCurrent || !isInProgress(s)) ?? []
 
   return (
     <div className="page">
@@ -103,12 +108,23 @@ export function HomePage() {
       )}
       {!loading && view.mode === 'seasons' && allSeasonsData && (
         <>
-          <p className="subtitle">
-            {allSeasonsData.seasons.reduce((n, s) => n + s.teams.length, 0)} team-seasons
-            across {allSeasonsData.years.length} seasons · sorted by Avg PF — click any
-            column to re-rank
-          </p>
-          <SeasonHistoryTable seasons={allSeasonsData.seasons} closeGames={closeGames} />
+          <div className="season-history-bar">
+            <p className="subtitle">
+              {shownSeasons.reduce((n, s) => n + s.teams.length, 0)} team-seasons across{' '}
+              {shownSeasons.length} seasons · sorted by Avg PF — click any column to re-rank
+            </p>
+            {hasCurrent && (
+              <label className="season-toggle">
+                <input
+                  type="checkbox"
+                  checked={showCurrent}
+                  onChange={(e) => setShowCurrent(e.target.checked)}
+                />
+                Show current season
+              </label>
+            )}
+          </div>
+          <SeasonHistoryTable seasons={shownSeasons} closeGames={closeGames} />
         </>
       )}
       {!loading && view.mode === 'year' && seasonData && (

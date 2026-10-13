@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SeasonTeams, Team } from '../api'
-import { computeSeasonStats, formatRate, formatRecord, gamesPlayed } from './seasonStats'
+import { computeSeasonStats, formatRate, formatRecord, gamesPlayed, isInProgress } from './seasonStats'
 
 function team(team_id: number, scores: number[], wins: number, losses: number, ties = 0): Team {
   return {
@@ -117,6 +117,20 @@ describe('computeSeasonStats', () => {
 
   it('returns nothing for a season with no completed games', () => {
     expect(computeSeasonStats(season([team(1, [0, 0], 0, 0)])).size).toBe(0)
+  })
+})
+
+describe('isInProgress', () => {
+  const withStandings = (standings: number[]) =>
+    season(standings.map((s, i) => ({ ...team(i + 1, [100], 1, 0), final_standing: s })))
+
+  it('is true while any team lacks a final standing', () => {
+    expect(isInProgress(withStandings([0, 0, 0]))).toBe(true)
+    expect(isInProgress(withStandings([1, 0, 3]))).toBe(true)
+  })
+
+  it('is false once every team has a final standing', () => {
+    expect(isInProgress(withStandings([2, 1, 3]))).toBe(false)
   })
 })
 
