@@ -302,6 +302,35 @@ def serialize_all_matchups(league: League) -> list[dict]:
     return matchups
 
 
+CLOSE_GAME_MARGIN = 5.0
+
+
+def close_game_records(
+    matchups: list[dict], games_played: int, margin: float = CLOSE_GAME_MARGIN
+) -> dict[int, dict]:
+    """Regular-season record per team in games decided by fewer than `margin`.
+
+    Stops at `games_played`: an unplayed or in-progress matchup has no
+    winner_id, which is indistinguishable from a tie and would otherwise be
+    counted as one. Teams with no close games are absent from the result.
+    """
+    records: dict[int, dict] = {}
+    for m in matchups:
+        if m["is_playoff"] or m["week"] > games_played:
+            continue
+        if abs(m["team_a_score"] - m["team_b_score"]) >= margin:
+            continue
+        for tid in (m["team_a_id"], m["team_b_id"]):
+            rec = records.setdefault(tid, {"wins": 0, "losses": 0, "ties": 0})
+            if m["winner_id"] is None:
+                rec["ties"] += 1
+            elif m["winner_id"] == tid:
+                rec["wins"] += 1
+            else:
+                rec["losses"] += 1
+    return records
+
+
 POSITION_BUCKETS: dict[str, str] = {
     "QB": "QB",
     "RB": "RB",
