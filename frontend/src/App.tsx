@@ -4,6 +4,7 @@ import { BottomTabBar } from './components/BottomTabBar'
 import { MoreSheet } from './components/MoreSheet'
 import { Sidebar } from './components/Sidebar'
 import { useAuth } from './contexts/AuthContext'
+import { SlowHint } from './components/Loading'
 
 const COLLAPSE_KEY = 'sidebar_collapsed'
 
@@ -26,7 +27,12 @@ export default function App() {
   }, [location.pathname])
 
   if (loading) {
-    return <div className="bootstrap-loading">Loading…</div>
+    return (
+      <div className="bootstrap-loading">
+        <p>Loading…</p>
+        <SlowHint active />
+      </div>
+    )
   }
 
   if (!user) {

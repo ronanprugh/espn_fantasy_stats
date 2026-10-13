@@ -14,6 +14,7 @@ import { isInProgress } from '../lib/seasonStats'
 import { SeasonHistoryTable, type CloseGamesState } from '../components/SeasonHistoryTable'
 import { TeamList } from '../components/TeamList'
 import { useLeagueYears } from '../hooks/useLeagueYears'
+import { Loading } from '../components/Loading'
 
 type View = { mode: 'year'; year: number } | { mode: 'all' } | { mode: 'seasons' }
 
@@ -96,7 +97,7 @@ export function HomePage() {
         ))}
       </nav>
       {error && <p className="error">{error}</p>}
-      {loading && <p>Loading…</p>}
+      {loading && <Loading />}
       {!loading && view.mode === 'all' && aggregateData && (
         <>
           <p className="subtitle">

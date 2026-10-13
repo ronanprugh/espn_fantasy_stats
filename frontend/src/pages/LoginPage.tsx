@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { SlowHint } from '../components/Loading'
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -62,6 +63,7 @@ export function LoginPage() {
         <button type="submit" disabled={submitting}>
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
+        <SlowHint active={submitting} />
 
         <p className="login-hint">
           Have an invite code? <Link to="/signup">Create an account</Link>

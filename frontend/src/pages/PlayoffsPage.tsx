@@ -3,6 +3,7 @@ import { fetchPlayoffs, type SeasonPlayoffs } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { PlayoffBracket } from '../components/PlayoffBracket'
 import { useLeagueYears } from '../hooks/useLeagueYears'
+import { Loading } from '../components/Loading'
 
 export function PlayoffsPage() {
   const { leagueId, years } = useLeagueYears()
@@ -49,7 +50,7 @@ export function PlayoffsPage() {
         ))}
       </nav>
       {error && <p className="error">{error}</p>}
-      {loading && <p>Loading…</p>}
+      {loading && <Loading />}
       {data && !loading && <PlayoffBracket data={data} />}
     </div>
   )

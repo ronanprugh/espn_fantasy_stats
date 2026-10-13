@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { signup } from '../api'
+import { SlowHint } from '../components/Loading'
 
 export function SignupPage() {
   const navigate = useNavigate()
@@ -70,6 +71,7 @@ export function SignupPage() {
         <button type="submit" disabled={submitting}>
           {submitting ? 'Creating account…' : 'Create account'}
         </button>
+        <SlowHint active={submitting} />
 
         <p className="login-hint">
           Already have an account? <Link to="/login">Sign in</Link>

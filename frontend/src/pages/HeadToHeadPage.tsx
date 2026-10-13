@@ -11,6 +11,7 @@ import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { Loading } from '../components/Loading'
 
 export function HeadToHeadPage() {
   const navigate = useNavigate()
@@ -104,7 +105,7 @@ export function HeadToHeadPage() {
         </div>
       </div>
 
-      {loading && <p>Loading…</p>}
+      {loading && <Loading />}
 
       {!loading && data && data.total_matchups === 0 && (
         <p className="subtitle" style={{ marginTop: 24 }}>

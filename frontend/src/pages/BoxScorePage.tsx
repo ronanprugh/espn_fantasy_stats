@@ -8,6 +8,7 @@ import {
 } from '../api'
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { Loading } from '../components/Loading'
 
 const STARTER_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'WR/TE', 'OP', 'FLEX', 'K', 'D/ST']
 
@@ -80,7 +81,7 @@ export function BoxScorePage() {
       </p>
 
       {error && <p className="error">{error}</p>}
-      {loading && <p>Loading…</p>}
+      {loading && <Loading />}
 
       {!loading && !matchup && !error && (
         <p className="subtitle">Couldn't find that matchup.</p>
