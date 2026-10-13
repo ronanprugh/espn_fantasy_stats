@@ -1,9 +1,32 @@
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 
 from espn_api.football import League
 
-_leagues: dict[tuple[int, int], League] = {}
+# How long data for the season in progress may be served before re-fetching
+# from ESPN. Finished seasons never change, so they are kept indefinitely.
+LIVE_DATA_MAX_AGE = timedelta(minutes=15)
+
+# (League, monotonic time it was fetched). A League object is a snapshot taken
+# at construction, so for the live season it has to age out like the DB cache
+# does — otherwise an expired DB row is just rebuilt from the same stale
+# snapshot, for as long as the process lives.
+_leagues: dict[tuple[int, int], tuple[League, float]] = {}
 _years_cache: dict[int, list[int]] = {}
+
+
+def current_season_year(now: datetime | None = None) -> int:
+    """The fantasy season in progress, or most recently finished.
+
+    Seasons start in August or September and their playoffs run into early
+    January, so January through July still belong to the previous year's season.
+    """
+    now = now or datetime.now()
+    return now.year if now.month >= 8 else now.year - 1
+
+
+def is_live_season(year: int) -> bool:
+    return year >= current_season_year()
 
 
 def get_league(
@@ -13,14 +36,18 @@ def get_league(
     swid: str | None = None,
 ) -> League:
     key = (league_id, year)
-    if key not in _leagues:
-        _leagues[key] = League(
-            league_id=league_id,
-            year=year,
-            espn_s2=espn_s2,
-            swid=swid,
+    hit = _leagues.get(key)
+    if hit is not None:
+        league, fetched_at = hit
+        expired = (
+            is_live_season(year)
+            and time.monotonic() - fetched_at > LIVE_DATA_MAX_AGE.total_seconds()
         )
-    return _leagues[key]
+        if not expired:
+            return league
+    league = League(league_id=league_id, year=year, espn_s2=espn_s2, swid=swid)
+    _leagues[key] = (league, time.monotonic())
+    return league
 
 
 def discover_years(
@@ -633,8 +660,11 @@ def serialize_teams(league: League) -> list[dict]:
     result = []
     for t in league.teams:
         playoff_w, playoff_l = _playoff_record(t, reg_count, playoff_count)
-        avg_pf = t.points_for / reg_count if reg_count else 0.0
-        avg_pa = t.points_against / reg_count if reg_count else 0.0
+        # Divide by games played, not reg_count: for a season in progress the
+        # full schedule hasn't happened yet. Finished seasons are unaffected.
+        games = t.wins + t.losses + t.ties
+        avg_pf = t.points_for / games if games else 0.0
+        avg_pa = t.points_against / games if games else 0.0
         result.append({
             "team_id": t.team_id,
             "team_name": t.team_name,
