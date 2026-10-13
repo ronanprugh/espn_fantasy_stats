@@ -95,20 +95,20 @@ export function AggregateTable({ owners }: { owners: OwnerAggregate[] }) {
       <table className="teams">
         <thead>
           <tr>
-            {th('avg_finish', 'Avg Finish', 'Average finish across all seasons')}
+            {th('avg_finish', 'Avg Finish', 'Average final place across seasons played; lower is better. A season in progress counts its current standing.')}
             {th('owner_name', 'Owner')}
-            {th('team_names', 'Teams')}
-            {th('seasons_played', 'Sns', 'Seasons played')}
-            {th('wins', 'W', 'Wins')}
-            {th('losses', 'L', 'Losses')}
-            {th('ties', 'T', 'Ties')}
-            {th('playoff_wins', 'PO W', 'Playoff Wins')}
-            {th('playoff_losses', 'PO L', 'Playoff Losses')}
-            {th('points_for', 'PF', 'Total Points For')}
-            {th('points_against', 'PA', 'Total Points Against')}
-            {th('avg_points_for', 'Avg PF', 'Average Points For per game (across all seasons)')}
-            {th('avg_points_against', 'Avg PA', 'Average Points Against per game (across all seasons)')}
-            {th('avg_plus_minus', 'Avg +/−', 'Avg PF − Avg PA (positive = scored more than allowed)')}
+            {th('team_names', 'Teams', 'Team names this owner has used, most recent first.')}
+            {th('seasons_played', 'Sns', 'Seasons played.')}
+            {th('wins', 'W', 'Regular-season wins across all seasons.')}
+            {th('losses', 'L', 'Regular-season losses across all seasons.')}
+            {th('ties', 'T', 'Regular-season ties across all seasons.')}
+            {th('playoff_wins', 'PO W', 'Championship-bracket wins across all seasons. Consolation games are not counted.')}
+            {th('playoff_losses', 'PO L', 'Championship-bracket losses across all seasons: at most one per season, since a loss ends the run.')}
+            {th('points_for', 'PF', 'Total regular-season points scored across all seasons.')}
+            {th('points_against', 'PA', 'Total regular-season points scored against this owner across all seasons.')}
+            {th('avg_points_for', 'Avg PF', 'Points scored per regular-season game across all seasons. Mixes scoring formats if the league has changed them.')}
+            {th('avg_points_against', 'Avg PA', 'Points allowed per regular-season game across all seasons.')}
+            {th('avg_plus_minus', 'Avg +/−', 'Avg PF minus Avg PA. Positive means the owner outscored opponents on average.')}
           </tr>
         </thead>
         <tbody>

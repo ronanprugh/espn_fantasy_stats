@@ -10,9 +10,12 @@ import {
 } from '../api'
 import { AggregateTable } from '../components/AggregateTable'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
-import { isInProgress } from '../lib/seasonStats'
-import { SeasonHistoryTable, type CloseGamesState } from '../components/SeasonHistoryTable'
-import { TeamList } from '../components/TeamList'
+import { gamesPlayed, isInProgress } from '../lib/seasonStats'
+import {
+  SCORING_LABEL,
+  SeasonHistoryTable,
+  type CloseGamesState,
+} from '../components/SeasonHistoryTable'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
@@ -58,7 +61,7 @@ export function HomePage() {
   // Close games need every season's matchup list, which can mean an ESPN fetch
   // per year on a cold cache. Requested in parallel with the season table but
   // never awaited by it: the table renders first and this column fills in.
-  const wantsCloseGames = view.mode === 'seasons'
+  const wantsCloseGames = view.mode !== 'all'
   useEffect(() => {
     if (!leagueId || !wantsCloseGames) return
     if (closeGames.status === 'ready' && closeGames.data.league_id === leagueId) return
@@ -142,7 +145,13 @@ export function HomePage() {
         </>
       )}
       {!loading && view.mode === 'year' && seasonData && (
-        <TeamList teams={seasonData.teams} />
+        <>
+          <p className="subtitle">
+            {SCORING_LABEL[seasonData.scoring_type]} scoring
+            {isInProgress(seasonData) && ` · in progress, ${gamesPlayed(seasonData)} games played`}
+          </p>
+          <SeasonHistoryTable seasons={[seasonData]} closeGames={closeGames} singleSeason />
+        </>
       )}
     </div>
   )
