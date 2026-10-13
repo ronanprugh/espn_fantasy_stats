@@ -12,6 +12,14 @@ import { numberParam, useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
+type BracketRound = 'playoff' | 'semifinal' | 'championship'
+const ROUND_ORDER: BracketRound[] = ['playoff', 'semifinal', 'championship']
+const ROUND_NAME: Record<BracketRound, string> = {
+  playoff: 'Playoffs',
+  semifinal: 'Semifinals',
+  championship: 'Championship',
+}
+
 export function ScoreboardPage() {
   const { leagueId, years } = useLeagueYears()
   // Year and week live in the URL, so a box score's back link, the browser's
@@ -55,6 +63,15 @@ export function ScoreboardPage() {
 
   const yearsDesc = [...years].reverse()
   const weeks = seasonData?.weeks ?? []
+  // Each playoff week's championship-bracket round, so the week list says
+  // which weeks are the playoffs. Consolation games don't name the week.
+  const roundOfWeek = new Map<number, BracketRound>()
+  for (const m of seasonData?.matchups ?? []) {
+    if (!(m.round_label in ROUND_NAME)) continue
+    const r = m.round_label as BracketRound
+    const prev = roundOfWeek.get(m.week)
+    if (!prev || ROUND_ORDER.indexOf(r) > ROUND_ORDER.indexOf(prev)) roundOfWeek.set(m.week, r)
+  }
   const weekMatchups =
     seasonData && week !== '' ? seasonData.matchups.filter((m) => m.week === week) : []
 
@@ -98,6 +115,7 @@ export function ScoreboardPage() {
             {weeks.map((w) => (
               <option key={w} value={w}>
                 Week {w}
+                {roundOfWeek.has(w) && ` · ${ROUND_NAME[roundOfWeek.get(w)!]}`}
               </option>
             ))}
           </select>
