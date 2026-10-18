@@ -18,6 +18,8 @@ import {
 } from '../components/SeasonHistoryTable'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { useUrlState } from '../hooks/useUrlState'
+import { usePowerRankings } from '../hooks/usePowerRankings'
+import { ownerSeasonStats, ownerStats } from '../lib/powerRankings'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
@@ -42,6 +44,17 @@ export function HomePage() {
   const [allSeasonsData, setAllSeasonsData] = useState<AllSeasons | null>(null)
   const [closeGames, setCloseGames] = useState<CloseGamesState>({ status: 'loading' })
   const [showCurrent, setShowCurrent] = useState(true)
+  // Power rank columns, when the league has rankings. Fetched alongside the
+  // table and never waited on: the columns appear once it lands.
+  const pr = usePowerRankings(leagueId)
+  const prByOwner = useMemo(
+    () => (pr.hasData && pr.data ? new Map(ownerStats(pr.data).map((o) => [o.ownerId, o])) : undefined),
+    [pr.data, pr.hasData],
+  )
+  const prBySeason = useMemo(
+    () => (pr.hasData && pr.data ? ownerSeasonStats(pr.data) : undefined),
+    [pr.data, pr.hasData],
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -120,7 +133,7 @@ export function HomePage() {
             {aggregateData.start_year}–{aggregateData.end_year} ·{' '}
             {aggregateData.years.length} seasons · {aggregateData.owners.length} owners
           </p>
-          <AggregateTable owners={aggregateData.owners} />
+          <AggregateTable owners={aggregateData.owners} powerRankings={prByOwner} />
         </>
       )}
       {!loading && view.mode === 'seasons' && allSeasonsData && (
@@ -141,7 +154,7 @@ export function HomePage() {
               </label>
             )}
           </div>
-          <SeasonHistoryTable seasons={shownSeasons} closeGames={closeGames} />
+          <SeasonHistoryTable seasons={shownSeasons} closeGames={closeGames} powerRankings={prBySeason} />
         </>
       )}
       {!loading && view.mode === 'year' && seasonData && (
@@ -150,7 +163,12 @@ export function HomePage() {
             {SCORING_LABEL[seasonData.scoring_type]} scoring
             {isInProgress(seasonData) && ` · in progress, ${gamesPlayed(seasonData)} games played`}
           </p>
-          <SeasonHistoryTable seasons={[seasonData]} closeGames={closeGames} singleSeason />
+          <SeasonHistoryTable
+            seasons={[seasonData]}
+            closeGames={closeGames}
+            singleSeason
+            powerRankings={prBySeason && prBySeason.has(`${seasonData.year}:${seasonData.teams[0]?.owners[0]?.id}`) ? prBySeason : undefined}
+          />
         </>
       )}
     </div>

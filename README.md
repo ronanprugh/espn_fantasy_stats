@@ -22,6 +22,10 @@ What's in it:
 - **Team Hub** — per-team summary card, current roster, and last matchup (with tabs for Summary/Roster)
 - **Team Comparison** — year-over-year line chart for any selected stat across multiple owners
 - **Head to Head** — full record between any two owners across every season, plus the matchup list
+- **Power Rankings** — a league's posted power rankings, imported from a file: week-by-week rankings with every
+  write-up, a season bump chart, all-time records, and a searchable archive. Ranks also show up on Season Stats,
+  Team Hub, Team Comparison, Head to Head and the Scoreboard. Weeks with no posted rankings take the nearest
+  week's ranks and are always marked as assumed.
 
 ---
 
@@ -198,6 +202,24 @@ rm -rf .pgdata
 docker compose up -d
 cd backend && .venv/bin/alembic upgrade head
 # then re-seed your user
+```
+
+## Power rankings
+
+Rankings come from an import file, not ESPN, so nothing about them is in the repo. Open **Power Rankings** →
+**Archive** (or the empty state on a league with none yet) and upload a JSON file shaped like the example on that
+screen. Importing replaces the league's whole archive, for everyone who has added the league.
+
+Each post's `week` is the week it looks ahead to: preseason rankings are week 1, and rankings written after Week 3's
+games are week 4. Entries name teams by `team_name` (any name the team has used, or its abbreviation) or ESPN
+`team_id`; an import with a name that matches no team is rejected whole, with the names listed.
+
+Backend tests cover how missing weeks are filled:
+
+```bash
+cd backend
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest
 ```
 
 ---

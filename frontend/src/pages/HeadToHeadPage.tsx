@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   fetchHeadToHead,
@@ -8,12 +8,15 @@ import {
   type OwnerHistory,
 } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
+import { PrBadge } from '../components/PrBadge'
 import { RoundBadge } from '../components/RoundBadge'
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { useUrlState } from '../hooks/useUrlState'
+import { usePowerRankings } from '../hooks/usePowerRankings'
+import { ownerStats, rankLookup, type OwnerPrStats, type RankLookup } from '../lib/powerRankings'
 
 export function HeadToHeadPage() {
   const navigate = useNavigate()
@@ -26,6 +29,12 @@ export function HeadToHeadPage() {
   const [data, setData] = useState<HeadToHeadStats | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const pr = usePowerRankings(selectedLeague?.espn_league_id ?? null)
+  const look = useMemo(() => (pr.hasData ? rankLookup(pr.data) : undefined), [pr.data, pr.hasData])
+  const prStats = useMemo(
+    () => (pr.hasData && pr.data ? new Map(ownerStats(pr.data).map((o) => [o.ownerId, o])) : undefined),
+    [pr.data, pr.hasData],
+  )
 
   useEffect(() => {
     if (!selectedLeague) return
@@ -118,11 +127,12 @@ export function HeadToHeadPage() {
 
       {!loading && data && data.total_matchups > 0 && (
         <>
-          {isMobile ? <H2HSummaryMobile data={data} /> : <H2HSummary data={data} />}
+          {isMobile ? <H2HSummaryMobile data={data} pr={prStats} /> : <H2HSummary data={data} pr={prStats} />}
+          {look && <RankedRecord data={data} look={look} />}
           {isMobile ? (
-            <H2HMatchupsMobile matchups={data.matchups} data={data} onClick={handleMatchupClick} />
+            <H2HMatchupsMobile matchups={data.matchups} data={data} onClick={handleMatchupClick} look={look} />
           ) : (
-            <H2HMatchupsList matchups={data.matchups} data={data} onClick={handleMatchupClick} />
+            <H2HMatchupsList matchups={data.matchups} data={data} onClick={handleMatchupClick} look={look} />
           )}
         </>
       )}
@@ -137,7 +147,50 @@ type SummaryRow = {
   highlight?: 'a' | 'b' | null
 }
 
-function summaryRows(data: HeadToHeadStats): SummaryRow[] {
+/** How the power rankings called this rivalry: in meetings where both were
+ * ranked, how often the better-ranked team won. */
+function RankedRecord({ data, look }: { data: HeadToHeadStats; look: RankLookup }) {
+  let games = 0
+  let called = 0
+  let aRankedHigher = 0
+  for (const m of data.matchups) {
+    const ra = look(m.year, m.week, m.owner_a_team_id)?.entry.rank
+    const rb = look(m.year, m.week, m.owner_b_team_id)?.entry.rank
+    if (ra == null || rb == null || ra === rb || m.winner_owner_id == null) continue
+    games += 1
+    if (ra < rb) aRankedHigher += 1
+    const favourite = ra < rb ? data.owner_a_id : data.owner_b_id
+    if (m.winner_owner_id === favourite) called += 1
+  }
+  if (!games) return null
+  return (
+    <p className="subtitle h2h-pr-note">
+      Power rankings: {data.owner_a_team_name} was ranked higher in {aRankedHigher} of {games} ranked meetings, and
+      the better-ranked team won {called} of {games}.
+    </p>
+  )
+}
+
+function summaryRows(data: HeadToHeadStats, pr?: Map<string, OwnerPrStats>): SummaryRow[] {
+  const pa = pr?.get(data.owner_a_id)
+  const pb = pr?.get(data.owner_b_id)
+  const prRows: SummaryRow[] =
+    pa?.avgRank != null && pb?.avgRank != null
+      ? [
+          {
+            label: 'Avg Power Rank',
+            a: pa.avgRank.toFixed(2),
+            b: pb.avgRank.toFixed(2),
+            highlight: pa.avgRank < pb.avgRank ? 'a' : pb.avgRank < pa.avgRank ? 'b' : null,
+          },
+          {
+            label: 'Weeks at #1',
+            a: pa.weeksAt1,
+            b: pb.weeksAt1,
+            highlight: pa.weeksAt1 > pb.weeksAt1 ? 'a' : pb.weeksAt1 > pa.weeksAt1 ? 'b' : null,
+          },
+        ]
+      : []
   return [
     {
       label: 'All-time record',
@@ -187,11 +240,12 @@ function summaryRows(data: HeadToHeadStats): SummaryRow[] {
       a: data.owner_b_playoff_wins,
       b: data.owner_a_playoff_wins,
     },
+    ...prRows,
   ]
 }
 
-function H2HSummary({ data }: { data: HeadToHeadStats }) {
-  const rows = summaryRows(data)
+function H2HSummary({ data, pr }: { data: HeadToHeadStats; pr?: Map<string, OwnerPrStats> }) {
+  const rows = summaryRows(data, pr)
 
   return (
     <section className="h2h-summary">
@@ -231,8 +285,8 @@ function H2HSummary({ data }: { data: HeadToHeadStats }) {
  * team headings become a sticky-free banner at the top, and each stat is a row
  * that fits the width because the label sits between the two figures rather
  * than in a column of its own. */
-function H2HSummaryMobile({ data }: { data: HeadToHeadStats }) {
-  const rows = summaryRows(data)
+function H2HSummaryMobile({ data, pr }: { data: HeadToHeadStats; pr?: Map<string, OwnerPrStats> }) {
+  const rows = summaryRows(data, pr)
   const aLeads = data.owner_a_wins > data.owner_b_wins
   const bLeads = data.owner_b_wins > data.owner_a_wins
 
@@ -286,10 +340,12 @@ function H2HMatchupsMobile({
   matchups,
   data,
   onClick,
+  look,
 }: {
   matchups: HeadToHeadMatchup[]
   data: HeadToHeadStats
   onClick: (m: HeadToHeadMatchup) => void
+  look?: RankLookup
 }) {
   return (
     <section className="h2h-matchups">
@@ -331,11 +387,11 @@ function H2HMatchupsMobile({
               </div>
               <div className="h2h-m-scores">
                 <span className={`h2h-m-score${aWon ? ' winner-cell' : ''}`}>
-                  {m.owner_a_score.toFixed(1)}
+                  <Rank look={look} m={m} side="a" /> {m.owner_a_score.toFixed(1)}
                 </span>
                 <span className="h2h-m-vs">vs</span>
                 <span className={`h2h-m-score right${bWon ? ' winner-cell' : ''}`}>
-                  {m.owner_b_score.toFixed(1)}
+                  {m.owner_b_score.toFixed(1)} <Rank look={look} m={m} side="b" />
                 </span>
               </div>
             </div>
@@ -346,14 +402,21 @@ function H2HMatchupsMobile({
   )
 }
 
+function Rank({ look, m, side }: { look?: RankLookup; m: HeadToHeadMatchup; side: 'a' | 'b' }) {
+  const r = look?.(m.year, m.week, side === 'a' ? m.owner_a_team_id : m.owner_b_team_id)
+  return r ? <PrBadge rank={r.entry.rank} assumed={r.assumed} sourceWeek={r.sourceWeek} /> : null
+}
+
 function H2HMatchupsList({
   matchups,
   data,
   onClick,
+  look,
 }: {
   matchups: HeadToHeadMatchup[]
   data: HeadToHeadStats
   onClick: (m: HeadToHeadMatchup) => void
+  look?: RankLookup
 }) {
   return (
     <section className="h2h-matchups">
@@ -384,9 +447,13 @@ function H2HMatchupsList({
                 <td className="num">{m.year}</td>
                 <td className="num">Wk {m.week}</td>
                 <td><RoundBadge round={m.round_label} /></td>
-                <td className={`num ${aWon ? 'winner-cell' : ''}`}>{m.owner_a_score.toFixed(1)}</td>
+                <td className={`num ${aWon ? 'winner-cell' : ''}`}>
+                  <Rank look={look} m={m} side="a" /> {m.owner_a_score.toFixed(1)}
+                </td>
                 <td className="vs">vs</td>
-                <td className={`num ${bWon ? 'winner-cell' : ''}`}>{m.owner_b_score.toFixed(1)}</td>
+                <td className={`num ${bWon ? 'winner-cell' : ''}`}>
+                  {m.owner_b_score.toFixed(1)} <Rank look={look} m={m} side="b" />
+                </td>
                 <td>
                   {aWon
                     ? data.owner_a_team_name

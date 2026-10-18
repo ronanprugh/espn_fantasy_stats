@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { OwnerAggregate } from '../api'
+import type { OwnerPrStats } from '../lib/powerRankings'
 import { SortableTh, type SortDir } from './SortableTh'
 
 type SortKey =
@@ -17,11 +18,21 @@ type SortKey =
   | 'avg_points_for'
   | 'avg_points_against'
   | 'avg_plus_minus'
+  | 'pr_avg'
+  | 'pr_at1'
 
-const ASC_BY_DEFAULT: Set<SortKey> = new Set(['avg_finish', 'owner_name', 'team_names'])
+const ASC_BY_DEFAULT: Set<SortKey> = new Set(['avg_finish', 'owner_name', 'team_names', 'pr_avg'])
 
-const valueOf = (o: OwnerAggregate, key: SortKey): string | number => {
+const valueOf = (
+  o: OwnerAggregate,
+  key: SortKey,
+  pr?: Map<string, OwnerPrStats>,
+): string | number | null => {
   switch (key) {
+    case 'pr_avg':
+      return pr?.get(o.owner_id)?.avgRank ?? null
+    case 'pr_at1':
+      return pr?.get(o.owner_id)?.weeksAt1 ?? null
     case 'avg_finish':
       return o.avg_finish
     case 'owner_name':
@@ -53,7 +64,14 @@ const valueOf = (o: OwnerAggregate, key: SortKey): string | number => {
   }
 }
 
-export function AggregateTable({ owners }: { owners: OwnerAggregate[] }) {
+export function AggregateTable({
+  owners,
+  powerRankings,
+}: {
+  owners: OwnerAggregate[]
+  /** Power rankings stats by owner; the columns show only when given. */
+  powerRankings?: Map<string, OwnerPrStats>
+}) {
   const [sortKey, setSortKey] = useState<SortKey>('avg_finish')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -67,8 +85,9 @@ export function AggregateTable({ owners }: { owners: OwnerAggregate[] }) {
   }
 
   const sorted = [...owners].sort((a, b) => {
-    const va = valueOf(a, sortKey)
-    const vb = valueOf(b, sortKey)
+    const va = valueOf(a, sortKey, powerRankings)
+    const vb = valueOf(b, sortKey, powerRankings)
+    if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1
     const cmp =
       typeof va === 'number' && typeof vb === 'number'
         ? va - vb
@@ -109,6 +128,8 @@ export function AggregateTable({ owners }: { owners: OwnerAggregate[] }) {
             {th('avg_points_for', 'Avg PF', 'Points scored per regular-season game across all seasons. Mixes scoring formats if the league has changed them.')}
             {th('avg_points_against', 'Avg PA', 'Points allowed per regular-season game across all seasons.')}
             {th('avg_plus_minus', 'Avg +/−', 'Avg PF minus Avg PA. Positive means the owner outscored opponents on average.')}
+            {powerRankings && th('pr_avg', 'Avg PR', 'Average power rank across every posted week. Weeks with no rankings posted are not counted.')}
+            {powerRankings && th('pr_at1', 'PR #1', 'Weeks ranked #1 in the power rankings.')}
           </tr>
         </thead>
         <tbody>
@@ -135,6 +156,10 @@ export function AggregateTable({ owners }: { owners: OwnerAggregate[] }) {
                 {o.avg_plus_minus >= 0 ? '+' : ''}
                 {o.avg_plus_minus.toFixed(2)}
               </td>
+              {powerRankings && (
+                <td className="num">{powerRankings.get(o.owner_id)?.avgRank?.toFixed(2) ?? '—'}</td>
+              )}
+              {powerRankings && <td className="num">{powerRankings.get(o.owner_id)?.weeksAt1 ?? '—'}</td>}
             </tr>
           ))}
         </tbody>

@@ -309,6 +309,12 @@ export async function fetchPlayoffs(
 }
 
 export type OwnerSeason = {
+  /* Power rank fields are not sent by the server: Team Comparison fills them
+   * in from the power rankings so they can be plotted like any other stat. */
+  pr_avg?: number | null
+  pr_preseason?: number | null
+  pr_final?: number | null
+  pr_weeks_at_1?: number | null
   year: number
   team_name: string
   seed: number
@@ -642,4 +648,118 @@ export async function fetchPositionalStatsAggregate(
 ): Promise<LeaguePositionalAggregate> {
   const url = `/api/leagues/${leagueId}/positional_stats/aggregate${refresh ? '?refresh=true' : ''}`
   return jsonFetch<LeaguePositionalAggregate>(url)
+}
+
+// --------------------------------------------------------------------- //
+// Power rankings
+// --------------------------------------------------------------------- //
+
+export type PowerRankingPostSummary = {
+  id: number
+  season: number
+  /** The week the post looks ahead to: preseason rankings are week 1. */
+  week: number
+  posted_at: string
+  title: string
+  author: string
+  /** Written by someone other than the league's regular writer. */
+  is_guest: boolean
+  kind: 'rankings' | 'preview'
+  format: 'text' | 'image'
+  has_image: boolean
+  has_entries: boolean
+  note: string | null
+}
+
+export type PowerRankingPost = PowerRankingPostSummary & { text: string }
+
+export type PowerRankingEntry = {
+  team_id: number
+  rank: number
+  /** Places moved since the previous week, positive is up; null in week 1. */
+  change: number | null
+  /** Movement as the author wrote it, posted weeks only. */
+  posted_change: string | null
+  record: string
+  /** Place in the standings entering the week; null in week 1. */
+  standing: number | null
+  points_for: number
+  written_name: string
+  blurb: string
+}
+
+/** Where a week's ranks came from. Anything but `posted` is assumed: no
+ * rankings were posted that week, so the nearest week's are shown. */
+export type PowerRankingSource = 'posted' | 'carried_forward' | 'carried_back'
+
+export type PowerRankingWeek = {
+  week: number
+  source: PowerRankingSource
+  source_week: number
+  post_id: number | null
+  /** Other posts that week: a tier list, a second set of rankings. */
+  extra_post_ids: number[]
+  entries: PowerRankingEntry[]
+  /** [team_a_id, team_b_id, winner_id] for each regular-season game played. */
+  games: [number, number, number | null][]
+}
+
+export type PowerRankingTeam = {
+  team_id: number
+  team_name: string
+  owner_id: string
+  owner_name: string
+  /** Place after the playoffs; null while the season is in progress. */
+  final_standing: number | null
+  /** Regular-season standing (current, for a season in progress). */
+  reg_standing: number | null
+}
+
+export type PowerRankingSeason = {
+  season: number
+  reg_weeks: number
+  last_week: number
+  live: boolean
+  teams: PowerRankingTeam[]
+  weeks: PowerRankingWeek[]
+  previews: number[]
+}
+
+export type PowerRankings = {
+  league_id: number
+  primary_author: string | null
+  posts: PowerRankingPostSummary[]
+  seasons: PowerRankingSeason[]
+}
+
+export async function fetchPowerRankings(leagueId: number): Promise<PowerRankings> {
+  return jsonFetch<PowerRankings>(`/api/leagues/${leagueId}/power_rankings`)
+}
+
+export async function fetchPowerRankingPost(
+  leagueId: number,
+  postId: number,
+): Promise<PowerRankingPost> {
+  return jsonFetch<PowerRankingPost>(`/api/leagues/${leagueId}/power_rankings/posts/${postId}`)
+}
+
+/** Image URLs go straight into <img src>, which fetch()'s base-path prefix
+ * never sees, so the prefix is added here. */
+export function powerRankingImageUrl(leagueId: number, postId: number): string {
+  return `${BASE_PATH}/api/leagues/${leagueId}/power_rankings/posts/${postId}/image`
+}
+
+export async function importPowerRankings(
+  leagueId: number,
+  file: unknown,
+): Promise<{ posts: number; rankings: number; seasons: number[] }> {
+  return jsonFetch(`/api/leagues/${leagueId}/power_rankings/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(file),
+  })
+}
+
+export async function deletePowerRankings(leagueId: number): Promise<void> {
+  await jsonFetch(`/api/leagues/${leagueId}/power_rankings`, { method: 'DELETE' })
 }
