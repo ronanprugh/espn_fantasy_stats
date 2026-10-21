@@ -11,11 +11,14 @@ import {
 } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
+import { TeamPowerRankings } from '../components/TeamPowerRankings'
 import { YourTeamPrompt } from '../components/YourTeamPrompt'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
+import { usePowerRankings } from '../hooks/usePowerRankings'
+import { ownerSeasonStats, ownerStats } from '../lib/powerRankings'
 
 const STARTER_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'WR/TE', 'OP', 'FLEX', 'K', 'D/ST']
 
@@ -39,7 +42,8 @@ function sortRoster(roster: TeamHubPlayer[]): TeamHubPlayer[] {
   })
 }
 
-type HubTab = 'summary' | 'roster' | 'schedule'
+type HubTab = 'summary' | 'roster' | 'schedule' | 'power'
+const HUB_TABS: HubTab[] = ['summary', 'roster', 'schedule', 'power']
 
 export function TeamHubPage() {
   const { selectedLeague } = useLeague()
@@ -51,7 +55,16 @@ export function TeamHubPage() {
   const ownerId = params.get('team') ?? ''
   const selectedYear = numberParam(params, 'year')
   const [hub, setHub] = useState<TeamHub | null>(null)
-  const [tab, setTab] = useState<HubTab>('summary')
+  // ?tab= so Power Rankings can link straight to a team's rankings.
+  const tab: HubTab = HUB_TABS.find((t) => t === params.get('tab')) ?? 'summary'
+  const setTab = (t: HubTab) => update({ tab: t === 'summary' ? null : t })
+  const powerRankings = usePowerRankings(selectedLeague?.espn_league_id ?? null)
+  const prAll = powerRankings.hasData && powerRankings.data
+    ? ownerStats(powerRankings.data).find((o) => o.ownerId === ownerId)
+    : undefined
+  const prSeason = powerRankings.hasData && powerRankings.data && hub
+    ? ownerSeasonStats(powerRankings.data).get(`${hub.selected_year}:${ownerId}`)
+    : undefined
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -169,6 +182,14 @@ export function TeamHubPage() {
             >
               Schedule
             </button>
+            {powerRankings.hasData && (
+              <button
+                className={tab === 'power' ? 'active' : ''}
+                onClick={() => setTab('power')}
+              >
+                Power Rankings
+              </button>
+            )}
           </nav>
 
           {tab === 'summary' && (
@@ -209,6 +230,20 @@ export function TeamHubPage() {
                     sub="Standard seasons"
                   />
                 )}
+                {prAll?.avgRank != null && (
+                  <StatCard
+                    label="Avg Power Rank"
+                    value={prAll.avgRank.toFixed(2)}
+                    sub={`all-time · ${prAll.weeksAt1} wks at #1`}
+                  />
+                )}
+                {prSeason?.avgRank != null && (
+                  <StatCard
+                    label={`Avg Power Rank (${hub.selected_year})`}
+                    value={prSeason.avgRank.toFixed(2)}
+                    sub={prSeason.preseasonRank ? `preseason #${prSeason.preseasonRank}` : undefined}
+                  />
+                )}
               </section>
 
               {hub.last_matchup && (
@@ -234,6 +269,15 @@ export function TeamHubPage() {
                 }}
               />
             </>
+          )}
+
+          {tab === 'power' && powerRankings.data && (
+            <TeamPowerRankings
+              leagueId={selectedLeague.espn_league_id}
+              data={powerRankings.data}
+              ownerId={ownerId}
+              year={hub.selected_year}
+            />
           )}
 
           {tab === 'roster' && (

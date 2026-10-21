@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   fetchScoreboard,
@@ -6,6 +6,9 @@ import {
   type SeasonScoreboard,
 } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
+import { PrBadge } from '../components/PrBadge'
+import { usePowerRankings } from '../hooks/usePowerRankings'
+import { rankLookup, type RankLookup } from '../lib/powerRankings'
 import { RoundBadge } from '../components/RoundBadge'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
@@ -30,6 +33,8 @@ export function ScoreboardPage() {
   const [seasonData, setSeasonData] = useState<SeasonScoreboard | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const pr = usePowerRankings(leagueId)
+  const look = useMemo(() => (pr.hasData ? rankLookup(pr.data) : undefined), [pr.data, pr.hasData])
 
   useEffect(() => {
     if (!leagueId || year === '') {
@@ -136,6 +141,7 @@ export function ScoreboardPage() {
               <ScoreboardCard
                 key={i}
                 matchup={m}
+                rank={look ? (teamId) => look(year as number, m.week, teamId) : undefined}
                 href={boxScoreHref(m)}
                 disabled={
                   !boxScoresAvailable || m.is_bye || m.round_label === 'consolation' || isUnplayed(m)
@@ -171,11 +177,18 @@ function ScoreboardCard({
   matchup,
   href,
   disabled,
+  rank,
 }: {
   matchup: ScoreboardMatchup
   href: string
   disabled: boolean
+  /** Each team's power rank going into the week, when the league has them. */
+  rank?: (teamId: number) => ReturnType<RankLookup>
 }) {
+  const badge = (teamId: number) => {
+    const r = rank?.(teamId)
+    return r ? <PrBadge rank={r.entry.rank} assumed={r.assumed} sourceWeek={r.sourceWeek} /> : null
+  }
   if (matchup.is_bye) {
     return (
       <div className="scoreboard-card bye">
@@ -204,14 +217,18 @@ function ScoreboardCard({
       </div>
       <div className={`card-row ${aWon ? 'winner' : ''}`}>
         <div className="team">
-          <div className="team-name">{matchup.team_a_name}</div>
+          <div className="team-name">
+            {badge(matchup.team_a_id)} {matchup.team_a_name}
+          </div>
           <div className="team-owner">{matchup.team_a_owner}</div>
         </div>
         <div className="score">{matchup.team_a_score.toFixed(1)}</div>
       </div>
       <div className={`card-row ${bWon ? 'winner' : ''}`}>
         <div className="team">
-          <div className="team-name">{matchup.team_b_name}</div>
+          <div className="team-name">
+            {badge(matchup.team_b_id)} {matchup.team_b_name}
+          </div>
           <div className="team-owner">{matchup.team_b_owner}</div>
         </div>
         <div className="score">{matchup.team_b_score.toFixed(1)}</div>

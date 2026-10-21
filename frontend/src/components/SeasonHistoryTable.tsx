@@ -7,6 +7,7 @@ import {
   isInProgress,
   type TeamSeasonStats,
 } from '../lib/seasonStats'
+import type { OwnerSeasonPr } from '../lib/powerRankings'
 import { SortableTh, type SortDir } from './SortableTh'
 
 /** Close-game records arrive on their own request, after the table renders. */
@@ -27,6 +28,8 @@ type SeasonRow = {
   stats: TeamSeasonStats | undefined
   /** Absent until the close-games request lands. */
   close: CloseGameRecord | undefined
+  /** Absent when the league has no power rankings for that season. */
+  pr: OwnerSeasonPr | undefined
 }
 
 type SortKey =
@@ -54,8 +57,13 @@ type SortKey =
   | 'top_weeks'
   | 'std_dev'
   | 'close'
+  | 'pr_avg'
+  | 'pr_pre'
+  | 'pr_at1'
 
-const ASC_BY_DEFAULT: Set<SortKey> = new Set(['finish', 'team_name', 'owner', 'scoring', 'std_dev'])
+const ASC_BY_DEFAULT: Set<SortKey> = new Set([
+  'finish', 'team_name', 'owner', 'scoring', 'std_dev', 'pr_avg', 'pr_pre',
+])
 const TEXT_COLUMNS: Set<SortKey> = new Set(['team_name', 'owner', 'scoring'])
 
 export const SCORING_LABEL: Record<SeasonTeams['scoring_type'], string> = {
@@ -125,6 +133,12 @@ const valueOf = (r: SeasonRow, key: SortKey): string | number | null => {
     case 'close':
       // Net close wins: a 5-0 record should outrank 1-0, which win % wouldn't do.
       return r.close ? r.close.wins - r.close.losses : null
+    case 'pr_avg':
+      return r.pr?.avgRank ?? null
+    case 'pr_pre':
+      return r.pr?.preseasonRank ?? null
+    case 'pr_at1':
+      return r.pr?.weeks ? r.pr.weeksAt1 : null
   }
 }
 
@@ -132,9 +146,12 @@ export function SeasonHistoryTable({
   seasons,
   closeGames,
   singleSeason = false,
+  powerRankings,
 }: {
   seasons: SeasonTeams[]
   closeGames: CloseGamesState
+  /** Power rankings by `${year}:${owner_id}`; the columns show only when given. */
+  powerRankings?: Map<string, OwnerSeasonPr>
   /** One season's standings rather than a cross-season ranking: sorted by
    * finish, without the Year and Scoring columns (constant within a season),
    * and without the in-progress tint, which would cover every row. */
@@ -171,6 +188,7 @@ export function SeasonHistoryTable({
         close: yearClose
           ? (yearClose.get(team.team_id) ?? { team_id: team.team_id, wins: 0, losses: 0, ties: 0 })
           : undefined,
+        pr: team.owners[0] ? powerRankings?.get(`${s.year}:${team.owners[0].id}`) : undefined,
       }
     })
   })
@@ -291,6 +309,9 @@ export function SeasonHistoryTable({
               'Avg PF minus Avg PA. Positive means the team outscored its opponents on ' +
                 'average; negative means it was outscored.',
             )}
+            {powerRankings && th('pr_avg', 'Avg PR', 'Average power rank that season, over the weeks rankings were posted.')}
+            {powerRankings && th('pr_pre', 'Pre PR', 'Preseason power rank.')}
+            {powerRankings && th('pr_at1', 'PR #1', 'Weeks ranked #1 that season.')}
             {th('team_name', 'Name')}
           </tr>
         </thead>
@@ -341,6 +362,9 @@ export function SeasonHistoryTable({
                 <td className={`num ${t.avg_plus_minus >= 0 ? 'pos' : 'neg'}`}>
                   {signed(t.avg_plus_minus, 2)}
                 </td>
+                {powerRankings && <td className="num">{r.pr?.avgRank?.toFixed(2) ?? '—'}</td>}
+                {powerRankings && <td className="num">{r.pr?.preseasonRank ?? '—'}</td>}
+                {powerRankings && <td className="num">{r.pr?.weeks ? r.pr.weeksAt1 : '—'}</td>}
                 <td>
                   <span className="truncate" title={t.team_name}>
                     {t.team_name}

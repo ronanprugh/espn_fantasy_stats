@@ -1,5 +1,5 @@
 /**
- * The nine navigation destinations, in sidebar order.
+ * The ten navigation destinations, in sidebar order.
  *
  * Single source of truth for both the desktop sidebar and the mobile bottom tab
  * bar. Before this existed the sidebar held the destinations as literal JSX,
@@ -11,7 +11,7 @@
  * at four primary + the More trigger, which is what fits at 320px with 44px
  * targets. `group` supplies the sidebar's section headings.
  *
- * Enforced by navDestinations.test.ts: nine entries, exactly four primary, and
+ * Enforced by navDestinations.test.ts: ten entries, exactly four primary, and
  * every path registered as a route in main.tsx.
  */
 export type NavGroup = 'Season Data' | 'Team Data' | 'Account'
@@ -28,6 +28,7 @@ export const NAV_DESTINATIONS: readonly NavDestination[] = [
   { path: '/playoffs', label: 'Playoff History', group: 'Season Data', tier: 'primary' },
   { path: '/scoreboard', label: 'Scoreboard', group: 'Season Data', tier: 'primary' },
   { path: '/positional', label: 'Positional Stats', group: 'Season Data', tier: 'overflow' },
+  { path: '/power_rankings', label: 'Power Rankings', group: 'Season Data', tier: 'overflow' },
   { path: '/team_hub', label: 'Team Hub', group: 'Team Data', tier: 'primary' },
   { path: '/compare', label: 'Team Comparison', group: 'Team Data', tier: 'overflow' },
   { path: '/h2h', label: 'Head to Head', group: 'Team Data', tier: 'overflow' },

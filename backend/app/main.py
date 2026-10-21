@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from fastapi.middleware.gzip import GZipMiddleware
+from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.orm import Session, selectinload
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import cache
+from . import power_rankings as pr
 from .auth import current_user, hash_password, login, logout, require_admin, verify_password
 from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
 from .crypto import decrypt, encrypt
@@ -31,7 +34,7 @@ from .espn_client import (
     serialize_scoreboard,
     serialize_teams,
 )
-from .models import InviteCode
+from .models import InviteCode, PowerRankingPost
 from .models import League as LeagueModel
 from .models import User
 from .schemas import (
@@ -57,6 +60,10 @@ from .schemas import (
     UpdateLeagueRequest,
     UserResponse,
     WeekBoxScores,
+    PowerRankingImport,
+    PowerRankingImportResult,
+    PowerRankingPost as PowerRankingPostSchema,
+    PowerRankings,
 )
 
 app = FastAPI(title="espn_fantasy_stats")
@@ -68,6 +75,9 @@ app.add_middleware(
     https_only=COOKIE_SECURE,
     max_age=60 * 60 * 24 * 30,  # 30 days
 )
+
+# Power rankings ship every write-up in one response; text compresses ~4x.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,
@@ -1280,3 +1290,158 @@ def head_to_head(
         "playoff_ties": po_ties,
         "matchups": matchups,
     }
+
+
+# --------------------------------------------------------------------------- #
+# Power rankings
+# --------------------------------------------------------------------------- #
+
+
+def _league_posts(db: Session, espn_league_id: int) -> list[PowerRankingPost]:
+    """The league's archive, or nothing if the tables aren't there yet.
+
+    Migrations are applied to production by hand, so a deploy can land before
+    them. Every other page should keep working in that window, and this one
+    should show its empty state rather than an error.
+    """
+    try:
+        return (
+            db.query(PowerRankingPost)
+            .options(selectinload(PowerRankingPost.entries))
+            .filter(PowerRankingPost.espn_league_id == espn_league_id)
+            .order_by(PowerRankingPost.posted_at)
+            .all()
+        )
+    except ProgrammingError:
+        db.rollback()
+        return []
+
+
+@app.get("/api/leagues/{league_id}/power_rankings", response_model=PowerRankings)
+def power_rankings(
+    refresh: bool = False,
+    ctx: LeagueContext = Depends(get_user_league),
+    db: Session = Depends(get_db),
+):
+    posts = _league_posts(db, ctx.espn_league_id)
+    author = pr.primary_author(posts)
+    seasons = []
+    for season in sorted({p.season for p in posts}):
+        try:
+            teams_payload = _get_season_teams(ctx.espn_league_id, season, ctx.espn_s2, ctx.swid, refresh)
+            matchups = _get_season_matchups(ctx.espn_league_id, season, ctx.espn_s2, ctx.swid, refresh)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"ESPN error for {season}: {e}")
+        built = pr.build_season(
+            season,
+            [p for p in posts if p.season == season],
+            teams_payload["teams"],
+            matchups,
+            author,
+            is_live_season(season),
+        )
+        if built:
+            seasons.append(built)
+    return {
+        "league_id": ctx.espn_league_id,
+        "primary_author": author,
+        "posts": [pr.post_summary(p, author) for p in posts],
+        "seasons": seasons,
+    }
+
+
+def _league_post(db: Session, espn_league_id: int, post_id: int) -> PowerRankingPost:
+    post = next((p for p in _league_posts(db, espn_league_id) if p.id == post_id), None)
+    if post is None:
+        raise HTTPException(status_code=404, detail="That post isn't in this league's power rankings.")
+    return post
+
+
+@app.get(
+    "/api/leagues/{league_id}/power_rankings/posts/{post_id}",
+    response_model=PowerRankingPostSchema,
+)
+def power_ranking_post(
+    post_id: int,
+    ctx: LeagueContext = Depends(get_user_league),
+    db: Session = Depends(get_db),
+):
+    posts = _league_posts(db, ctx.espn_league_id)
+    post = next((p for p in posts if p.id == post_id), None)
+    if post is None:
+        raise HTTPException(status_code=404, detail="That post isn't in this league's power rankings.")
+    return {**pr.post_summary(post, pr.primary_author(posts)), "text": post.body}
+
+
+@app.get("/api/leagues/{league_id}/power_rankings/posts/{post_id}/image")
+def power_ranking_image(
+    post_id: int,
+    ctx: LeagueContext = Depends(get_user_league),
+    db: Session = Depends(get_db),
+):
+    post = _league_post(db, ctx.espn_league_id, post_id)
+    if post.image is None:
+        raise HTTPException(status_code=404, detail="That post has no saved image.")
+    return Response(
+        content=post.image,
+        media_type=post.image_mime or "application/octet-stream",
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
+
+
+@app.post(
+    "/api/leagues/{league_id}/power_rankings/import",
+    response_model=PowerRankingImportResult,
+)
+def import_power_rankings(
+    payload: PowerRankingImport,
+    ctx: LeagueContext = Depends(get_user_league),
+    db: Session = Depends(get_db),
+):
+    """Replace the league's power rankings with an uploaded archive.
+
+    Any member of the league can import. The archive is shared by everyone who
+    has added the league, the same way its ESPN data is.
+    """
+    if not payload.posts:
+        raise HTTPException(status_code=400, detail="The file has no posts in it.")
+    try:
+        available = set(discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+    seasons_teams = {}
+    for season in sorted({p.season for p in payload.posts}):
+        if season not in available:
+            raise HTTPException(
+                status_code=400, detail=f"The file has posts for {season}, which this league didn't play."
+            )
+        try:
+            seasons_teams[season] = _get_season_teams(
+                ctx.espn_league_id, season, ctx.espn_s2, ctx.swid
+            )["teams"]
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"ESPN error for {season}: {e}")
+    try:
+        return pr.store_import(
+            db, ctx.espn_league_id, [p.model_dump() for p in payload.posts], seasons_teams
+        )
+    except pr.ImportError_ as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    except ProgrammingError:
+        db.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail="Power rankings aren't set up on the server yet. Try again after the next update.",
+        )
+
+
+@app.delete("/api/leagues/{league_id}/power_rankings")
+def delete_power_rankings(
+    ctx: LeagueContext = Depends(get_user_league),
+    db: Session = Depends(get_db),
+):
+    for post in _league_posts(db, ctx.espn_league_id):
+        db.delete(post)
+    db.commit()
+    return {"ok": True}

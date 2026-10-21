@@ -10,6 +10,8 @@ import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { useUrlState } from '../hooks/useUrlState'
+import { usePowerRankings } from '../hooks/usePowerRankings'
+import { ownerSeasonStats } from '../lib/powerRankings'
 
 function average(seasons: OwnerSeason[], key: keyof OwnerSeason): number | null {
   const values = seasons
@@ -40,9 +42,42 @@ const STAT_OPTIONS: StatOption[] = [
   { key: 'playoff_losses', label: 'Playoff Losses' },
 ]
 
+/** Offered only when the league has power rankings. */
+const PR_STAT_OPTIONS: StatOption[] = [
+  { key: 'pr_avg', label: 'Power Rank', yReversed: true, yAutoScale: true },
+  { key: 'pr_preseason', label: 'Preseason Power Rank', yReversed: true, yAutoScale: true },
+  { key: 'pr_final', label: 'Final Power Rank', yReversed: true, yAutoScale: true },
+  { key: 'pr_weeks_at_1', label: 'Weeks at #1 (Power Rank)' },
+]
+
 export function ComparePage() {
   const { selectedLeague } = useLeague()
-  const [history, setHistory] = useState<LeagueOwnerHistory | null>(null)
+  const [rawHistory, setHistory] = useState<LeagueOwnerHistory | null>(null)
+  const pr = usePowerRankings(selectedLeague?.espn_league_id ?? null)
+  // Power rank stats merged into each owner-season so the chart and averages
+  // treat them like every other stat. Seasons with no rankings stay null.
+  const history = useMemo<LeagueOwnerHistory | null>(() => {
+    if (!rawHistory || !pr.hasData || !pr.data) return rawHistory
+    const bySeason = ownerSeasonStats(pr.data)
+    return {
+      ...rawHistory,
+      owners: rawHistory.owners.map((o) => ({
+        ...o,
+        seasons: o.seasons.map((s) => {
+          const r = bySeason.get(`${s.year}:${o.owner_id}`)
+          const ranked = !!r && r.weeks > 0
+          return {
+            ...s,
+            pr_avg: ranked ? r!.avgRank : null,
+            pr_preseason: ranked ? r!.preseasonRank : null,
+            pr_final: ranked ? r!.finalRank : null,
+            pr_weeks_at_1: ranked ? r!.weeksAt1 : null,
+          }
+        }),
+      })),
+    }
+  }, [rawHistory, pr.data, pr.hasData])
+  const statOptions = pr.hasData ? [...STAT_OPTIONS, ...PR_STAT_OPTIONS] : STAT_OPTIONS
   // ?teams=<id>,<id>&stat=<key>. Memoised on the raw string so the list
   // keeps its identity between renders.
   const [params, update] = useUrlState()
@@ -51,7 +86,7 @@ export function ComparePage() {
   const setSelected = (ids: string[]) => update({ teams: ids.length ? ids.join(',') : null })
   const statParam = params.get('stat')
   const statKey: keyof OwnerSeason =
-    STAT_OPTIONS.find((o) => o.key === statParam)?.key ?? 'final_standing'
+    statOptions.find((o) => o.key === statParam)?.key ?? 'final_standing'
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -74,7 +109,7 @@ export function ComparePage() {
   if (!selectedLeague) return <NoLeagueSelected />
 
 
-  const stat = STAT_OPTIONS.find((s) => s.key === statKey) ?? STAT_OPTIONS[0]
+  const stat = statOptions.find((s) => s.key === statKey) ?? STAT_OPTIONS[0]
   const selectedOwners = history
     ? history.owners.filter((o) => selected.includes(o.owner_id))
     : []
@@ -106,7 +141,7 @@ export function ComparePage() {
                 value={statKey}
                 onChange={(e) => update({ stat: e.target.value })}
               >
-                {STAT_OPTIONS.map((o) => (
+                {statOptions.map((o) => (
                   <option key={o.key} value={o.key}>
                     {o.label}
                   </option>

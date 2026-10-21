@@ -16,6 +16,7 @@ import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { PlayoffsPage } from './pages/PlayoffsPage'
 import { PositionalStatsPage } from './pages/PositionalStatsPage'
+import { PowerRankingsPage } from './pages/PowerRankingsPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
 import { TeamHubPage } from './pages/TeamHubPage'
 import './styles.css'
@@ -37,6 +38,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="team_hub" element={<TeamHubPage />} />
               <Route path="scoreboard" element={<ScoreboardPage />} />
               <Route path="positional" element={<PositionalStatsPage />} />
+              <Route path="power_rankings" element={<PowerRankingsPage />} />
               <Route path="box_score/:year/:week/:teamA/:teamB" element={<BoxScorePage />} />
               <Route path="leagues" element={<LeaguesPage />} />
               <Route path="account" element={<AccountPage />} />

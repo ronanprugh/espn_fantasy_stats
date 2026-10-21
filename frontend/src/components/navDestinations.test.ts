@@ -28,13 +28,14 @@ const ROUTER_PATHS = [
   '/team_hub',
   '/scoreboard',
   '/positional',
+  '/power_rankings',
   '/leagues',
   '/account',
 ]
 
 describe('navigation destinations (FR U2-3)', () => {
-  it('exposes exactly nine destinations', () => {
-    expect(NAV_DESTINATIONS).toHaveLength(9)
+  it('exposes exactly ten destinations', () => {
+    expect(NAV_DESTINATIONS).toHaveLength(10)
   })
 
   // Four tabs plus the More trigger is five targets, which is what fits at
@@ -48,8 +49,8 @@ describe('navigation destinations (FR U2-3)', () => {
     ])
   })
 
-  it('routes the remaining five through the More sheet', () => {
-    expect(OVERFLOW_DESTINATIONS).toHaveLength(5)
+  it('routes the remaining six through the More sheet', () => {
+    expect(OVERFLOW_DESTINATIONS).toHaveLength(6)
   })
 
   it('never lists the same path twice', () => {

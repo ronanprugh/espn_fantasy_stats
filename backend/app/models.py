@@ -1,7 +1,7 @@
 import datetime as dt
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, LargeBinary, String, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, ForeignKey, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -72,3 +72,55 @@ class Cache(Base):
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     payload: Mapped[Any] = mapped_column(JSONB, nullable=False)
     updated_at: Mapped[dt.datetime] = mapped_column(server_default=func.now(), nullable=False)
+
+
+class PowerRankingPost(Base):
+    """One post from a league's power rankings history: a week's rankings, a
+    tier-list image, or a playoff preview.
+
+    Keyed on the ESPN league_id, like Cache, so everyone who has added the
+    league sees the same history. `week` is the week the post looks ahead to,
+    so preseason rankings are week 1 and rankings written after Week 3's games
+    are week 4.
+    """
+    __tablename__ = "power_ranking_posts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    espn_league_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    season: Mapped[int] = mapped_column(nullable=False)
+    week: Mapped[int] = mapped_column(nullable=False)
+    posted_at: Mapped[dt.datetime] = mapped_column(nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    author: Mapped[str] = mapped_column(String(128), nullable=False)
+    # "rankings" or "preview"
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    # "text" or "image"
+    format: Mapped[str] = mapped_column(String(16), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    image_mime: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    imported_at: Mapped[dt.datetime] = mapped_column(server_default=func.now(), nullable=False)
+
+    entries: Mapped[list["PowerRankingEntry"]] = relationship(
+        back_populates="post", cascade="all, delete-orphan", order_by="PowerRankingEntry.rank"
+    )
+
+
+class PowerRankingEntry(Base):
+    """One team's line in a rankings post."""
+    __tablename__ = "power_ranking_entries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("power_ranking_posts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    rank: Mapped[int] = mapped_column(nullable=False)
+    espn_team_id: Mapped[int] = mapped_column(nullable=False)
+    # The name as the author wrote it ("Skins", "TFZ"), kept for display.
+    written_name: Mapped[str] = mapped_column(String(255), nullable=False, server_default="")
+    record: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    change: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    blurb: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
+
+    post: Mapped["PowerRankingPost"] = relationship(back_populates="entries")

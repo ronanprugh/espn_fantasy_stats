@@ -25,3 +25,6 @@ dist/
 .idea/
 
 temp.*
+
+# Private league data (group-chat exports, power rankings import files)
+power_rankings/

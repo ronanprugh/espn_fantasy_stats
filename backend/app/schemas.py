@@ -447,3 +447,115 @@ class HeadToHeadStats(BaseModel):
     owner_b_playoff_wins: int
     playoff_ties: int
     matchups: List[HeadToHeadMatchup]
+
+
+# --------------------------------------------------------------------------- #
+# Power rankings
+# --------------------------------------------------------------------------- #
+
+
+class PowerRankingPostSummary(BaseModel):
+    id: int
+    season: int
+    week: int
+    posted_at: str
+    title: str
+    author: str
+    is_guest: bool
+    kind: str
+    format: str
+    has_image: bool
+    has_entries: bool
+    note: str | None
+
+
+class PowerRankingPost(PowerRankingPostSummary):
+    text: str
+
+
+class PowerRankingEntry(BaseModel):
+    team_id: int
+    rank: int
+    # Places moved since the previous week's rankings (posted or carried);
+    # positive is up. None in a season's first week.
+    change: int | None
+    # The movement as the author wrote it ("+3", "-"), posted weeks only.
+    posted_change: str | None
+    record: str
+    # Place in the standings entering the week (win %, then points for).
+    standing: int | None
+    points_for: float
+    written_name: str
+    blurb: str
+
+
+class PowerRankingWeek(BaseModel):
+    week: int
+    # "posted", "carried_forward" or "carried_back"
+    source: str
+    source_week: int
+    post_id: int | None
+    extra_post_ids: list[int]
+    entries: list[PowerRankingEntry]
+    # [team_a_id, team_b_id, winner_id] for each regular-season game played.
+    games: list[list[int | None]]
+
+
+class PowerRankingTeam(BaseModel):
+    team_id: int
+    team_name: str
+    owner_id: str
+    owner_name: str
+    final_standing: int | None
+    reg_standing: int | None
+
+
+class PowerRankingSeason(BaseModel):
+    season: int
+    reg_weeks: int
+    last_week: int
+    live: bool
+    teams: list[PowerRankingTeam]
+    weeks: list[PowerRankingWeek]
+    previews: list[int]
+
+
+class PowerRankings(BaseModel):
+    league_id: int
+    primary_author: str | None
+    posts: list[PowerRankingPostSummary]
+    seasons: list[PowerRankingSeason]
+
+
+class PowerRankingImportEntry(BaseModel):
+    rank: int
+    team_id: int | None = None
+    team_name: str | None = None
+    record: str | None = None
+    change: str | None = None
+    blurb: str | None = None
+
+
+class PowerRankingImportPost(BaseModel):
+    season: int
+    week: int
+    posted_at: str
+    title: str | None = None
+    author: str | None = None
+    kind: str = "rankings"
+    format: str = "text"
+    text: str | None = None
+    note: str | None = None
+    image_base64: str | None = None
+    image_mime: str | None = None
+    entries: list[PowerRankingImportEntry] = []
+
+
+class PowerRankingImport(BaseModel):
+    posts: list[PowerRankingImportPost]
+
+
+class PowerRankingImportResult(BaseModel):
+    posts: int
+    rankings: int
+    seasons: list[int]
