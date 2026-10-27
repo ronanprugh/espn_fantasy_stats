@@ -1,26 +1,32 @@
 # Keeps the Render free instance from spinning down during waking hours.
 #
 # Render spins a free service down after 15 minutes without inbound traffic,
-# and the cold start back up is roughly a minute. Pinging every 10 minutes
-# stays comfortably inside that window even when GitHub delays a run.
+# and the cold start back up is roughly a minute. One run pings every 10
+# minutes from inside a single long job, and keeps going until the window
+# closes or the job nears GitHub's 6-hour limit.
+#
+# Why a loop instead of a */10 cron: GitHub drops most runs of high-frequency
+# schedules. The old "*/10" cron fired 5-7 times a day instead of ~100, hours
+# apart, so every ping hit a cold instance and the service was asleep between
+# them. The hourly schedule below is only there to start (or restart) the loop.
+# Each new run cancels the one before it, so a dropped or late trigger costs
+# nothing while an earlier loop is still running.
 #
 # Why not 24/7: the free plan allows 750 instance-hours per month and a month
 # is ~730 hours, so running around the clock would leave almost no headroom for
-# redeploys and restarts. The 11:00-03:50 UTC window below is ~7am to midnight
-# Eastern — about 520 hours a month, a comfortable margin.
+# redeploys and restarts. The 11:00-04:00 UTC window below is ~7am to midnight
+# Eastern — about 520 hours a month, a comfortable margin. Runs that GitHub
+# delays past the window exit without pinging.
 #
-# Two caveats worth knowing:
-#   - GitHub delays scheduled workflows under load, sometimes by 10+ minutes.
-#     A missed ping costs one cold start, nothing worse.
-#   - GitHub disables cron workflows on public repos after 60 days with no
-#     commits. If the app goes quiet for two months, re-enable it in the
-#     Actions tab.
+# GitHub disables cron workflows on public repos after 60 days with no
+# commits. If the app goes quiet for two months, re-enable it in the Actions
+# tab.
 
 name: keep-warm
 
 on:
   schedule:
-    - cron: "*/10 0-3,11-23 * * *"
+    - cron: "17 0-3,11-23 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -30,11 +36,32 @@ concurrency:
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 360
     steps:
-      - name: Ping health endpoint
+      - name: Ping health endpoint every 10 minutes
         run: |
-          curl --silent --show-error --fail \
-               --max-time 120 --retry 3 --retry-all-errors --retry-delay 20 \
-               -o /dev/null -w 'status=%{http_code} time=%{time_total}s\n' \
-               "https://espn-fantasy-stats-api.onrender.com/api/health"
+          in_window() {
+            hour=$((10#$(date -u +%H)))
+            [ "$hour" -lt 4 ] || [ "$hour" -ge 11 ]
+          }
+
+          # Stop early enough that the job ends on its own instead of hitting
+          # timeout-minutes.
+          deadline=$((SECONDS + 345 * 60))
+          failures=0
+
+          while in_window && [ "$SECONDS" -lt "$deadline" ]; do
+            if curl --silent --show-error --fail \
+                    --max-time 120 --retry 3 --retry-all-errors --retry-delay 20 \
+                    -o /dev/null -w "$(date -u +%H:%M) status=%{http_code} time=%{time_total}s\n" \
+                    "https://espn-fantasy-stats-api.onrender.com/api/health"; then
+              failures=0
+            else
+              failures=$((failures + 1))
+              echo "::warning::health check failed ($failures in a row)"
+              # Three failures in a row (each already retried) means the
+              # service is down, not asleep. Fail so it shows up in Actions.
+              [ "$failures" -lt 3 ] || exit 1
+            fi
+            sleep 600
+          done
