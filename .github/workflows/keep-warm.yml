@@ -2,21 +2,23 @@
 #
 # Render spins a free service down after 15 minutes without inbound traffic,
 # and the cold start back up is roughly a minute. One run pings every 10
-# minutes from inside a single long job, and keeps going until the window
-# closes or the job nears GitHub's 6-hour limit.
+# minutes from inside a single long job. Just before GitHub's 6-hour job
+# limit, it starts the next run itself, so the loop hands off around the
+# clock instead of waiting on the schedule.
 #
-# Why a loop instead of a */10 cron: GitHub drops most runs of high-frequency
-# schedules. The old "*/10" cron fired 5-7 times a day instead of ~100, hours
-# apart, so every ping hit a cold instance and the service was asleep between
-# them. The hourly schedule below is only there to start (or restart) the loop.
-# Each new run cancels the one before it, so a dropped or late trigger costs
-# nothing while an earlier loop is still running.
+# Why not rely on the schedule: GitHub drops most scheduled runs. A "*/10"
+# cron fired 5-7 times a day instead of ~100, and an hourly one almost never
+# fired between 6 and 11am Eastern, so the service slept every morning until
+# a run finally landed around midday. The hourly schedule below is now only a
+# backup that restarts the handoff if it ever breaks (a failed dispatch, or
+# the job failing on a real outage). Each new run cancels the one before it,
+# so a backup run that does fire simply takes over the loop.
 #
-# Why not 24/7: the free plan allows 750 instance-hours per month and a month
-# is ~730 hours, so running around the clock would leave almost no headroom for
-# redeploys and restarts. The 11:00-04:00 UTC window below is ~7am to midnight
-# Eastern — about 520 hours a month, a comfortable margin. Runs that GitHub
-# delays past the window exit without pinging.
+# Why not ping 24/7: the free plan allows 750 instance-hours per month and a
+# month is ~730 hours, so running around the clock would leave almost no
+# headroom for redeploys and restarts. Runs keep going all day but only ping
+# inside the 11:00-04:00 UTC window (6/7am to 11pm/midnight Eastern, depending
+# on daylight saving), about 520 hours a month.
 #
 # GitHub disables cron workflows on public repos after 60 days with no
 # commits. If the app goes quiet for two months, re-enable it in the Actions
@@ -26,7 +28,7 @@ name: keep-warm
 
 on:
   schedule:
-    - cron: "17 0-3,11-23 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 concurrency:
@@ -37,6 +39,8 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    permissions:
+      actions: write
     steps:
       - name: Ping health endpoint every 10 minutes
         run: |
@@ -45,12 +49,15 @@ jobs:
             [ "$hour" -lt 4 ] || [ "$hour" -ge 11 ]
           }
 
-          # Stop early enough that the job ends on its own instead of hitting
-          # timeout-minutes.
+          # Stop early enough to hand off before hitting timeout-minutes.
           deadline=$((SECONDS + 345 * 60))
           failures=0
 
-          while in_window && [ "$SECONDS" -lt "$deadline" ]; do
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if ! in_window; then
+              sleep 600
+              continue
+            fi
             if curl --silent --show-error --fail \
                     --max-time 120 --retry 3 --retry-all-errors --retry-delay 20 \
                     -o /dev/null -w "$(date -u +%H:%M) status=%{http_code} time=%{time_total}s\n" \
@@ -60,8 +67,16 @@ jobs:
               failures=$((failures + 1))
               echo "::warning::health check failed ($failures in a row)"
               # Three failures in a row (each already retried) means the
-              # service is down, not asleep. Fail so it shows up in Actions.
+              # service is down, not asleep. Fail so it shows up in Actions;
+              # the hourly schedule restarts the loop.
               [ "$failures" -lt 3 ] || exit 1
             fi
             sleep 600
           done
+
+      # workflow_dispatch is one of the few events GITHUB_TOKEN is allowed to
+      # trigger. The new run cancels this one as it starts.
+      - name: Start the next run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run keep-warm.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
