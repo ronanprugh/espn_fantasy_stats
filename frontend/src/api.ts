@@ -329,6 +329,9 @@ export type OwnerSeason = {
   avg_points_for: number
   avg_points_against: number
   avg_plus_minus: number
+  /** True while the season has no final standings, so final_standing is the
+   * current standing. Absent from an API older than this field. */
+  in_progress?: boolean
 }
 
 export type OwnerHistory = {

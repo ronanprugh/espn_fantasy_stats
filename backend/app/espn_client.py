@@ -228,6 +228,9 @@ def build_owner_history(seasons: list[dict]) -> list[dict]:
     """
     by_owner: dict[str, dict] = {}
     for season in seasons:
+        # Same rule as the frontend's isInProgress: a season is current until
+        # ESPN assigns every team a final standing, once its playoffs finish.
+        in_progress = any(not t["final_standing"] for t in season["teams"])
         for team in season["teams"]:
             if not team["owners"]:
                 continue
@@ -258,6 +261,7 @@ def build_owner_history(seasons: list[dict]) -> list[dict]:
                 "avg_points_for": team["avg_points_for"],
                 "avg_points_against": team["avg_points_against"],
                 "avg_plus_minus": team["avg_plus_minus"],
+                "in_progress": in_progress,
             })
     for row in by_owner.values():
         row["seasons"].sort(key=lambda s: s["year"])

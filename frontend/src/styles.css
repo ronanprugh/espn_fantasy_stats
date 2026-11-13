@@ -2051,6 +2051,24 @@ table.teams th.num,
   max-width: 100%;
 }
 
+/* Checkbox control (League average): sits on the selects' baseline. */
+.compare-controls .control-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-end;
+  min-height: 32px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.chart-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* WeekStepper: ‹ Week 10 › */
 .week-stepper {
   display: inline-flex;
@@ -2317,6 +2335,11 @@ table.teams th.num,
 
 .chart-tooltip .value {
   font-weight: 600;
+}
+
+.chart-tooltip .avg {
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 /* Scoreboard */
