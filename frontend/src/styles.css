@@ -2948,6 +2948,79 @@ a.scoreboard-card:focus-visible {
   background: var(--accent-tint);
 }
 
+/* Head to Head before an opponent is picked (Rivalries). */
+.rivalries {
+  margin-top: 16px;
+}
+
+.rivalry-callouts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+
+a.rivalry-callout {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.rivalry-callout:hover {
+  border-color: var(--accent);
+}
+
+a.rivalry-callout:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The opponent's name, not a number: keep it to the card's width. */
+.rivalry-callout .stat-value {
+  font-family: inherit;
+  font-size: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* On a phone the three callouts share one compact row, so the table starts
+ * on the first screen instead of below three stacked cards. */
+@media (max-width: 900px) {
+  .rivalry-callouts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .rivalry-callout.stat-card {
+    padding: 10px;
+  }
+
+  .rivalry-callout .stat-label {
+    font-size: 9px;
+  }
+
+  .rivalry-callout .stat-value {
+    font-size: 14px;
+    margin-top: 4px;
+  }
+}
+
+.rivalries-table td {
+  white-space: nowrap;
+}
+
+.rivalries-table td.last-meeting {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* The pinned cell is opaque (it covers scrolled numbers), so the row hover
+ * tint is layered onto it too. */
+.teams-wrap.sticky .clickable-row:hover td.sticky-col {
+  background: linear-gradient(var(--accent-tint), var(--accent-tint)), var(--bg-page);
+}
+
 /* Head to Head — mobile
    ===========================================================================
    Both desktop shapes are tables that assume horizontal room the phone does not

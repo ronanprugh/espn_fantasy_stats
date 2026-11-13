@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   fetchHeadToHead,
+  fetchHeadToHeadSummary,
   fetchOwnerHistory,
+  type RivalrySummary,
   type HeadToHeadMatchup,
   type HeadToHeadStats,
   type OwnerHistory,
@@ -11,6 +13,7 @@ import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { PrBadge } from '../components/PrBadge'
 import { RoundBadge } from '../components/RoundBadge'
 import { TeamLink } from '../components/TeamLink'
+import { Rivalries } from '../components/Rivalries'
 import { useFromHere } from '../hooks/useFromHere'
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -29,6 +32,8 @@ export function HeadToHeadPage() {
   const ownerA = params.get('a') ?? ''
   const ownerB = params.get('b') ?? ''
   const [data, setData] = useState<HeadToHeadStats | null>(null)
+  // Team A alone: A's record against everyone, until an opponent is picked.
+  const [summary, setSummary] = useState<RivalrySummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const pr = usePowerRankings(selectedLeague?.espn_league_id ?? null)
@@ -63,6 +68,23 @@ export function HeadToHeadPage() {
       .then(setData)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
+  }, [selectedLeague?.espn_league_id, ownerA, ownerB])
+
+  useEffect(() => {
+    if (!selectedLeague || !ownerA || ownerB) {
+      setSummary(null)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    fetchHeadToHeadSummary(selectedLeague.espn_league_id, ownerA)
+      .then((s) => !cancelled && setSummary(s))
+      .catch((e: Error) => !cancelled && setError(e.message))
+      .finally(() => !cancelled && setLoading(false))
+    return () => {
+      cancelled = true
+    }
   }, [selectedLeague?.espn_league_id, ownerA, ownerB])
 
   if (!selectedLeague) return <NoLeagueSelected />
@@ -121,6 +143,8 @@ export function HeadToHeadPage() {
       </div>
 
       {loading && <Loading />}
+
+      {!loading && !ownerB && summary && summary.owner_id === ownerA && <Rivalries summary={summary} />}
 
       {!loading && data && data.total_matchups === 0 && (
         <p className="subtitle" style={{ marginTop: 24 }}>
