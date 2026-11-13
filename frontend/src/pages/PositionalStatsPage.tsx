@@ -8,6 +8,7 @@ import {
 } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { SortableTh, type SortDir } from '../components/SortableTh'
+import { TeamLink } from '../components/TeamLink'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
@@ -18,6 +19,7 @@ const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'D/ST']
 type YearMode = number | 'all'
 type Row = {
   rank: number
+  ownerId: string
   label: string
   sublabel: string
   total_points: number
@@ -108,6 +110,7 @@ export function PositionalStatsPage() {
     const block = aggData.positions.find((p) => p.position === position)
     rows = (block?.owners ?? []).map((o, i) => ({
       rank: i + 1,
+      ownerId: o.owner_id,
       label: o.current_team_name,
       sublabel: o.owner_name,
       total_points: o.total_points,
@@ -122,6 +125,7 @@ export function PositionalStatsPage() {
     const block = seasonData.positions.find((p) => p.position === position)
     rows = (block?.teams ?? []).map((t: PositionTeamStats, i) => ({
       rank: i + 1,
+      ownerId: t.owner_id,
       label: t.team_name,
       sublabel: t.owner_name,
       total_points: t.total_points,
@@ -309,7 +313,11 @@ export function PositionalStatsPage() {
                 <tr key={r.label + r.sublabel}>
                   <td className="num">{r.rank}</td>
                   <td>
-                    <div>{r.label}</div>
+                    <div>
+                      <TeamLink ownerId={r.ownerId} year={yearMode === 'all' ? null : yearMode}>
+                        {r.label}
+                      </TeamLink>
+                    </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{r.sublabel}</div>
                   </td>
                   {yearMode === 'all' && <td className="num">{r.seasons}</td>}

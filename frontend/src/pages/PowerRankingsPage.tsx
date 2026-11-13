@@ -17,6 +17,7 @@ import { WriteupModal } from '../components/WriteupModal'
 import { useLeague } from '../contexts/LeagueContext'
 import { usePowerRankings } from '../hooks/usePowerRankings'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
+import { teamHubHref } from '../lib/links'
 import {
   authorOwnerId,
   biggestUpsets,
@@ -45,8 +46,8 @@ const VIEWS: { key: View; label: string }[] = [
 
 type OpenPost = (postId: number, highlight?: string) => void
 
-export const teamHubHref = (ownerId: string, season?: number) =>
-  `/team_hub?team=${encodeURIComponent(ownerId)}&tab=power${season ? `&year=${season}` : ''}`
+/** A team's power rankings on Team Hub. */
+const rankingsHref = (ownerId: string, season?: number) => teamHubHref(ownerId, { year: season, tab: 'power' })
 
 export function PowerRankingsPage() {
   const { selectedLeague } = useLeague()
@@ -288,7 +289,7 @@ function WeekView({
               <div className="pr-main">
                 <div className="pr-team-line">
                   {t ? (
-                    <Link className="pr-team" to={teamHubHref(t.owner_id, season.season)}>
+                    <Link className="pr-team" to={rankingsHref(t.owner_id, season.season)}>
                       {t.team_name}
                     </Link>
                   ) : (
@@ -439,7 +440,7 @@ function SeasonView({ data, season, opts }: { data: PowerRankings; season: Power
               return (
                 <tr key={r.ownerId}>
                   <td>
-                    <Link to={teamHubHref(r.ownerId, season.season)}>{r.teamName}</Link>
+                    <Link to={rankingsHref(r.ownerId, season.season)}>{r.teamName}</Link>
                     <div className="opp-owner">{team?.owner_name}</div>
                   </td>
                   <td className="num">{fmt(r.avgRank)}</td>
@@ -621,7 +622,7 @@ function AllTimeView({
             {sorted.map((o) => (
               <tr key={o.ownerId}>
                 <td>
-                  <Link to={teamHubHref(o.ownerId)}>{o.ownerName}</Link>
+                  <Link to={rankingsHref(o.ownerId)}>{o.ownerName}</Link>
                   <div className="opp-owner">{o.teamName}</div>
                 </td>
                 <td className="num">{fmt(o.avgRank)}</td>

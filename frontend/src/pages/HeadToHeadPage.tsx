@@ -10,6 +10,7 @@ import {
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { PrBadge } from '../components/PrBadge'
 import { RoundBadge } from '../components/RoundBadge'
+import { TeamLink } from '../components/TeamLink'
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { Loading } from '../components/Loading'
@@ -255,11 +256,15 @@ function H2HSummary({ data, pr }: { data: HeadToHeadStats; pr?: Map<string, Owne
           <tr>
             <th></th>
             <th>
-              <div className="h2h-team">{data.owner_a_team_name}</div>
+              <div className="h2h-team">
+                <TeamLink ownerId={data.owner_a_id}>{data.owner_a_team_name}</TeamLink>
+              </div>
               <div className="h2h-owner">{data.owner_a_name}</div>
             </th>
             <th>
-              <div className="h2h-team">{data.owner_b_team_name}</div>
+              <div className="h2h-team">
+                <TeamLink ownerId={data.owner_b_id}>{data.owner_b_team_name}</TeamLink>
+              </div>
               <div className="h2h-owner">{data.owner_b_name}</div>
             </th>
           </tr>
@@ -296,7 +301,9 @@ function H2HSummaryMobile({ data, pr }: { data: HeadToHeadStats; pr?: Map<string
       <div className="h2h-card">
         <div className="h2h-card-head">
           <div className={`h2h-card-team${aLeads ? ' leading' : ''}`}>
-            <div className="h2h-card-name">{data.owner_a_team_name}</div>
+            <div className="h2h-card-name">
+              <TeamLink ownerId={data.owner_a_id}>{data.owner_a_team_name}</TeamLink>
+            </div>
             <div className="h2h-card-owner">{data.owner_a_name}</div>
           </div>
           <div className="h2h-card-record">
@@ -306,7 +313,9 @@ function H2HSummaryMobile({ data, pr }: { data: HeadToHeadStats; pr?: Map<string
             {data.ties > 0 && <span className="ties">({data.ties} T)</span>}
           </div>
           <div className={`h2h-card-team right${bLeads ? ' leading' : ''}`}>
-            <div className="h2h-card-name">{data.owner_b_team_name}</div>
+            <div className="h2h-card-name">
+              <TeamLink ownerId={data.owner_b_id}>{data.owner_b_team_name}</TeamLink>
+            </div>
             <div className="h2h-card-owner">{data.owner_b_name}</div>
           </div>
         </div>

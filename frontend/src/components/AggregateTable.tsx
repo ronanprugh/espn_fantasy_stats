@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { OwnerAggregate } from '../api'
 import type { OwnerPrStats } from '../lib/powerRankings'
 import { SortableTh, type SortDir } from './SortableTh'
+import { TeamLink } from './TeamLink'
 
 type SortKey =
   | 'avg_finish'
@@ -136,11 +137,15 @@ export function AggregateTable({
           {sorted.map((o) => (
             <tr key={o.owner_id}>
               <td className="num">{o.avg_finish.toFixed(2)}</td>
-              <td>{o.owner_name}</td>
+              <td>
+                <TeamLink ownerId={o.owner_id}>{o.owner_name}</TeamLink>
+              </td>
               <td title={o.team_names.join(' / ')}>
-                {o.team_names.length === 1
-                  ? o.team_names[0]
-                  : `${o.team_names[0]} +${o.team_names.length - 1}`}
+                <TeamLink ownerId={o.owner_id}>
+                  {o.team_names.length === 1
+                    ? o.team_names[0]
+                    : `${o.team_names[0]} +${o.team_names.length - 1}`}
+                </TeamLink>
               </td>
               <td className="num">{o.seasons_played}</td>
               <td className="num">{o.wins}</td>

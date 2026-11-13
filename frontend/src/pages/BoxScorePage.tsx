@@ -8,6 +8,9 @@ import {
 } from '../api'
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useTeamOwners } from '../hooks/useTeamOwners'
+import { TeamLink } from '../components/TeamLink'
+import { headToHeadHref } from '../lib/links'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
@@ -45,6 +48,9 @@ export function BoxScorePage() {
   const [matchup, setMatchup] = useState<BoxScoreMatchup | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const ownerOf = useTeamOwners(selectedLeague?.espn_league_id, [year])
+  const ownerA = ownerOf(year, teamA)
+  const ownerB = ownerOf(year, teamB)
 
   useEffect(() => {
     if (!selectedLeague) return
@@ -79,6 +85,14 @@ export function BoxScorePage() {
 
       <p className="subtitle">
         {year}, Week {week}
+        {ownerA && ownerB && ownerA !== ownerB && (
+          <>
+            {' · '}
+            <Link to={headToHeadHref(ownerA, ownerB)} className="back-link">
+              All meetings
+            </Link>
+          </>
+        )}
       </p>
 
       {error && <ErrorMessage message={error} />}
@@ -88,7 +102,7 @@ export function BoxScorePage() {
         <p className="subtitle">Couldn't find that matchup.</p>
       )}
 
-      {matchup && <MatchupBody matchup={matchup} />}
+      {matchup && <MatchupBody matchup={matchup} owner={(teamId) => ownerOf(year, teamId)} year={year} />}
     </div>
   )
 }
@@ -98,13 +112,15 @@ export function BoxScorePage() {
  * a matchup into two lists a reader had to scroll between to compare — the one
  * thing a box score exists to make easy. The mobile shape interleaves them into
  * a single slot-per-row sheet instead, mirrored about the slot column. */
-function MatchupBody({ matchup }: { matchup: BoxScoreMatchup }) {
+type OwnerOf = (teamId: number) => string | undefined
+
+function MatchupBody({ matchup, owner, year }: { matchup: BoxScoreMatchup; owner: OwnerOf; year: number }) {
   const isMobile = useIsMobile()
   const { home, away } = matchup
 
   return (
     <>
-      <MatchupHeader matchup={matchup} />
+      <MatchupHeader matchup={matchup} owner={owner} year={year} />
       {isMobile && home && away ? (
         <MobileLineups home={home} away={away} />
       ) : (
@@ -223,15 +239,20 @@ function PlayerCell({ player, side }: { player: BoxPlayer | null; side: 'left' |
   )
 }
 
-function MatchupHeader({ matchup }: { matchup: BoxScoreMatchup }) {
+function MatchupHeader({ matchup, owner, year }: { matchup: BoxScoreMatchup; owner: OwnerOf; year: number }) {
   const h = matchup.home
   const a = matchup.away
+  const name = (t: BoxScoreTeam) => (
+    <TeamLink ownerId={owner(t.team_id)} year={year}>
+      {t.team_name}
+    </TeamLink>
+  )
   if (!h || !a) {
     const t = h ?? a!
     return (
       <section className="box-matchup-header">
         <div className="bs-team">
-          <div className="bs-team-name">{t.team_name}</div>
+          <div className="bs-team-name">{name(t)}</div>
           <div className="bs-team-owner">{t.owner_name}</div>
         </div>
         <div className="bs-score">{t.total_points.toFixed(2)}</div>
@@ -244,7 +265,7 @@ function MatchupHeader({ matchup }: { matchup: BoxScoreMatchup }) {
   return (
     <section className="box-matchup-header">
       <div className={`bs-side ${homeWon ? 'winner' : ''}`}>
-        <div className="bs-team-name">{h.team_name}</div>
+        <div className="bs-team-name">{name(h)}</div>
         <div className="bs-team-owner">{h.owner_name}</div>
         <div className="bs-score">{h.total_points.toFixed(2)}</div>
         {h.projected_points > 0 && (
@@ -253,7 +274,7 @@ function MatchupHeader({ matchup }: { matchup: BoxScoreMatchup }) {
       </div>
       <div className="bs-vs">vs</div>
       <div className={`bs-side ${awayWon ? 'winner' : ''}`}>
-        <div className="bs-team-name">{a.team_name}</div>
+        <div className="bs-team-name">{name(a)}</div>
         <div className="bs-team-owner">{a.owner_name}</div>
         <div className="bs-score">{a.total_points.toFixed(2)}</div>
         {a.projected_points > 0 && (
