@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   fetchScoreboard,
@@ -12,8 +12,10 @@ import { rankLookup, type RankLookup } from '../lib/powerRankings'
 import { RoundBadge } from '../components/RoundBadge'
 import { SeasonPicker } from '../components/SeasonPicker'
 import { WeekStepper } from '../components/WeekStepper'
+import { isUnplayed, weekExtremes } from '../lib/scoreboard'
 import { TeamLink } from '../components/TeamLink'
 import { useTeamOwners } from '../hooks/useTeamOwners'
+import { useSwipe } from '../hooks/useSwipe'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
@@ -40,6 +42,9 @@ export function ScoreboardPage() {
   const [error, setError] = useState<string | null>(null)
   const pr = usePowerRankings(leagueId)
   const ownerOf = useTeamOwners(leagueId, year === '' ? [] : [year])
+  // The swipe handler calls whatever stepWeek the latest render defined.
+  const stepWeekRef = useRef<(dir: -1 | 1) => void>(() => {})
+  const swipe = useSwipe((dir) => stepWeekRef.current(dir === 'left' ? 1 : -1))
   const yourTeam = useYourTeam()
   const isYourMatchup = (m: ScoreboardMatchup) =>
     year !== '' &&
@@ -98,6 +103,17 @@ export function ScoreboardPage() {
     `/box_score/${year}/${m.week}/${m.team_a_id}/${m.team_b_id}`
 
   const boxScoresAvailable = year !== '' && (year as number) >= 2019
+  const extremes = weekExtremes(weekMatchups)
+
+  // On phones, a sideways swipe across the cards steps the week, like the
+  // arrows. The URL update replaces the history entry, so Back still leaves
+  // the page rather than walking back through weeks.
+  const stepWeek = (dir: -1 | 1) => {
+    const i = week === '' ? -1 : weeks.indexOf(week)
+    const next = weeks[i + dir]
+    if (i >= 0 && next !== undefined) update({ week: String(next) })
+  }
+  stepWeekRef.current = stepWeek
 
   return (
     <div className="page">
@@ -130,12 +146,12 @@ export function ScoreboardPage() {
 
       {!loading && year !== '' && week !== '' && weekMatchups.length > 0 && (
         <>
-          {!boxScoresAvailable && (
-            <p className="subtitle">
-              Box scores are only available for seasons 2019 and later. Click is disabled.
-            </p>
-          )}
-          <div className="scoreboard-list">
+          {!boxScoresAvailable && <p className="subtitle">Box scores start in 2019.</p>}
+          <div
+            className="scoreboard-list"
+            onTouchStart={swipe.onTouchStart}
+            onTouchEnd={swipe.onTouchEnd}
+          >
             {weekMatchups.map((m, i) => (
               <ScoreboardCard
                 key={i}
@@ -144,6 +160,7 @@ export function ScoreboardPage() {
                 owner={(teamId) => ownerOf(year as number, teamId)}
                 year={year as number}
                 yours={isYourMatchup(m)}
+                extremes={extremes}
                 href={boxScoreHref(m)}
                 disabled={
                   !boxScoresAvailable || m.is_bye || m.round_label === 'consolation' || isUnplayed(m)
@@ -169,11 +186,6 @@ export function ScoreboardPage() {
   )
 }
 
-/** A future week: no points on either side and no result. Its box score
- * would be ESPN's current week under the wrong label, so it isn't offered. */
-function isUnplayed(m: ScoreboardMatchup): boolean {
-  return m.team_a_score === 0 && m.team_b_score === 0 && m.winner_id === null
-}
 
 function ScoreboardCard({
   matchup,
@@ -183,6 +195,7 @@ function ScoreboardCard({
   owner,
   year,
   yours = false,
+  extremes,
 }: {
   matchup: ScoreboardMatchup
   href: string
@@ -194,7 +207,15 @@ function ScoreboardCard({
   year: number
   /** Your team plays in it: outlined. */
   yours?: boolean
+  /** The week's top and low scorers, badged. */
+  extremes: { top: Set<number>; low: Set<number> }
 }) {
+  const scoreBadge = (teamId: number) =>
+    extremes.top.has(teamId) ? (
+      <span className="score-badge top">Top score</span>
+    ) : extremes.low.has(teamId) ? (
+      <span className="score-badge low">Low score</span>
+    ) : null
   const mine = yours ? ' your-matchup' : ''
   const name = (teamId: number, teamName: string) => (
     <TeamLink ownerId={owner(teamId)} year={year}>
@@ -236,7 +257,10 @@ function ScoreboardCard({
           <div className="team-name">
             {badge(matchup.team_a_id)} {name(matchup.team_a_id, matchup.team_a_name)}
           </div>
-          <div className="team-owner">{matchup.team_a_owner}</div>
+          <div className="team-owner">
+            {matchup.team_a_owner}
+            {scoreBadge(matchup.team_a_id)}
+          </div>
         </div>
         <div className="score">{matchup.team_a_score.toFixed(1)}</div>
       </div>
@@ -245,7 +269,10 @@ function ScoreboardCard({
           <div className="team-name">
             {badge(matchup.team_b_id)} {name(matchup.team_b_id, matchup.team_b_name)}
           </div>
-          <div className="team-owner">{matchup.team_b_owner}</div>
+          <div className="team-owner">
+            {matchup.team_b_owner}
+            {scoreBadge(matchup.team_b_id)}
+          </div>
         </div>
         <div className="score">{matchup.team_b_score.toFixed(1)}</div>
       </div>

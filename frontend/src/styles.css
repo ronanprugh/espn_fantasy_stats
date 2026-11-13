@@ -2327,6 +2327,35 @@ a.scoreboard-card:focus-visible {
   opacity: 0.7;
 }
 
+/* The week's top and low scores (weekExtremes). */
+.score-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: 1px;
+}
+
+.score-badge.top {
+  color: var(--accent);
+  background: var(--accent-softer);
+}
+
+.score-badge.low {
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+}
+
+/* Swiping the cards steps the week; let the browser keep vertical scrolling. */
+.scoreboard-list {
+  touch-action: pan-y;
+}
+
 /* Your matchup: listed first and outlined in the accent. */
 .scoreboard-card.your-matchup {
   border-color: var(--accent);
