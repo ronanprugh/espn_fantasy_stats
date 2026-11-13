@@ -427,6 +427,42 @@ class WeekBoxScores(BaseModel):
     matchups: List[BoxScoreMatchup]
 
 
+class RivalryLastMeeting(BaseModel):
+    year: int
+    week: int
+    result: str  # 'W', 'L' or 'T', from the owner's side
+    score: float
+    opponent_score: float
+    is_playoff: bool
+    own_team_id: int
+    opponent_team_id: int
+
+
+class Rivalry(BaseModel):
+    opponent_id: str
+    opponent_name: str
+    opponent_team_name: str
+    meetings: int
+    wins: int
+    losses: int
+    ties: int
+    points_for: float
+    points_against: float
+    avg_pf: float | None
+    avg_pa: float | None
+    playoff_meetings: int
+    playoff_wins: int
+    playoff_losses: int
+    last_meeting: RivalryLastMeeting | None
+
+
+class RivalrySummary(BaseModel):
+    owner_id: str
+    owner_name: str
+    owner_team_name: str
+    opponents: List[Rivalry]
+
+
 class HeadToHeadStats(BaseModel):
     owner_a_id: str
     owner_b_id: str

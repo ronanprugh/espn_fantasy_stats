@@ -471,6 +471,49 @@ export type HeadToHeadStats = {
   matchups: HeadToHeadMatchup[]
 }
 
+export type RivalryLastMeeting = {
+  year: number
+  week: number
+  /** From the owner's side. */
+  result: 'W' | 'L' | 'T'
+  score: number
+  opponent_score: number
+  is_playoff: boolean
+  own_team_id: number
+  opponent_team_id: number
+}
+
+export type Rivalry = {
+  opponent_id: string
+  opponent_name: string
+  opponent_team_name: string
+  meetings: number
+  wins: number
+  losses: number
+  ties: number
+  points_for: number
+  points_against: number
+  avg_pf: number | null
+  avg_pa: number | null
+  playoff_meetings: number
+  playoff_wins: number
+  playoff_losses: number
+  last_meeting: RivalryLastMeeting | null
+}
+
+export type RivalrySummary = {
+  owner_id: string
+  owner_name: string
+  owner_team_name: string
+  /** Every other owner, most meetings first. */
+  opponents: Rivalry[]
+}
+
+/** One owner's record against every other owner, in one request. */
+export async function fetchHeadToHeadSummary(leagueId: number, owner: string): Promise<RivalrySummary> {
+  return jsonFetch<RivalrySummary>(`/api/leagues/${leagueId}/head_to_head/summary?${new URLSearchParams({ owner })}`)
+}
+
 export async function fetchHeadToHead(
   leagueId: number,
   ownerA: string,

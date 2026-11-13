@@ -9,6 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import cache
 from . import power_rankings as pr
+from .rivalries import is_unplayed, rivalry_summary
 from .auth import current_user, hash_password, login, logout, require_admin, verify_password
 from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
 from .crypto import decrypt, encrypt
@@ -44,6 +45,7 @@ from .schemas import (
     InviteCodeResponse,
     SignupRequest,
     HeadToHeadStats,
+    RivalrySummary,
     AllSeasons,
     CloseGames,
     LeagueAggregate,
@@ -1170,6 +1172,33 @@ def aggregate(
     }
 
 
+@app.get("/api/leagues/{league_id}/head_to_head/summary", response_model=RivalrySummary)
+def head_to_head_summary(
+    owner: str,
+    refresh: bool = False,
+    ctx: LeagueContext = Depends(get_user_league),
+):
+    """One owner's record against every other owner, in one request.
+
+    The Head to Head page shows this before an opponent is picked. It reads the
+    same cached teams and matchups as the pairwise endpoint below, once per
+    season, instead of the page firing a request per opponent.
+    """
+    try:
+        years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not discover league years: {e}")
+    seasons = []
+    for year in years:
+        try:
+            teams_payload = _get_season_teams(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
+            matchups = _get_season_matchups(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+        seasons.append((year, teams_payload, matchups))
+    return rivalry_summary(owner, seasons)
+
+
 @app.get("/api/leagues/{league_id}/head_to_head", response_model=HeadToHeadStats)
 def head_to_head(
     owner_a: str,
@@ -1230,6 +1259,9 @@ def head_to_head(
 
         for m in season_matchups:
             if {m["team_a_id"], m["team_b_id"]} != {a_team_id, b_team_id}:
+                continue
+            # A scheduled game that hasn't been played would count as a tie.
+            if is_unplayed(m):
                 continue
             if m["team_a_id"] == a_team_id:
                 a_score, b_score = m["team_a_score"], m["team_b_score"]
