@@ -13,6 +13,7 @@ import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
 import { TeamPowerRankings } from '../components/TeamPowerRankings'
 import { YourTeamPrompt } from '../components/YourTeamPrompt'
+import { SeasonPicker } from '../components/SeasonPicker'
 import { H2HLink } from '../components/TeamLink'
 import { useTeamOwners } from '../hooks/useTeamOwners'
 import { useLeague } from '../contexts/LeagueContext'
@@ -146,24 +147,17 @@ export function TeamHubPage() {
             ))}
           </select>
         </div>
-
-        {hub && hub.available_years.length > 0 && (
-          <div className="control">
-            <label htmlFor="hub-year">Year</label>
-            <select
-              id="hub-year"
-              value={selectedYear ?? hub.selected_year}
-              onChange={(e) => update({ year: e.target.value })}
-            >
-              {[...hub.available_years].reverse().map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
       </div>
+
+      {/* Only this team's seasons. With no ?year= the hub shows its most recent
+       * one, highlighted here but not written to the URL. */}
+      {hub && hub.available_years.length > 0 && (
+        <SeasonPicker
+          years={hub.available_years}
+          value={selectedYear ?? hub.selected_year}
+          onChange={(y) => update({ year: String(y) })}
+        />
+      )}
 
       <YourTeamPrompt league={selectedLeague} owners={owners} selectedOwnerId={ownerId} />
 

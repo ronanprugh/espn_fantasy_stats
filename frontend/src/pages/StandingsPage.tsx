@@ -3,6 +3,7 @@ import { fetchTeams, type SeasonTeams } from '../api'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { Loading } from '../components/Loading'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
+import { SeasonPicker } from '../components/SeasonPicker'
 import { SCORING_LABEL, SeasonHistoryTable } from '../components/SeasonHistoryTable'
 import { useCloseGames } from '../hooks/useCloseGames'
 import { useLeagueYears } from '../hooks/useLeagueYears'
@@ -53,21 +54,13 @@ export function StandingsPage() {
 
   if (!leagueId) return <NoLeagueSelected />
 
-  const yearsDesc = [...years].reverse()
-
   return (
     <div className="page">
       <header className="page-header">
         <h2>Standings</h2>
         {leagueName && <span className="league">{leagueName}</span>}
       </header>
-      <nav className="years" aria-label="Season">
-        {yearsDesc.map((y) => (
-          <button key={y} onClick={() => setYear(y)} className={y === year ? 'active' : ''}>
-            {y}
-          </button>
-        ))}
-      </nav>
+      <SeasonPicker years={years} value={year} onChange={setYear} />
       {error && <ErrorMessage message={error} />}
       {(loading || year === null) && !error && <Loading />}
       {!loading && seasonData && seasonData.year === year && (
