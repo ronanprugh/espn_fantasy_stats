@@ -11,6 +11,7 @@ import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { PrBadge } from '../components/PrBadge'
 import { RoundBadge } from '../components/RoundBadge'
 import { TeamLink } from '../components/TeamLink'
+import { useFromHere } from '../hooks/useFromHere'
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { Loading } from '../components/Loading'
@@ -67,9 +68,10 @@ export function HeadToHeadPage() {
   if (!selectedLeague) return <NoLeagueSelected />
 
 
+  const fromHere = useFromHere('Head to Head')
   const handleMatchupClick = (m: HeadToHeadMatchup) => {
     if (m.year < 2019) return // box scores unavailable
-    navigate(`/box_score/${m.year}/${m.week}/${m.owner_a_team_id}/${m.owner_b_team_id}`)
+    navigate(`/box_score/${m.year}/${m.week}/${m.owner_a_team_id}/${m.owner_b_team_id}`, { state: fromHere })
   }
 
   return (

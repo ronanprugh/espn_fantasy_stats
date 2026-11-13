@@ -16,6 +16,7 @@ import { isUnplayed, weekExtremes } from '../lib/scoreboard'
 import { TeamLink } from '../components/TeamLink'
 import { useTeamOwners } from '../hooks/useTeamOwners'
 import { useSwipe } from '../hooks/useSwipe'
+import { useFromHere } from '../hooks/useFromHere'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
@@ -217,6 +218,7 @@ function ScoreboardCard({
       <span className="score-badge low">Low score</span>
     ) : null
   const mine = yours ? ' your-matchup' : ''
+  const fromHere = useFromHere('Scoreboard')
   const name = (teamId: number, teamName: string) => (
     <TeamLink ownerId={owner(teamId)} year={year}>
       {teamName}
@@ -289,6 +291,7 @@ function ScoreboardCard({
     <div className={`scoreboard-card clickable${mine}`}>
       <Link
         to={href}
+        state={fromHere}
         className="card-cover"
         title="View box score"
         aria-label={`Box score: ${matchup.team_a_name} vs ${matchup.team_b_name}`}

@@ -16,6 +16,7 @@ import { YourTeamPrompt } from '../components/YourTeamPrompt'
 import { SeasonPicker } from '../components/SeasonPicker'
 import { H2HLink } from '../components/TeamLink'
 import { useTeamOwners } from '../hooks/useTeamOwners'
+import { useFromHere } from '../hooks/useFromHere'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
@@ -51,6 +52,7 @@ const HUB_TABS: HubTab[] = ['summary', 'roster', 'schedule', 'power']
 export function TeamHubPage() {
   const { selectedLeague } = useLeague()
   const navigate = useNavigate()
+  const fromHere = useFromHere('Team Hub')
   const [owners, setOwners] = useState<OwnerHistory[]>([])
   // ?team=<owner id>&year=. No year means the hub's default (most recent),
   // which is shown but not written back, so a link stays exactly as shared.
@@ -272,6 +274,7 @@ export function TeamHubPage() {
                       if (hub.last_matchup!.year < 2019) return
                       navigate(
                         `/box_score/${hub.last_matchup!.year}/${hub.last_matchup!.week}/${hub.last_matchup!.own_team_id}/${hub.last_matchup!.opp_team_id}`,
+                        { state: fromHere },
                       )
                     }}
                   />
@@ -283,7 +286,7 @@ export function TeamHubPage() {
                 opponent={opponent}
                 onRecordClick={(r) => {
                   if (r.year < 2019) return
-                  navigate(`/box_score/${r.year}/${r.week}/${r.own_team_id}/${r.opp_team_id}`)
+                  navigate(`/box_score/${r.year}/${r.week}/${r.own_team_id}/${r.opp_team_id}`, { state: fromHere })
                 }}
               />
             </>
@@ -316,6 +319,7 @@ export function TeamHubPage() {
                   if (g.is_bye || hub.selected_year < 2019 || g.opp_team_id == null) return
                   navigate(
                     `/box_score/${hub.selected_year}/${g.week}/${g.own_team_id}/${g.opp_team_id}`,
+                    { state: fromHere },
                   )
                 }}
               />

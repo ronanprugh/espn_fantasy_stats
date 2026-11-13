@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Fragment, useEffect, useState, type MouseEvent } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   fetchBoxScores,
   type BoxPlayer,
@@ -11,6 +11,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { useTeamOwners } from '../hooks/useTeamOwners'
 import { TeamLink } from '../components/TeamLink'
 import { headToHeadHref } from '../lib/links'
+import { readFrom } from '../hooks/useFromHere'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
@@ -48,6 +49,18 @@ export function BoxScorePage() {
   const [matchup, setMatchup] = useState<BoxScoreMatchup | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const location = useLocation()
+  const navigate = useNavigate()
+  // Opened from a page in the app: go back to it, selections and all. A pasted
+  // link or a new tab has no `from`, so it falls back to that week's Scoreboard.
+  const from = readFrom(location.state)
+  const scoreboardHref = `/scoreboard?year=${year}&week=${week}`
+  const goBack = (e: MouseEvent) => {
+    // Plain clicks only: a modified click (new tab, new window) keeps the link.
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    e.preventDefault()
+    navigate(-1)
+  }
   const ownerOf = useTeamOwners(selectedLeague?.espn_league_id, [year])
   const ownerA = ownerOf(year, teamA)
   const ownerB = ownerOf(year, teamB)
@@ -78,13 +91,25 @@ export function BoxScorePage() {
     <div className="page">
       <header className="page-header">
         <h2>Box Score</h2>
-        <Link to={`/scoreboard?year=${year}&week=${week}`} className="back-link">
-          ← Back to scoreboard
-        </Link>
+        {from ? (
+          // A real link to the same place, so it can still open in a new tab,
+          // but a plain click is a true Back: no extra history entry.
+          <Link to={from.path} className="back-link" onClick={goBack}>
+            ← Back to {from.label}
+          </Link>
+        ) : (
+          <Link to={scoreboardHref} className="back-link">
+            ← Back to Scoreboard
+          </Link>
+        )}
       </header>
 
       <p className="subtitle">
         {year}, Week {week}
+        {' · '}
+        <Link to={scoreboardHref} className="back-link">
+          Week {week} scoreboard
+        </Link>
         {ownerA && ownerB && ownerA !== ownerB && (
           <>
             {' · '}
@@ -117,6 +142,7 @@ type OwnerOf = (teamId: number) => string | undefined
 function MatchupBody({ matchup, owner, year }: { matchup: BoxScoreMatchup; owner: OwnerOf; year: number }) {
   const isMobile = useIsMobile()
   const { home, away } = matchup
+  const ahead = slotWinners(home, away)
 
   return (
     <>
@@ -125,8 +151,8 @@ function MatchupBody({ matchup, owner, year }: { matchup: BoxScoreMatchup; owner
         <MobileLineups home={home} away={away} />
       ) : (
         <div className="box-score-grid">
-          {home && <TeamLineup team={home} />}
-          {away && <TeamLineup team={away} />}
+          {home && <TeamLineup team={home} ahead={ahead} />}
+          {away && <TeamLineup team={away} ahead={ahead} />}
         </div>
       )}
     </>
@@ -170,6 +196,21 @@ function pairLineups(home: BoxScoreTeam, away: BoxScoreTeam): {
     starters: zip(group(home, true), group(away, true)),
     bench: zip(group(home, false), group(away, false)),
   }
+}
+
+/** The starter with the higher score in each lineup slot, pairing the two
+ * lineups the same way the phone layout does. Bench points don't count, so the
+ * bench has no winners (the phone layout mutes them too). A tie, or a slot
+ * only one side filled, has no winner. */
+function slotWinners(home: BoxScoreTeam | null, away: BoxScoreTeam | null): Set<BoxPlayer> {
+  const won = new Set<BoxPlayer>()
+  if (!home || !away) return won
+  const { starters } = pairLineups(home, away)
+  for (const r of starters) {
+    if (!r.home || !r.away || r.home.points === r.away.points) continue
+    won.add(r.home.points > r.away.points ? r.home : r.away)
+  }
+  return won
 }
 
 function MobileLineups({ home, away }: { home: BoxScoreTeam; away: BoxScoreTeam }) {
@@ -285,7 +326,7 @@ function MatchupHeader({ matchup, owner, year }: { matchup: BoxScoreMatchup; own
   )
 }
 
-function TeamLineup({ team }: { team: BoxScoreTeam }) {
+function TeamLineup({ team, ahead }: { team: BoxScoreTeam; ahead: Set<BoxPlayer> }) {
   const sorted = sortLineup(team.lineup)
   const firstBenchIdx = sorted.findIndex((p) => !isStarter(p.slot_position))
 
@@ -318,7 +359,7 @@ function TeamLineup({ team }: { team: BoxScoreTeam }) {
                   <td className="player-name">{p.name || '—'}</td>
                   <td>{p.position}</td>
                   <td>{p.pro_team}</td>
-                  <td className="points num">{p.points.toFixed(2)}</td>
+                  <td className={`points num${ahead.has(p) ? ' ahead' : ''}`}>{p.points.toFixed(2)}</td>
                   <td className="proj num">{p.projected_points.toFixed(2)}</td>
                 </tr>
               </Fragment>
