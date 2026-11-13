@@ -1,9 +1,9 @@
 import { Fragment } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useLeague } from '../contexts/LeagueContext'
-import { useTheme } from '../contexts/ThemeContext'
-import { NAV_DESTINATIONS, NAV_GROUPS } from './navDestinations'
+import { useNavDestinations } from '../hooks/useNavDestinations'
+import { NAV_GROUPS, SETTINGS_DESTINATIONS, destinationFor } from './navDestinations'
+import { UserMenu } from './UserMenu'
 
 type Props = {
   collapsed: boolean
@@ -11,15 +11,13 @@ type Props = {
 }
 
 export function Sidebar({ collapsed, onToggle }: Props) {
-  const { user, logout } = useAuth()
   const { leagues, selectedLeague, select } = useLeague()
-  const { theme, toggle } = useTheme()
-  const navigate = useNavigate()
-
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login', { replace: true })
-  }
+  const destinations = useNavDestinations()
+  const { pathname } = useLocation()
+  // Where you are, for the collapsed sidebar: "This Season · Standings".
+  const current = destinationFor(pathname)
+  const setting = SETTINGS_DESTINATIONS.find((d) => d.path === pathname)
+  const here = current ? `${current.group} · ${current.label}` : setting ? `Settings · ${setting.label}` : null
 
   return (
     <aside className="sidebar">
@@ -31,6 +29,20 @@ export function Sidebar({ collapsed, onToggle }: Props) {
       >
         {collapsed ? '›' : '‹'}
       </button>
+
+      {/* Collapsed, the sidebar is a 36px strip: it shows where you are, read
+       * bottom to top, and expands on click like the button above. */}
+      {collapsed && here && (
+        <button
+          type="button"
+          className="sidebar-collapsed-here"
+          onClick={onToggle}
+          aria-label={`Expand sidebar (${here})`}
+          title="Expand sidebar"
+        >
+          {here}
+        </button>
+      )}
 
       <div className="sidebar-scrollable">
         <div className="brand">ESPN Fantasy Stats</div>
@@ -63,33 +75,20 @@ export function Sidebar({ collapsed, onToggle }: Props) {
           {NAV_GROUPS.map((group) => (
             <Fragment key={group}>
               <div className="nav-section">{group}</div>
-              {NAV_DESTINATIONS.filter((d) => d.group === group).map((d) => (
-                // `end` on "/" only — without it the index route matches every
-                // path and every item renders active.
-                <NavLink key={d.path} to={d.path} end={d.path === '/'}>
-                  {d.label}
-                </NavLink>
-              ))}
+              {destinations
+                .filter((d) => d.group === group)
+                .map((d) => (
+                  <NavLink key={d.path} to={d.path}>
+                    {d.label}
+                  </NavLink>
+                ))}
             </Fragment>
           ))}
         </nav>
       </div>
 
       <div className="sidebar-footer">
-        <button
-          className="sidebar-theme-toggle"
-          onClick={toggle}
-          title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          <span>{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>
-          <span className="theme-icon" aria-hidden>
-            {theme === 'light' ? '🌙' : '☀️'}
-          </span>
-        </button>
-        <div className="sidebar-user">{user?.username}</div>
-        <button className="sidebar-logout" onClick={handleLogout}>
-          Sign out
-        </button>
+        <UserMenu />
       </div>
     </aside>
   )

@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLeague } from '../contexts/LeagueContext'
 import { useTheme } from '../contexts/ThemeContext'
-import { OVERFLOW_DESTINATIONS } from './navDestinations'
+import { useNavDestinations } from '../hooks/useNavDestinations'
+import { NAV_GROUPS, SETTINGS_DESTINATIONS } from './navDestinations'
 
 type Props = {
   open: boolean
@@ -13,8 +14,9 @@ type Props = {
 const FOCUSABLE = 'a[href], button:not([disabled]), select, input, [tabindex]:not([tabindex="-1"])'
 
 /**
- * The overflow half of the mobile navigation: the non-primary destinations
- * plus the theme toggle and Sign out.
+ * The overflow half of the mobile navigation: the non-primary destinations,
+ * under the same group headings as the sidebar, then the settings that sit
+ * under your name on desktop (Leagues, Account, theme toggle and Sign out).
  *
  * Those last two matter more than they look. The mobile shell hides `.sidebar`,
  * which holds the only other copy of them, so without this sheet they are
@@ -26,7 +28,8 @@ const FOCUSABLE = 'a[href], button:not([disabled]), select, input, [tabindex]:no
  * sheet".
  */
 export function MoreSheet({ open, onClose }: Props) {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
+  const destinations = useNavDestinations().filter((d) => d.tier === 'overflow')
   const { leagues, selectedLeague, select } = useLeague()
   const { theme, toggle } = useTheme()
   const navigate = useNavigate()
@@ -144,14 +147,29 @@ export function MoreSheet({ open, onClose }: Props) {
         </div>
 
         <nav className="sheet-nav" aria-label="More">
-          {OVERFLOW_DESTINATIONS.map((d) => (
+          {NAV_GROUPS.map((group) => {
+            const items = destinations.filter((d) => d.group === group)
+            if (items.length === 0) return null
+            return (
+              <Fragment key={group}>
+                <div className="sheet-section">{group}</div>
+                {items.map((d) => (
+                  <NavLink key={d.path} to={d.path} className="sheet-item">
+                    {d.label}
+                  </NavLink>
+                ))}
+              </Fragment>
+            )
+          })}
+        </nav>
+
+        <div className="sheet-footer">
+          <div className="sheet-section">{user?.username}</div>
+          {SETTINGS_DESTINATIONS.map((d) => (
             <NavLink key={d.path} to={d.path} className="sheet-item">
               {d.label}
             </NavLink>
           ))}
-        </nav>
-
-        <div className="sheet-footer">
           <button type="button" className="sheet-item sheet-action" onClick={toggle}>
             <span>{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>
             <span className="theme-icon" aria-hidden>

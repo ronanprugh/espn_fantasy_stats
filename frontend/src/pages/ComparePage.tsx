@@ -120,7 +120,7 @@ export function ComparePage() {
   return (
     <div className="page">
       <header className="page-header">
-        <h2>Team Comparison</h2>
+        <h2>Trends</h2>
         {history && (
           <span className="league">
             {history.years[0]}–{history.years[history.years.length - 1]} · {history.owners.length} owners

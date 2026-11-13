@@ -65,7 +65,7 @@ export function PlayoffsPage() {
   return (
     <div className="page">
       <header className="page-header">
-        <h2>Playoff History</h2>
+        <h2>Playoffs</h2>
         {data && (
           <span className="league">
             {data.year} · {data.playoff_team_count} playoff teams

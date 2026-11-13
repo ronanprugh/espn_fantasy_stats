@@ -204,6 +204,31 @@ body {
   margin: 0;
 }
 
+/* Collapsed, the strip still says where you are: "This Season · Standings",
+ * set vertically and read bottom to top. Clicking it expands the sidebar. */
+.sidebar-collapsed-here {
+  align-self: center;
+  margin-top: 16px;
+  padding: 8px 4px;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.sidebar-collapsed-here:hover {
+  background: var(--bg-subtle);
+}
+
 .content {
   padding: 24px 32px;
   min-width: 0;
@@ -214,8 +239,8 @@ body {
 /* ===========================================================================
    Bottom tab bar and More sheet — below 900px
    ===========================================================================
-   Four primary destinations plus a More trigger; the remaining five live in the
-   sheet. Both components are always mounted and hidden by CSS, so no JS
+   Four primary destinations plus a More trigger; the rest live in the sheet.
+   Both components are always mounted and hidden by CSS, so no JS
    breakpoint has to stay in agreement with this stylesheet.
 
    --tab-bar-height is declared on .layout rather than :root deliberately:
@@ -349,6 +374,16 @@ body {
   flex-direction: column;
 }
 
+/* Group headings in the More sheet, matching the sidebar's .nav-section. */
+.sheet-section {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 700;
+  padding: 14px 20px 4px;
+}
+
 .sheet-item {
   display: flex;
   align-items: center;
@@ -381,7 +416,8 @@ body {
   outline-offset: -3px;
 }
 
-.sheet-nav .sheet-item.active {
+.sheet-nav .sheet-item.active,
+.sheet-footer .sheet-item.active {
   color: var(--accent);
   background: var(--accent-softer);
   font-weight: 600;
@@ -574,42 +610,106 @@ body {
   background: var(--bg-card);
 }
 
-.sidebar-user {
-  font-size: 12px;
-  color: var(--text-secondary);
+/* Settings menu under your name (UserMenu). It opens upward from the footer,
+ * over the bottom of the nav, so it needs no room of its own. */
+.user-menu {
+  position: relative;
 }
 
-.sidebar-logout,
-.sidebar-theme-toggle {
-  background: none;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 12px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  text-align: left;
-}
-
-.sidebar-logout:hover {
-  background: var(--bg-subtle);
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.sidebar-theme-toggle {
+.user-menu-button {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.sidebar-theme-toggle:hover {
-  background: var(--bg-subtle);
+  gap: 8px;
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
 }
 
-.sidebar-theme-toggle .theme-icon {
+.user-menu-button:hover,
+.user-menu-button[aria-expanded='true'] {
+  background: var(--bg-subtle);
+}
+
+.user-menu-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu-caret {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.user-menu-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.user-menu-item:hover,
+.user-menu-item:focus-visible {
+  background: var(--bg-subtle);
+}
+
+.user-menu-button:focus-visible,
+.user-menu-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.user-menu-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.user-menu-item .theme-icon {
   font-size: 14px;
+}
+
+.user-menu-logout {
+  border-top: 1px solid var(--border-soft);
+  margin-top: 4px;
+  padding-top: 10px;
+}
+
+.user-menu-logout:hover {
+  color: var(--danger);
 }
 
 .bootstrap-loading {
