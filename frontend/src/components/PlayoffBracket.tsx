@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import type { PlayoffMatchup, PlayoffTeam, SeasonPlayoffs } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useTeamOwners } from '../hooks/useTeamOwners'
+import { useFromHere } from '../hooks/useFromHere'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import { teamHubHref } from '../lib/links'
 import { TeamLink } from './TeamLink'
@@ -505,6 +506,7 @@ function StandalonePlacementGame({
 
 export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
   const navigate = useNavigate()
+  const fromHere = useFromHere('Playoffs')
   const isMobile = useIsMobile()
   const metrics = isMobile ? COMPACT_METRICS : DESKTOP_METRICS
   const teamsById = new Map(data.teams.map((t) => [t.team_id, t]))
@@ -525,6 +527,7 @@ export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
       ? (n: BracketNode) =>
           navigate(
             `/box_score/${data.year}/${n.week}/${n.match.team_a_id}/${n.match.team_b_id}`,
+            { state: fromHere },
           )
       : undefined
 

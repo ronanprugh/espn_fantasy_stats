@@ -2745,6 +2745,12 @@ a.scoreboard-card:focus-visible {
   color: var(--success);
 }
 
+/* Desktop lineups: the higher score in each slot, matching the phone layout. */
+.lineup-table td.points.ahead {
+  color: var(--success);
+  font-weight: 700;
+}
+
 .bs-m-proj {
   font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
