@@ -21,6 +21,8 @@ export function AllTimePage() {
   const [params, update] = useUrlState()
   const tab: Tab = params.get('view') === 'seasons' ? 'seasons' : 'all'
   const setTab = (t: Tab) => update({ view: t === 'seasons' ? 'seasons' : null })
+  // Every Season's advanced columns, kept in the URL (?more=1) like Standings.
+  const showMore = params.get('more') === '1'
 
   const [aggregateData, setAggregateData] = useState<LeagueAggregate | null>(null)
   const [allSeasonsData, setAllSeasonsData] = useState<AllSeasons | null>(null)
@@ -93,18 +95,33 @@ export function AllTimePage() {
               {shownSeasons.reduce((n, s) => n + s.teams.length, 0)} team-seasons across{' '}
               {shownSeasons.length} seasons · sorted by Avg PF — click any column to re-rank
             </p>
-            {hasCurrent && (
+            <div className="season-toggles">
+              {hasCurrent && (
+                <label className="season-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showCurrent}
+                    onChange={(e) => setShowCurrent(e.target.checked)}
+                  />
+                  Show current season
+                </label>
+              )}
               <label className="season-toggle">
                 <input
                   type="checkbox"
-                  checked={showCurrent}
-                  onChange={(e) => setShowCurrent(e.target.checked)}
+                  checked={showMore}
+                  onChange={(e) => update({ more: e.target.checked ? '1' : null })}
                 />
-                Show current season
+                More stats
               </label>
-            )}
+            </div>
           </div>
-          <SeasonHistoryTable seasons={shownSeasons} closeGames={closeGames} powerRankings={prBySeason} />
+          <SeasonHistoryTable
+            seasons={shownSeasons}
+            closeGames={closeGames}
+            powerRankings={prBySeason}
+            showMore={showMore}
+          />
         </>
       )}
     </div>

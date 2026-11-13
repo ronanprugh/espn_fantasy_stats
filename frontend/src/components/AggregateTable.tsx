@@ -1,20 +1,17 @@
 import { useState } from 'react'
 import type { OwnerAggregate } from '../api'
+import { formatDashRecord } from '../lib/seasonStats'
 import type { OwnerPrStats } from '../lib/powerRankings'
 import { SortableTh, type SortDir } from './SortableTh'
 import { TeamLink } from './TeamLink'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 
 type SortKey =
+  | 'owner'
   | 'avg_finish'
-  | 'owner_name'
-  | 'team_names'
   | 'seasons_played'
-  | 'wins'
-  | 'losses'
-  | 'ties'
-  | 'playoff_wins'
-  | 'playoff_losses'
+  | 'record'
+  | 'playoffs'
   | 'points_for'
   | 'points_against'
   | 'avg_points_for'
@@ -23,7 +20,7 @@ type SortKey =
   | 'pr_avg'
   | 'pr_at1'
 
-const ASC_BY_DEFAULT: Set<SortKey> = new Set(['avg_finish', 'owner_name', 'team_names', 'pr_avg'])
+const ASC_BY_DEFAULT: Set<SortKey> = new Set(['owner', 'avg_finish', 'pr_avg'])
 
 const valueOf = (
   o: OwnerAggregate,
@@ -31,28 +28,18 @@ const valueOf = (
   pr?: Map<string, OwnerPrStats>,
 ): string | number | null => {
   switch (key) {
-    case 'pr_avg':
-      return pr?.get(o.owner_id)?.avgRank ?? null
-    case 'pr_at1':
-      return pr?.get(o.owner_id)?.weeksAt1 ?? null
+    case 'owner':
+      return o.owner_name
     case 'avg_finish':
       return o.avg_finish
-    case 'owner_name':
-      return o.owner_name
-    case 'team_names':
-      return o.team_names[0] ?? ''
     case 'seasons_played':
       return o.seasons_played
-    case 'wins':
-      return o.wins
-    case 'losses':
-      return o.losses
-    case 'ties':
-      return o.ties
-    case 'playoff_wins':
-      return o.playoff_wins
-    case 'playoff_losses':
-      return o.playoff_losses
+    case 'record':
+      // Net wins, ties as half: win % order for equal numbers of games.
+      return o.wins - o.losses + o.ties / 2
+    case 'playoffs':
+      // Most playoff wins first; fewer losses breaks a tie.
+      return o.playoff_wins * 1000 - o.playoff_losses
     case 'points_for':
       return o.points_for
     case 'points_against':
@@ -63,9 +50,21 @@ const valueOf = (
       return o.avg_points_against
     case 'avg_plus_minus':
       return o.avg_plus_minus
+    case 'pr_avg':
+      return pr?.get(o.owner_id)?.avgRank ?? null
+    case 'pr_at1':
+      return pr?.get(o.owner_id)?.weeksAt1 ?? null
   }
 }
 
+/**
+ * The All Time table: one row per owner, across every season.
+ *
+ * The owner is the pinned first column, with their most recent team name
+ * beside it on the same line (hover it for every name they've used), so every
+ * row is one line tall however many names an owner has had.
+ * Record and Playoffs each fold W/L(/T) into one column.
+ */
 export function AggregateTable({
   owners,
   powerRankings,
@@ -98,39 +97,38 @@ export function AggregateTable({
     return sortDir === 'asc' ? cmp : -cmp
   })
 
-  // Every column except Owner and Teams holds a statistical figure.
-  const th = (key: SortKey, label: string, title?: string) => (
+  // Every column except Owner holds a statistical figure.
+  const th = (key: SortKey, label: string, title?: string, className?: string) => (
     <SortableTh
       sortKey={key}
       activeKey={sortKey}
       dir={sortDir}
       onClick={handleSort}
       title={title}
-      numeric={key !== 'owner_name' && key !== 'team_names'}
+      numeric={key !== 'owner'}
+      className={className}
     >
       {label}
     </SortableTh>
   )
 
+  const PINNED = 'sticky-col sticky-1 sticky-edge'
+
   return (
-    <div className="teams-wrap">
-      <table className="teams">
+    <div className="teams-wrap sticky">
+      <table className="teams all-time">
         <thead>
           <tr>
+            {th('owner', 'Owner', 'The owner, with their most recent team name. Hover the team for every name they have used.', PINNED)}
             {th('avg_finish', 'Avg Finish', 'Average final place across seasons played; lower is better. A season in progress counts its current standing.')}
-            {th('owner_name', 'Owner')}
-            {th('team_names', 'Teams', 'Team names this owner has used, most recent first.')}
             {th('seasons_played', 'Sns', 'Seasons played.')}
-            {th('wins', 'W', 'Regular-season wins across all seasons.')}
-            {th('losses', 'L', 'Regular-season losses across all seasons.')}
-            {th('ties', 'T', 'Regular-season ties across all seasons.')}
-            {th('playoff_wins', 'PO W', 'Championship-bracket wins across all seasons. Consolation games are not counted.')}
-            {th('playoff_losses', 'PO L', 'Championship-bracket losses across all seasons: at most one per season, since a loss ends the run.')}
+            {th('record', 'Record', 'Regular-season wins–losses across all seasons, with ties last when there are any.')}
+            {th('playoffs', 'Playoffs', 'Championship-bracket wins–losses across all seasons. Consolation games are not counted, and a season has at most one loss, since a loss ends the run.')}
             {th('points_for', 'PF', 'Total regular-season points scored across all seasons.')}
             {th('points_against', 'PA', 'Total regular-season points scored against this owner across all seasons.')}
             {th('avg_points_for', 'Avg PF', 'Points scored per regular-season game across all seasons. Mixes scoring formats if the league has changed them.')}
             {th('avg_points_against', 'Avg PA', 'Points allowed per regular-season game across all seasons.')}
-            {th('avg_plus_minus', 'Avg +/−', 'Avg PF minus Avg PA. Positive means the owner outscored opponents on average.')}
+            {th('avg_plus_minus', 'Avg +/\u2060−', 'Avg PF minus Avg PA. Positive means the owner outscored opponents on average.')}
             {powerRankings && th('pr_avg', 'Avg PR', 'Average power rank across every posted week. Weeks with no rankings posted are not counted.')}
             {powerRankings && th('pr_at1', 'PR #1', 'Weeks ranked #1 in the power rankings.')}
           </tr>
@@ -138,23 +136,21 @@ export function AggregateTable({
         <tbody>
           {sorted.map((o) => (
             <tr key={o.owner_id} className={isYours(yourTeam, o.owner_id) ? 'your-team' : undefined}>
-              <td className="num">{o.avg_finish.toFixed(2)}</td>
-              <td>
-                <TeamLink ownerId={o.owner_id}>{o.owner_name}</TeamLink>
-              </td>
-              <td title={o.team_names.join(' / ')}>
-                <TeamLink ownerId={o.owner_id}>
-                  {o.team_names.length === 1
-                    ? o.team_names[0]
-                    : `${o.team_names[0]} +${o.team_names.length - 1}`}
+              <td className={`owner-line ${PINNED}`}>
+                <TeamLink ownerId={o.owner_id} className="owner-line-name">
+                  {o.owner_name}
                 </TeamLink>
+                {o.team_names[0] && (
+                  <span className="owner-line-team" title={o.team_names.join(' / ')}>
+                    <span className="owner-line-team-name">{o.team_names[0]}</span>
+                    {o.team_names.length > 1 && <span className="team-cell-more"> +{o.team_names.length - 1}</span>}
+                  </span>
+                )}
               </td>
+              <td className="num">{o.avg_finish.toFixed(2)}</td>
               <td className="num">{o.seasons_played}</td>
-              <td className="num">{o.wins}</td>
-              <td className="num">{o.losses}</td>
-              <td className="num">{o.ties}</td>
-              <td className="num">{o.playoff_wins}</td>
-              <td className="num">{o.playoff_losses}</td>
+              <td className="num">{formatDashRecord(o.wins, o.losses, o.ties)}</td>
+              <td className="num">{formatDashRecord(o.playoff_wins, o.playoff_losses)}</td>
               <td className="num">{o.points_for.toFixed(1)}</td>
               <td className="num">{o.points_against.toFixed(1)}</td>
               <td className="num">{o.avg_points_for.toFixed(2)}</td>

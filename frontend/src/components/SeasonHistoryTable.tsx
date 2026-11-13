@@ -4,6 +4,7 @@ import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import type { CloseGameRecord, CloseGames, SeasonTeams, Team } from '../api'
 import {
   computeSeasonStats,
+  formatDashRecord,
   formatRate,
   formatRecord,
   isInProgress,
@@ -38,8 +39,6 @@ type SortKey =
   | 'year'
   | 'scoring'
   | 'finish'
-  | 'team_name'
-  | 'owner'
   | 'team'
   | 'record'
   | 'wins'
@@ -66,9 +65,9 @@ type SortKey =
   | 'pr_at1'
 
 const ASC_BY_DEFAULT: Set<SortKey> = new Set([
-  'finish', 'team_name', 'owner', 'team', 'scoring', 'std_dev', 'pr_avg', 'pr_pre',
+  'finish', 'team', 'scoring', 'std_dev', 'pr_avg', 'pr_pre',
 ])
-const TEXT_COLUMNS: Set<SortKey> = new Set(['team_name', 'owner', 'team', 'scoring'])
+const TEXT_COLUMNS: Set<SortKey> = new Set(['team', 'scoring'])
 
 export const SCORING_LABEL: Record<SeasonTeams['scoring_type'], string> = {
   ppr: 'PPR',
@@ -94,10 +93,6 @@ const valueOf = (r: SeasonRow, key: SortKey): string | number | null => {
       return SCORING_LABEL[r.scoring_type]
     case 'finish':
       return finishOf(t)
-    case 'team_name':
-      return t.team_name
-    case 'owner':
-      return ownerName(t)
     case 'team':
       return t.team_name
     case 'record':
@@ -151,15 +146,12 @@ const valueOf = (r: SeasonRow, key: SortKey): string | number | null => {
   }
 }
 
-/** A W–L(–T) record with en dashes, for the Standings Record column. */
-const recordLabel = (t: Team) => `${t.wins}–${t.losses}${t.ties ? `–${t.ties}` : ''}`
-
 /* Column orders.
  *
- * Standings (one season) leads with what people come for — place, team,
- * record — and keeps the advanced columns behind "More stats". Every Season
- * keeps its cross-season order for now (#29 reworks it). Power-rank columns
- * follow the basics in either, when the league has rankings. */
+ * Both lead with what people come for — place, team, record — and keep the
+ * advanced columns behind "More stats". Every Season adds the Year in front
+ * and the scoring format among the advanced columns (it varies by season).
+ * Power-rank columns follow the basics, when the league has rankings. */
 type ColumnKey = SortKey
 const STANDINGS_BASIC: ColumnKey[] = [
   'finish', 'team', 'record', 'win_pct', 'points_for', 'points_against',
@@ -169,19 +161,24 @@ const STANDINGS_MORE: ColumnKey[] = [
   'pts_vs_avg', 'all_play', 'luck', 'high', 'low', 'top_weeks', 'std_dev', 'close',
   'playoff_wins', 'playoff_losses',
 ]
-const HISTORY: ColumnKey[] = [
-  'year', 'owner', 'points_for', 'pts_vs_avg', 'all_play', 'luck', 'high', 'low',
-  'top_weeks', 'std_dev', 'close', 'scoring', 'finish', 'wins', 'losses', 'ties',
-  'win_pct', 'playoff_wins', 'playoff_losses', 'points_against', 'avg_points_for',
-  'avg_points_against', 'avg_plus_minus',
+const SEASONS_BASIC: ColumnKey[] = [
+  'year', 'team', 'finish', 'record', 'win_pct', 'points_for', 'points_against',
+  'avg_points_for', 'avg_points_against', 'avg_plus_minus',
 ]
+const SEASONS_MORE: ColumnKey[] = [...STANDINGS_MORE, 'scoring']
 const PR_COLUMNS: ColumnKey[] = ['pr_avg', 'pr_pre', 'pr_at1']
 
-/** Columns pinned to the left while the rest scroll (Standings): their cells
- * get these classes, which .teams-wrap.sticky in styles.css positions. */
-const STICKY: Partial<Record<ColumnKey, string>> = {
+/** Columns pinned to the left while the rest scroll: their cells get these
+ * classes, which .teams-wrap.sticky in styles.css positions. Standings pins
+ * its ranking (Finish) and the team; Every Season pins what identifies a row,
+ * the year and the team, since Finish there is just another stat. */
+const STICKY_STANDINGS: Partial<Record<ColumnKey, string>> = {
   finish: 'sticky-col sticky-1',
-  team: 'sticky-col sticky-2',
+  team: 'sticky-col sticky-2 sticky-edge',
+}
+const STICKY_SEASONS: Partial<Record<ColumnKey, string>> = {
+  year: 'sticky-col sticky-1',
+  team: 'sticky-col sticky-2 sticky-edge',
 }
 
 export function SeasonHistoryTable({
@@ -200,7 +197,7 @@ export function SeasonHistoryTable({
    * Year and Scoring columns (constant within a season), and without the
    * in-progress tint, which would cover every row. */
   singleSeason?: boolean
-  /** Standings only: also show the advanced columns ("More stats"). */
+  /** Also show the advanced columns ("More stats"). */
   showMore?: boolean
 }) {
   const yourTeam = useYourTeam()
@@ -275,16 +272,6 @@ export function SeasonHistoryTable({
    * extra cell classes, such as the sticky ones. */
   const COLUMNS: Record<ColumnKey, { label: string; title?: string; cell: (r: SeasonRow, cls: string) => ReactNode }> = {
     year: { label: 'Year', cell: (r, c) => <td className={`num ${c}`}>{r.year}</td> },
-    owner: {
-      label: 'Owner',
-      cell: (r, c) => (
-        <td className={c}>
-          <TeamLink ownerId={r.team.owners[0]?.id} year={r.year} className="truncate">
-            <span title={ownerName(r.team) || undefined}>{ownerName(r.team) || '—'}</span>
-          </TeamLink>
-        </td>
-      ),
-    },
     team: {
       label: 'Team',
       cell: (r, c) => (
@@ -293,16 +280,6 @@ export function SeasonHistoryTable({
             <span title={r.team.team_name}>{r.team.team_name}</span>
           </TeamLink>
           <span className="team-cell-owner">{ownerName(r.team)}</span>
-        </td>
-      ),
-    },
-    team_name: {
-      label: 'Name',
-      cell: (r, c) => (
-        <td className={c}>
-          <TeamLink ownerId={r.team.owners[0]?.id} year={r.year} className="truncate">
-            <span title={r.team.team_name}>{r.team.team_name}</span>
-          </TeamLink>
         </td>
       ),
     },
@@ -398,7 +375,7 @@ export function SeasonHistoryTable({
     record: {
       label: 'Record',
       title: 'Regular-season wins–losses, with ties last when there are any.',
-      cell: (r, c) => <td className={`num ${c}`}>{recordLabel(r.team)}</td>,
+      cell: (r, c) => <td className={`num ${c}`}>{formatDashRecord(r.team.wins, r.team.losses, r.team.ties)}</td>,
     },
     wins: { label: 'W', title: 'Regular-season wins.', cell: (r, c) => <td className={`num ${c}`}>{r.team.wins}</td> },
     losses: { label: 'L', title: 'Regular-season losses.', cell: (r, c) => <td className={`num ${c}`}>{r.team.losses}</td> },
@@ -479,11 +456,12 @@ export function SeasonHistoryTable({
   const pr = powerRankings ? PR_COLUMNS : []
   const columns: ColumnKey[] = singleSeason
     ? [...STANDINGS_BASIC, ...pr, ...(showMore ? STANDINGS_MORE : [])]
-    : [...HISTORY, ...pr, 'team_name']
-  const extra = (key: ColumnKey) => (singleSeason ? (STICKY[key] ?? '') : '')
+    : [...SEASONS_BASIC, ...pr, ...(showMore ? SEASONS_MORE : [])]
+  const sticky = singleSeason ? STICKY_STANDINGS : STICKY_SEASONS
+  const extra = (key: ColumnKey) => sticky[key] ?? ''
 
   return (
-    <div ref={wrapRef} className={`teams-wrap${singleSeason ? ' sticky' : ''}`}>
+    <div ref={wrapRef} className="teams-wrap sticky">
       <table className={`teams season-history${singleSeason ? ' standings' : ''}`}>
         <thead>
           <tr>
