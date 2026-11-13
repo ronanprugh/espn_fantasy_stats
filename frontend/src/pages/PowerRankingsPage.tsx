@@ -899,7 +899,7 @@ function EmptyState({ leagueId, onImported }: { leagueId: number; onImported: ()
       <h3>No power rankings yet</h3>
       <p>
         Import your league's power rankings to chart them week by week, read every write-up, and see rankings next to
-        results on Season Stats, Team Hub, Team Comparison, Head to Head and the Scoreboard.
+        results on Standings, All-Time, Team Hub, Team Comparison, Head to Head and the Scoreboard.
       </p>
       <ImportPanel leagueId={leagueId} onDone={onImported} />
       <details className="pr-format">

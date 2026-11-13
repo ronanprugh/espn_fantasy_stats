@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchPowerRankings, type PowerRankings } from '../api'
 
 /**
- * The league's power rankings, fetched once and shared: Season Stats, Team
- * Hub, Compare, Head to Head and Scoreboard all add a column or badge from the
+ * The league's power rankings, fetched once and shared: Standings, All-Time,
+ * Team Hub, Compare, Head to Head and Scoreboard all add a column or badge from the
  * same payload, and each would otherwise refetch it on every visit.
  */
 const cache = new Map<number, Promise<PowerRankings>>()

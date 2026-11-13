@@ -13,7 +13,7 @@ type Props = {
 const FOCUSABLE = 'a[href], button:not([disabled]), select, input, [tabindex]:not([tabindex="-1"])'
 
 /**
- * The overflow half of the mobile navigation: the five non-primary destinations
+ * The overflow half of the mobile navigation: the non-primary destinations
  * plus the theme toggle and Sign out.
  *
  * Those last two matter more than they look. The mobile shell hides `.sidebar`,

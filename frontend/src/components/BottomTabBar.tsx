@@ -21,8 +21,8 @@ export function BottomTabBar({ onMoreClick, moreOpen }: Props) {
   return (
     <nav className="tab-bar" aria-label="Primary">
       {PRIMARY_DESTINATIONS.map((d) => (
-        // `end` on "/" only — the index route otherwise matches every path and
-        // Season Stats would read as active on all four tabs.
+        // `end` on "/" only — a destination at the index route would otherwise
+        // match every path and read as active on all four tabs.
         <NavLink key={d.path} to={d.path} end={d.path === '/'} className="tab-bar-item">
           {d.label}
         </NavLink>
