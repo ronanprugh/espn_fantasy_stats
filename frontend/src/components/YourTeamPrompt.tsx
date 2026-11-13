@@ -5,8 +5,8 @@ import { useLeague } from '../contexts/LeagueContext'
 /**
  * Asks which team is the viewer's when the league has no favorite set.
  *
- * Team Hub, Team Comparison and Head to Head all open on the favorite team,
- * and open empty without one. The setting existed but sat in Manage Leagues,
+ * Team Hub, Trends and Head to Head all open on the favorite team,
+ * and open empty without one. The setting existed but sat in Leagues,
  * where nobody went looking for it. Saving here sets it for all three.
  */
 export function YourTeamPrompt({
@@ -47,7 +47,7 @@ export function YourTeamPrompt({
       {selected ? (
         <>
           <span>
-            Is <strong>{selected.current_team_name}</strong> your team? Team Hub, Team Comparison
+            Is <strong>{selected.current_team_name}</strong> your team? Team Hub, Trends
             and Head to Head will open on it.
           </span>
           <span className="your-team-actions">
@@ -61,7 +61,7 @@ export function YourTeamPrompt({
         </>
       ) : (
         <span>
-          Which team is yours? Pick it above to save it, and Team Hub, Team Comparison and Head
+          Which team is yours? Pick it above to save it, and Team Hub, Trends and Head
           to Head will open on it.
         </span>
       )}

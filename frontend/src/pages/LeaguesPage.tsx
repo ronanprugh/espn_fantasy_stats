@@ -32,7 +32,7 @@ export function LeaguesPage() {
   return (
     <div className="page">
       <header className="page-header">
-        <h2>Your Leagues</h2>
+        <h2>Leagues</h2>
         {!showForm && (
           <button className="primary-btn" onClick={() => setShowForm(true)}>
             + Add league

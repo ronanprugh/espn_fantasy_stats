@@ -309,7 +309,7 @@ export async function fetchPlayoffs(
 }
 
 export type OwnerSeason = {
-  /* Power rank fields are not sent by the server: Team Comparison fills them
+  /* Power rank fields are not sent by the server: Trends (ComparePage) fills them
    * in from the power rankings so they can be plotted like any other stat. */
   pr_avg?: number | null
   pr_preseason?: number | null
