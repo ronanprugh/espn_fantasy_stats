@@ -5,7 +5,7 @@ import { PlayoffBracket } from '../components/PlayoffBracket'
 import { SeasonPicker } from '../components/SeasonPicker'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
-import { Loading } from '../components/Loading'
+import { SkeletonBlock, SkeletonRegion } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
 export function PlayoffsPage() {
@@ -74,7 +74,7 @@ export function PlayoffsPage() {
       </header>
       <SeasonPicker years={years} value={year} onChange={pick} />
       {error && <ErrorMessage message={error} />}
-      {loading && <Loading />}
+      {loading && <BracketSkeleton />}
       {fellBackFrom !== null && urlYear === null && data?.year === year && !loading && (
         <p className="subtitle">The {fellBackFrom} playoffs haven't started yet, so here's {year}.</p>
       )}
@@ -87,5 +87,20 @@ export function PlayoffsPage() {
         data && !loading && <PlayoffBracket data={data} />
       )}
     </div>
+  )
+}
+
+/** The bracket's shape while it loads: the championship and consolation
+ * panels, then the final standings list. */
+function BracketSkeleton() {
+  return (
+    <SkeletonRegion className="bracket-skeleton">
+      <SkeletonBlock height={306} className="skeleton-panel" />
+      <SkeletonBlock height={190} className="skeleton-panel" />
+      <SkeletonBlock width="140px" height={18} className="skeleton-heading" />
+      {Array.from({ length: 8 }, (_, i) => (
+        <SkeletonBlock key={i} width="min(500px, 100%)" height={16} className="skeleton-line" />
+      ))}
+    </SkeletonRegion>
   )
 }

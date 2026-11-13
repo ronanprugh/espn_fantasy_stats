@@ -8,9 +8,10 @@ import { COLORS, ComparisonChart } from '../components/ComparisonChart'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { TeamLink } from '../components/TeamLink'
 import { useLeague } from '../contexts/LeagueContext'
-import { Loading } from '../components/Loading'
+import { BlockSkeleton } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { useUrlState } from '../hooks/useUrlState'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { usePowerRankings } from '../hooks/usePowerRankings'
 import { ownerSeasonStats } from '../lib/powerRankings'
 import { currentYear } from '../lib/trends'
@@ -55,6 +56,7 @@ const PR_STAT_OPTIONS: StatOption[] = [
 
 export function ComparePage() {
   const { selectedLeague } = useLeague()
+  const isMobile = useIsMobile()
   const [rawHistory, setHistory] = useState<LeagueOwnerHistory | null>(null)
   const pr = usePowerRankings(selectedLeague?.espn_league_id ?? null)
   // Power rank stats merged into each owner-season so the chart and averages
@@ -135,7 +137,7 @@ export function ComparePage() {
       </header>
 
       {error && <ErrorMessage message={error} />}
-      {loading && <Loading />}
+      {loading && <BlockSkeleton height={isMobile ? 420 : 620} />}
 
       {history && (
         <>

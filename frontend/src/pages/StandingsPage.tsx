@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchTeams, type SeasonTeams } from '../api'
 import { ErrorMessage } from '../components/ErrorMessage'
-import { Loading } from '../components/Loading'
+import { TableSkeleton } from '../components/Loading'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { SeasonPicker } from '../components/SeasonPicker'
 import { SCORING_LABEL, SeasonHistoryTable } from '../components/SeasonHistoryTable'
@@ -62,7 +62,7 @@ export function StandingsPage() {
       </header>
       <SeasonPicker years={years} value={year} onChange={setYear} />
       {error && <ErrorMessage message={error} />}
-      {(loading || year === null) && !error && <Loading />}
+      {(loading || year === null) && !error && <TableSkeleton rows={10} cols={9} toolbar />}
       {!loading && seasonData && seasonData.year === year && (
         <>
           <div className="season-history-bar">

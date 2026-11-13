@@ -12,7 +12,7 @@ import { useTeamOwners } from '../hooks/useTeamOwners'
 import { TeamLink } from '../components/TeamLink'
 import { headToHeadHref } from '../lib/links'
 import { readFrom } from '../hooks/useFromHere'
-import { Loading } from '../components/Loading'
+import { TableSkeleton } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
 const STARTER_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'WR/TE', 'OP', 'FLEX', 'K', 'D/ST']
@@ -121,7 +121,7 @@ export function BoxScorePage() {
       </p>
 
       {error && <ErrorMessage message={error} />}
-      {loading && <Loading />}
+      {loading && <TableSkeleton rows={10} cols={4} />}
 
       {!loading && !matchup && !error && (
         <p className="subtitle">Couldn't find that matchup.</p>

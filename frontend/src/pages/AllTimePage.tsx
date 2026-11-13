@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchAggregate, fetchAllSeasons, type AllSeasons, type LeagueAggregate } from '../api'
 import { AggregateTable } from '../components/AggregateTable'
 import { ErrorMessage } from '../components/ErrorMessage'
-import { Loading } from '../components/Loading'
+import { TableSkeleton } from '../components/Loading'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { SeasonHistoryTable } from '../components/SeasonHistoryTable'
 import { useCloseGames } from '../hooks/useCloseGames'
@@ -78,7 +78,7 @@ export function AllTimePage() {
         </button>
       </nav>
       {error && <ErrorMessage message={error} />}
-      {loading && <Loading />}
+      {loading && <TableSkeleton rows={10} cols={9} nameLines={1} toolbar />}
       {!loading && tab === 'all' && aggregateData && (
         <>
           <p className="subtitle">

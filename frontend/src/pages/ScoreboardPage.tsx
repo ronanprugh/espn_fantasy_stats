@@ -20,7 +20,7 @@ import { useFromHere } from '../hooks/useFromHere'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
-import { Loading } from '../components/Loading'
+import { CardGridSkeleton } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
 type BracketRound = 'playoff' | 'semifinal' | 'championship'
@@ -143,7 +143,7 @@ export function ScoreboardPage() {
         </div>
       </div>
 
-      {loading && <Loading />}
+      {loading && <CardGridSkeleton count={5} />}
 
       {!loading && year !== '' && week !== '' && weekMatchups.length > 0 && (
         <>
