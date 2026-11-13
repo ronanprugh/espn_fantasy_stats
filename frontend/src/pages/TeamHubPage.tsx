@@ -22,7 +22,7 @@ import { useFromHere } from '../hooks/useFromHere'
 import { hubHeadline } from '../lib/teamHub'
 import { boxScoreHref, noBoxScoreReason } from '../lib/links'
 import { useLeague } from '../contexts/LeagueContext'
-import { Loading } from '../components/Loading'
+import { SkeletonBlock, SkeletonRegion } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
 import { usePowerRankings } from '../hooks/usePowerRankings'
@@ -154,6 +154,13 @@ export function TeamHubPage() {
 
   if (!selectedLeague) return <NoLeagueSelected />
 
+  // The team's seasons, from the hub once it's loaded and from the owner list
+  // before that, so the picker is there (and usable) while the hub loads.
+  const pickerYears =
+    hub?.owner_id === ownerId && hub.available_years.length > 0
+      ? hub.available_years
+      : owners.find((o) => o.owner_id === ownerId)?.seasons.map((s) => s.year) ?? []
+
   return (
     <div className="page">
       <header className="page-header">
@@ -181,10 +188,10 @@ export function TeamHubPage() {
 
       {/* Only this team's seasons. With no ?year= the hub shows its most recent
        * one, highlighted here but not written to the URL. */}
-      {hub && hub.available_years.length > 0 && (
+      {pickerYears.length > 0 && (
         <SeasonPicker
-          years={hub.available_years}
-          value={selectedYear ?? hub.selected_year}
+          years={pickerYears}
+          value={selectedYear ?? hub?.selected_year ?? pickerYears[pickerYears.length - 1]}
           onChange={(y) => update({ year: String(y) })}
         />
       )}
@@ -192,7 +199,7 @@ export function TeamHubPage() {
       <YourTeamPrompt league={selectedLeague} owners={owners} selectedOwnerId={ownerId} />
 
       {error && <ErrorMessage message={error} />}
-      {loading && <Loading />}
+      {loading && <HubSkeleton />}
 
       {!loading && hub && (
         <>
@@ -334,6 +341,61 @@ export function TeamHubPage() {
         </>
       )}
     </div>
+  )
+}
+
+/** Team Hub's shape while it loads: the name and headline, the tabs, and a
+ * row of summary cards. */
+function HubSkeleton() {
+  return (
+    <SkeletonRegion className="hub-skeleton">
+      <section className="hub-header">
+        <div className="hub-header-main">
+          <SkeletonBlock width="240px" height={26} />
+          <SkeletonBlock width="320px" height={16} className="skeleton-gap" />
+          <SkeletonBlock width="200px" height={13} className="skeleton-gap" />
+        </div>
+      </section>
+      <nav className="hub-tabs">
+        <SkeletonBlock width="260px" height={22} className="skeleton-tabs" />
+      </nav>
+      <section className="hub-summary">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="stat-card skeleton-card">
+            <SkeletonBlock width="55%" height={11} />
+            <SkeletonBlock width="40%" height={26} />
+            <SkeletonBlock width="65%" height={11} />
+          </div>
+        ))}
+      </section>
+      <section className="hub-last-matchup">
+        <SkeletonBlock width="200px" height={18} className="skeleton-heading" />
+        <div className="scoreboard-card skeleton-card">
+          <SkeletonBlock width="110px" height={11} />
+          {[0, 1].map((row) => (
+            <div key={row} className="card-row">
+              <div className="team">
+                <SkeletonBlock width="45%" height={15} />
+                <SkeletonBlock width="25%" height={11} className="skeleton-sub" />
+              </div>
+              <SkeletonBlock width="48px" height={20} />
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="hub-records">
+        <SkeletonBlock width="160px" height={18} className="skeleton-heading" />
+        <div className="records-grid">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="record-card skeleton-card">
+              <SkeletonBlock width="50%" height={11} />
+              <SkeletonBlock width="35%" height={26} />
+              <SkeletonBlock width="70%" height={11} />
+            </div>
+          ))}
+        </div>
+      </section>
+    </SkeletonRegion>
   )
 }
 

@@ -18,7 +18,7 @@ import { useFromHere } from '../hooks/useFromHere'
 import { boxScoreHref, noBoxScoreReason } from '../lib/links'
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
-import { Loading } from '../components/Loading'
+import { CardGridSkeleton, TableSkeleton } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { useUrlState } from '../hooks/useUrlState'
 import { usePowerRankings } from '../hooks/usePowerRankings'
@@ -139,7 +139,15 @@ export function HeadToHeadPage() {
         </div>
       </div>
 
-      {loading && <Loading />}
+      {loading &&
+        (ownerB ? (
+          <>
+            <CardGridSkeleton count={4} variant="stat" />
+            <TableSkeleton rows={8} cols={7} />
+          </>
+        ) : (
+          <TableSkeleton rows={8} cols={8} />
+        ))}
 
       {!loading && !ownerB && summary && summary.owner_id === ownerA && <Rivalries summary={summary} />}
 

@@ -10,7 +10,7 @@ import {
 } from '../api'
 import { BumpChart } from '../components/BumpChart'
 import { ErrorMessage } from '../components/ErrorMessage'
-import { Loading } from '../components/Loading'
+import { ListSkeleton } from '../components/Loading'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { SortableTh, type SortDir } from '../components/SortableTh'
 import { WriteupModal } from '../components/WriteupModal'
@@ -84,7 +84,7 @@ export function PowerRankingsPage() {
       </header>
 
       {error && <ErrorMessage message={error} />}
-      {loading && <Loading />}
+      {loading && <ListSkeleton rows={8} />}
 
       {!loading && data && !hasData && (
         <EmptyState leagueId={leagueId} onImported={reload} />

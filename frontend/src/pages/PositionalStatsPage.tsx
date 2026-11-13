@@ -13,7 +13,7 @@ import { TeamLink } from '../components/TeamLink'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { useUrlState } from '../hooks/useUrlState'
-import { Loading } from '../components/Loading'
+import { TableSkeleton } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'D/ST']
@@ -205,7 +205,7 @@ export function PositionalStatsPage() {
       </nav>
 
       {error && <ErrorMessage message={error} />}
-      {loading && <Loading />}
+      {loading && <TableSkeleton rows={10} cols={7} />}
 
       {!loading && rows.length === 0 && !error && (
         <p className="subtitle" style={{ marginTop: 16 }}>
