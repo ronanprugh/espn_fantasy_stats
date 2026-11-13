@@ -10,6 +10,14 @@ import {
 } from 'recharts'
 import type { OwnerHistory, OwnerSeason } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import {
+  AVG_KEY,
+  buildTrendData,
+  curKey,
+  currentYear,
+  formatTrendValue,
+  rankAxis,
+} from '../lib/trends'
 
 export const COLORS = [
   '#0066cc',
@@ -26,19 +34,34 @@ export const COLORS = [
   '#198754',
 ]
 
+const AVG_COLOR = 'var(--text-faint)'
+
 type Props = {
   owners: OwnerHistory[]
+  /** Every owner in the league, for the league average and the rank axis. */
+  allOwners: OwnerHistory[]
   allYears: number[]
   statKey: keyof OwnerSeason
   statLabel: string
-  yReversed?: boolean
+  /** A place (1 is best): the axis runs 1…N top to bottom in whole steps. */
+  rank?: boolean
   yAutoScale?: boolean
+  showAverage?: boolean
 }
 
-type Datum = Record<string, number | null>
-
-export function ComparisonChart({ owners, allYears, statKey, statLabel, yReversed, yAutoScale }: Props) {
+export function ComparisonChart({
+  owners,
+  allOwners,
+  allYears,
+  statKey,
+  statLabel,
+  rank,
+  yAutoScale,
+  showAverage,
+}: Props) {
   const isMobile = useIsMobile()
+  const current = currentYear(allOwners)
+  const average = !!showAverage && !rank
 
   /* A 500px-tall chart on a phone is taller than the viewport minus the header
    * and controls, so the plot could not be seen whole. 280px keeps it above the
@@ -49,35 +72,67 @@ export function ComparisonChart({ owners, allYears, statKey, statLabel, yReverse
     ? { top: 12, right: 10, left: 0, bottom: 0 }
     : { top: 20, right: 32, left: 16, bottom: 8 }
 
-  const data: Datum[] = allYears.map((year) => {
-    const row: Datum = { year }
-    for (const o of owners) {
-      const s = o.seasons.find((x) => x.year === year)
-      row[o.owner_id] = s ? (s[statKey] as number) : null
-    }
-    return row
-  })
+  const data = buildTrendData(owners, allOwners, allYears, statKey, { current, average })
+  const axis = rank ? rankAxis(allOwners, allYears) : null
 
-  const renderTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload || payload.length === 0) return null
+  /* Read values from the data row, not the tooltip payload: at the join year
+   * the solid and dashed keys both carry the same point, and the payload
+   * would list it twice. */
+  const renderTooltip = ({ active, label }: any) => {
+    if (!active) return null
+    const row = data.find((d) => d.year === label)
+    if (!row) return null
+    const isCurrent = label === current
+    const valueOf = (key: string) => (isCurrent ? row[curKey(key)] : row[key])
+    const avg = average ? valueOf(AVG_KEY) : null
     return (
       <div className="chart-tooltip">
-        <div className="year">{label}</div>
-        {payload.map((p: any) => {
-          const owner = owners.find((o) => o.owner_id === p.dataKey)
-          if (!owner || p.value == null) return null
+        <div className="year">
+          {label}
+          {isCurrent && ' (current)'}
+        </div>
+        {owners.map((owner, i) => {
+          const value = valueOf(owner.owner_id)
+          if (value == null) return null
           const season = owner.seasons.find((s) => s.year === label)
           const teamName = season?.team_name ?? owner.current_team_name
           return (
-            <div key={p.dataKey} style={{ color: p.color }}>
+            <div key={owner.owner_id} style={{ color: COLORS[i % COLORS.length] }}>
               <span className="team">{teamName}</span>
-              <span className="value">
-                {typeof p.value === 'number' ? p.value.toFixed(2) : p.value}
-              </span>
+              <span className="value">{formatTrendValue(value)}</span>
             </div>
           )
         })}
+        {avg != null && (
+          <div className="avg">
+            <span className="team">League average</span>
+            <span className="value">{formatTrendValue(avg)}</span>
+          </div>
+        )}
       </div>
+    )
+  }
+
+  const dotRadius = isMobile ? 2.5 : 4
+
+  /* The season in progress gets a hollow dot on its dashed segment; the
+   * segment's other end is the last completed season, which already has a
+   * solid dot from the main line. */
+  const currentDot = (color: string, r: number) => (props: any) => {
+    const { cx, cy, payload, index, dataKey } = props
+    if (payload?.year !== current || cx == null || cy == null) {
+      return <g key={`${dataKey}-${index}`} />
+    }
+    return (
+      <circle
+        key={`${dataKey}-${index}`}
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="var(--bg-card)"
+        stroke={color}
+        strokeWidth={2}
+      />
     )
   }
 
@@ -90,17 +145,20 @@ export function ComparisonChart({ owners, allYears, statKey, statLabel, yReverse
             dataKey="year"
             type="number"
             domain={['dataMin', 'dataMax']}
+            ticks={allYears}
             allowDecimals={false}
             tick={{ fontSize: isMobile ? 10 : 12 }}
-            /* Ten seasons of four-digit labels collide at phone widths; the
-             * chart is read for shape, so thinning the ticks costs nothing. */
-            interval={isMobile ? 'preserveStartEnd' : 0}
-            minTickGap={isMobile ? 24 : 5}
+            /* Every year gets a label when there's room; recharts drops the
+             * ones that would collide (keeping the first and last) when not. */
+            interval="preserveStartEnd"
+            minTickGap={isMobile ? 12 : 4}
           />
           <YAxis
-            reversed={yReversed}
-            allowDecimals={!yReversed}
-            domain={yAutoScale ? ['auto', 'auto'] : [0, 'auto']}
+            reversed={rank}
+            allowDecimals={!rank}
+            domain={axis ? axis.domain : yAutoScale ? ['auto', 'auto'] : [0, 'auto']}
+            ticks={axis?.ticks}
+            interval={axis ? 0 : undefined}
             width={isMobile ? 34 : 60}
             tick={{ fontSize: isMobile ? 10 : 12 }}
             label={
@@ -113,18 +171,62 @@ export function ComparisonChart({ owners, allYears, statKey, statLabel, yReverse
           {/* The legend repeats what the averages panel already lists by colour,
             * and on a phone it can grow taller than the plot. */}
           {!isMobile && <Legend />}
+          {average && (
+            <Line
+              type="linear"
+              dataKey={AVG_KEY}
+              name="League average"
+              stroke={AVG_COLOR}
+              strokeWidth={1.25}
+              dot={false}
+              activeDot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+          )}
+          {average && current !== null && (
+            <Line
+              type="linear"
+              dataKey={curKey(AVG_KEY)}
+              legendType="none"
+              stroke={AVG_COLOR}
+              strokeWidth={1.25}
+              strokeDasharray="4 4"
+              dot={false}
+              activeDot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+          )}
           {owners.map((o, i) => (
             <Line
               key={o.owner_id}
-              type="monotone"
+              type="linear"
               dataKey={o.owner_id}
               name={o.current_team_name}
               stroke={COLORS[i % COLORS.length]}
               strokeWidth={2}
-              dot={{ r: isMobile ? 2.5 : 4 }}
+              /* Solid dots for completed seasons, so the season in progress's
+               * hollow one stands apart. */
+              dot={{ r: dotRadius, fill: COLORS[i % COLORS.length], strokeWidth: 0 }}
               connectNulls
             />
           ))}
+          {current !== null &&
+            owners.map((o, i) => (
+              <Line
+                key={curKey(o.owner_id)}
+                type="linear"
+                dataKey={curKey(o.owner_id)}
+                legendType="none"
+                stroke={COLORS[i % COLORS.length]}
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                dot={currentDot(COLORS[i % COLORS.length], dotRadius)}
+                activeDot={false}
+                connectNulls
+              />
+            ))}
         </LineChart>
       </ResponsiveContainer>
     </div>

@@ -341,6 +341,9 @@ class OwnerSeason(BaseModel):
     avg_points_for: float
     avg_points_against: float
     avg_plus_minus: float
+    # True while the season has no final standings yet; final_standing is then
+    # the current regular-season standing, not a finish.
+    in_progress: bool = False
 
 
 class OwnerHistory(BaseModel):

@@ -13,6 +13,7 @@ import { ErrorMessage } from '../components/ErrorMessage'
 import { useUrlState } from '../hooks/useUrlState'
 import { usePowerRankings } from '../hooks/usePowerRankings'
 import { ownerSeasonStats } from '../lib/powerRankings'
+import { currentYear } from '../lib/trends'
 
 function average(seasons: OwnerSeason[], key: keyof OwnerSeason): number | null {
   const values = seasons
@@ -25,13 +26,14 @@ function average(seasons: OwnerSeason[], key: keyof OwnerSeason): number | null 
 type StatOption = {
   key: keyof OwnerSeason
   label: string
-  yReversed?: boolean
+  /** A place, 1 best: drawn on a 1…N axis, with no league average. */
+  rank?: boolean
   yAutoScale?: boolean  // true = don't force zero baseline
 }
 
 const STAT_OPTIONS: StatOption[] = [
-  { key: 'final_standing', label: 'Final Standing', yReversed: true, yAutoScale: true },
-  { key: 'seed', label: 'Playoff Seed', yReversed: true, yAutoScale: true },
+  { key: 'final_standing', label: 'Final Standing', rank: true, yAutoScale: true },
+  { key: 'seed', label: 'Playoff Seed', rank: true, yAutoScale: true },
   { key: 'wins', label: 'Wins' },
   { key: 'losses', label: 'Losses' },
   { key: 'points_for', label: 'Points For (total)', yAutoScale: true },
@@ -45,9 +47,9 @@ const STAT_OPTIONS: StatOption[] = [
 
 /** Offered only when the league has power rankings. */
 const PR_STAT_OPTIONS: StatOption[] = [
-  { key: 'pr_avg', label: 'Power Rank', yReversed: true, yAutoScale: true },
-  { key: 'pr_preseason', label: 'Preseason Power Rank', yReversed: true, yAutoScale: true },
-  { key: 'pr_final', label: 'Final Power Rank', yReversed: true, yAutoScale: true },
+  { key: 'pr_avg', label: 'Power Rank', rank: true, yAutoScale: true },
+  { key: 'pr_preseason', label: 'Preseason Power Rank', rank: true, yAutoScale: true },
+  { key: 'pr_final', label: 'Final Power Rank', rank: true, yAutoScale: true },
   { key: 'pr_weeks_at_1', label: 'Weeks at #1 (Power Rank)' },
 ]
 
@@ -88,6 +90,8 @@ export function ComparePage() {
   const statParam = params.get('stat')
   const statKey: keyof OwnerSeason =
     statOptions.find((o) => o.key === statParam)?.key ?? 'final_standing'
+  // League average is on by default; ?avg=0 turns it off.
+  const showAverage = params.get('avg') !== '0'
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -111,6 +115,7 @@ export function ComparePage() {
 
 
   const stat = statOptions.find((s) => s.key === statKey) ?? STAT_OPTIONS[0]
+  const current = history ? currentYear(history.owners) : null
   const selectedOwners = history
     ? history.owners.filter((o) => selected.includes(o.owner_id))
     : []
@@ -169,6 +174,17 @@ export function ComparePage() {
                 ))}
               </select>
             </div>
+
+            {!stat.rank && (
+              <label className="control-check">
+                <input
+                  type="checkbox"
+                  checked={showAverage}
+                  onChange={(e) => update({ avg: e.target.checked ? null : '0' })}
+                />
+                League average
+              </label>
+            )}
           </div>
 
           {selected.length > 0 && (
@@ -210,11 +226,13 @@ export function ComparePage() {
               <div className="chart-with-averages">
                 <ComparisonChart
                   owners={selectedOwners}
+                  allOwners={history.owners}
                   allYears={history.years}
                   statKey={stat.key}
                   statLabel={stat.label}
-                  yReversed={stat.yReversed}
+                  rank={stat.rank}
                   yAutoScale={stat.yAutoScale}
+                  showAverage={showAverage}
                 />
                 <aside className="chart-averages">
                   <h4>Avg {stat.label}</h4>
@@ -235,6 +253,12 @@ export function ComparePage() {
                   })}
                 </aside>
               </div>
+              {current !== null && (
+                <p className="chart-note">
+                  Dashed with a hollow dot: {current}, still in progress
+                  {stat.rank ? ' (current standing, not a finish)' : ''}.
+                </p>
+              )}
             </>
           )}
         </>
