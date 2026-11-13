@@ -1714,6 +1714,123 @@ table.season-history tr.your-team td {
   background: var(--accent-softer);
 }
 
+/* Sticky header and leading columns (.teams-wrap.sticky)
+ *
+ * Built once here for any wide table that should keep its names in view:
+ * Standings now, All-Time and Positional Stats next (#29). Give the wrapper
+ * `sticky`, the leading cells `sticky-col sticky-1` / `sticky-col sticky-2`,
+ * and set --sticky-1-w on the wrapper to the first column's rendered width
+ * (SeasonHistoryTable measures it), so the second column starts where the
+ * first ends.
+ *
+ * A horizontally scrolling wrapper is also the box a sticky header sticks to
+ * (overflow-x forces overflow-y into a scroll container too), so the wrapper
+ * gets a height cap: a short table never reaches it, and a long one scrolls
+ * inside it with the header pinned.
+ *
+ * Pinned cells need an opaque background or the numbers scroll visibly
+ * underneath them. The page colour goes underneath, with whatever tint the cell
+ * would otherwise have (header grey, active sort, your team) layered on top.
+ * `separate` borders, because collapsed borders are drawn by the table and
+ * don't travel with a sticky cell. */
+.teams-wrap.sticky {
+  --sticky-1-w: 0px;
+  overflow: auto;
+  max-height: calc(100svh - 120px);
+  margin-top: 16px;
+}
+
+.teams-wrap.sticky table.teams {
+  margin-top: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* A little tighter than other tables, so Standings' default columns (with the
+ * power-rank ones) fit a 1280px screen without scrolling. */
+.teams-wrap.sticky table.teams th,
+.teams-wrap.sticky table.teams td {
+  padding: 8px;
+}
+
+.teams-wrap.sticky table.teams th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(var(--bg-subtle), var(--bg-subtle)), var(--bg-page);
+}
+
+.teams-wrap.sticky table.teams th.sortable:hover {
+  background: linear-gradient(var(--bg-hover), var(--bg-hover)), var(--bg-page);
+}
+
+.teams-wrap.sticky table.teams th.sortable.active {
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg-page);
+}
+
+.teams-wrap.sticky .sticky-col {
+  position: sticky;
+  z-index: 1;
+}
+
+/* The header's pinned corner sits above both the header and the columns. */
+.teams-wrap.sticky table.teams th.sticky-col {
+  z-index: 3;
+}
+
+.teams-wrap.sticky .sticky-1 {
+  left: 0;
+}
+
+.teams-wrap.sticky .sticky-2 {
+  left: var(--sticky-1-w);
+  /* The edge the numbers scroll under. */
+  box-shadow: inset -1px 0 0 var(--border);
+}
+
+.teams-wrap.sticky td.sticky-col {
+  background: var(--bg-page);
+}
+
+.teams-wrap.sticky tr.your-team td.sticky-col {
+  background: linear-gradient(var(--accent-softer), var(--accent-softer)), var(--bg-page);
+}
+
+/* Keep your team's leading accent bar on the pinned first cell. */
+.teams-wrap.sticky tr.your-team td.sticky-1 {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Standings' Team cell: the team name, with its owner beneath. */
+table.teams td.team-cell {
+  white-space: nowrap;
+}
+
+.team-cell-name {
+  display: block;
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.team-cell-owner {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .teams-wrap.sticky {
+    /* The page scrolls on a phone; leave room for the fixed tab bar. */
+    max-height: calc(100svh - var(--tab-bar-height) - 24px);
+  }
+
+  .team-cell-name {
+    max-width: 14ch;
+  }
+}
+
 .season-history-bar {
   display: flex;
   flex-wrap: wrap;

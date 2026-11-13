@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { TeamLink } from './TeamLink'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import type { CloseGameRecord, CloseGames, SeasonTeams, Team } from '../api'
@@ -40,6 +40,8 @@ type SortKey =
   | 'finish'
   | 'team_name'
   | 'owner'
+  | 'team'
+  | 'record'
   | 'wins'
   | 'losses'
   | 'ties'
@@ -64,9 +66,9 @@ type SortKey =
   | 'pr_at1'
 
 const ASC_BY_DEFAULT: Set<SortKey> = new Set([
-  'finish', 'team_name', 'owner', 'scoring', 'std_dev', 'pr_avg', 'pr_pre',
+  'finish', 'team_name', 'owner', 'team', 'scoring', 'std_dev', 'pr_avg', 'pr_pre',
 ])
-const TEXT_COLUMNS: Set<SortKey> = new Set(['team_name', 'owner', 'scoring'])
+const TEXT_COLUMNS: Set<SortKey> = new Set(['team_name', 'owner', 'team', 'scoring'])
 
 export const SCORING_LABEL: Record<SeasonTeams['scoring_type'], string> = {
   ppr: 'PPR',
@@ -96,6 +98,11 @@ const valueOf = (r: SeasonRow, key: SortKey): string | number | null => {
       return t.team_name
     case 'owner':
       return ownerName(t)
+    case 'team':
+      return t.team_name
+    case 'record':
+      // Net wins, ties as half: the same order as win % within a season.
+      return t.wins - t.losses + t.ties / 2
     case 'wins':
       return t.wins
     case 'losses':
@@ -144,10 +151,44 @@ const valueOf = (r: SeasonRow, key: SortKey): string | number | null => {
   }
 }
 
+/** A W–L(–T) record with en dashes, for the Standings Record column. */
+const recordLabel = (t: Team) => `${t.wins}–${t.losses}${t.ties ? `–${t.ties}` : ''}`
+
+/* Column orders.
+ *
+ * Standings (one season) leads with what people come for — place, team,
+ * record — and keeps the advanced columns behind "More stats". Every Season
+ * keeps its cross-season order for now (#29 reworks it). Power-rank columns
+ * follow the basics in either, when the league has rankings. */
+type ColumnKey = SortKey
+const STANDINGS_BASIC: ColumnKey[] = [
+  'finish', 'team', 'record', 'win_pct', 'points_for', 'points_against',
+  'avg_points_for', 'avg_points_against', 'avg_plus_minus',
+]
+const STANDINGS_MORE: ColumnKey[] = [
+  'pts_vs_avg', 'all_play', 'luck', 'high', 'low', 'top_weeks', 'std_dev', 'close',
+  'playoff_wins', 'playoff_losses',
+]
+const HISTORY: ColumnKey[] = [
+  'year', 'owner', 'points_for', 'pts_vs_avg', 'all_play', 'luck', 'high', 'low',
+  'top_weeks', 'std_dev', 'close', 'scoring', 'finish', 'wins', 'losses', 'ties',
+  'win_pct', 'playoff_wins', 'playoff_losses', 'points_against', 'avg_points_for',
+  'avg_points_against', 'avg_plus_minus',
+]
+const PR_COLUMNS: ColumnKey[] = ['pr_avg', 'pr_pre', 'pr_at1']
+
+/** Columns pinned to the left while the rest scroll (Standings): their cells
+ * get these classes, which .teams-wrap.sticky in styles.css positions. */
+const STICKY: Partial<Record<ColumnKey, string>> = {
+  finish: 'sticky-col sticky-1',
+  team: 'sticky-col sticky-2',
+}
+
 export function SeasonHistoryTable({
   seasons,
   closeGames,
   singleSeason = false,
+  showMore = false,
   powerRankings,
 }: {
   seasons: SeasonTeams[]
@@ -155,9 +196,12 @@ export function SeasonHistoryTable({
   /** Power rankings by `${year}:${owner_id}`; the columns show only when given. */
   powerRankings?: Map<string, OwnerSeasonPr>
   /** One season's standings rather than a cross-season ranking: sorted by
-   * finish, without the Year and Scoring columns (constant within a season),
-   * and without the in-progress tint, which would cover every row. */
+   * finish, led by Finish · Team · Record with the names pinned, without the
+   * Year and Scoring columns (constant within a season), and without the
+   * in-progress tint, which would cover every row. */
   singleSeason?: boolean
+  /** Standings only: also show the advanced columns ("More stats"). */
+  showMore?: boolean
 }) {
   const yourTeam = useYourTeam()
   // Across seasons, Avg PF rather than total PF: regular-season length can
@@ -218,19 +262,6 @@ export function SeasonHistoryTable({
     return sortDir === 'asc' ? cmp : -cmp
   })
 
-  const th = (key: SortKey, label: string, title?: string) => (
-    <SortableTh
-      sortKey={key}
-      activeKey={sortKey}
-      dir={sortDir}
-      onClick={handleSort}
-      title={title}
-      numeric={!TEXT_COLUMNS.has(key)}
-    >
-      {label}
-    </SortableTh>
-  )
-
   const margin = closeGames.status === 'ready' ? closeGames.data.margin : 5
   const closeCell = (r: SeasonRow) => {
     if (closeGames.status === 'loading') return '…'
@@ -238,151 +269,258 @@ export function SeasonHistoryTable({
     return formatRecord(r.close.wins, r.close.losses, r.close.ties)
   }
 
+  const tone = (x: number | undefined) => (x === undefined ? '' : x >= 0 ? 'pos' : 'neg')
+
+  /** Each column's header (label and tooltip) and cell. `cls` carries any
+   * extra cell classes, such as the sticky ones. */
+  const COLUMNS: Record<ColumnKey, { label: string; title?: string; cell: (r: SeasonRow, cls: string) => ReactNode }> = {
+    year: { label: 'Year', cell: (r, c) => <td className={`num ${c}`}>{r.year}</td> },
+    owner: {
+      label: 'Owner',
+      cell: (r, c) => (
+        <td className={c}>
+          <TeamLink ownerId={r.team.owners[0]?.id} year={r.year} className="truncate">
+            <span title={ownerName(r.team) || undefined}>{ownerName(r.team) || '—'}</span>
+          </TeamLink>
+        </td>
+      ),
+    },
+    team: {
+      label: 'Team',
+      cell: (r, c) => (
+        <td className={`team-cell ${c}`}>
+          <TeamLink ownerId={r.team.owners[0]?.id} year={r.year} className="team-cell-name">
+            <span title={r.team.team_name}>{r.team.team_name}</span>
+          </TeamLink>
+          <span className="team-cell-owner">{ownerName(r.team)}</span>
+        </td>
+      ),
+    },
+    team_name: {
+      label: 'Name',
+      cell: (r, c) => (
+        <td className={c}>
+          <TeamLink ownerId={r.team.owners[0]?.id} year={r.year} className="truncate">
+            <span title={r.team.team_name}>{r.team.team_name}</span>
+          </TeamLink>
+        </td>
+      ),
+    },
+    points_for: {
+      label: 'PF',
+      title: 'Total points scored in the regular season.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.team.points_for.toFixed(1)}</td>,
+    },
+    pts_vs_avg: {
+      label: 'vs Avg',
+      title:
+        'Points per game compared with the league average that season. +10% means ' +
+        'scoring 10% more than the average team. Fair across PPR and standard years.',
+      cell: (r, c) => (
+        <td className={`num ${tone(r.stats?.ptsVsAvg)} ${c}`}>
+          {r.stats ? `${signed(r.stats.ptsVsAvg * 100, 1)}%` : '—'}
+        </td>
+      ),
+    },
+    all_play: {
+      label: 'All-Play',
+      title:
+        'The record this team would have had playing every other team every week. ' +
+        'It removes schedule luck and shows how strong the scoring really was.',
+      cell: (r, c) => {
+        const s = r.stats
+        return (
+          <td className={`num ${c}`} title={s ? `${formatRate(s.allPlayPct)} all-play win rate` : undefined}>
+            {s ? formatRecord(s.allPlayWins, s.allPlayLosses, s.allPlayTies) : '—'}
+          </td>
+        )
+      },
+    },
+    luck: {
+      label: 'Luck',
+      title:
+        'Actual wins minus the wins the all-play record predicts. +2.0 means two more ' +
+        'wins than the scoring earned (lucky); negative means unlucky.',
+      cell: (r, c) => <td className={`num ${tone(r.stats?.luck)} ${c}`}>{r.stats ? signed(r.stats.luck, 1) : '—'}</td>,
+    },
+    high: {
+      label: 'High',
+      title: 'Highest single-week score in the regular season.',
+      cell: (r, c) => (
+        <td className={`num ${c}`} title={r.stats ? `Week ${r.stats.highWeek}` : undefined}>
+          {r.stats ? r.stats.highScore.toFixed(1) : '—'}
+        </td>
+      ),
+    },
+    low: {
+      label: 'Low',
+      title: 'Lowest single-week score in the regular season.',
+      cell: (r, c) => (
+        <td className={`num ${c}`} title={r.stats ? `Week ${r.stats.lowWeek}` : undefined}>
+          {r.stats ? r.stats.lowScore.toFixed(1) : '—'}
+        </td>
+      ),
+    },
+    top_weeks: {
+      label: 'Top Wks',
+      title: "Weeks this team posted the league's highest score.",
+      cell: (r, c) => <td className={`num ${c}`}>{r.stats ? r.stats.topScorerWeeks : '—'}</td>,
+    },
+    std_dev: {
+      label: 'Std Dev',
+      title:
+        'Standard deviation of weekly scores, in points. Low means consistent; ' +
+        'high means boom-or-bust.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.stats ? r.stats.stdDev.toFixed(1) : '—'}</td>,
+    },
+    close: {
+      label: 'Close',
+      title:
+        `Record in regular-season games decided by fewer than ${margin} points. ` +
+        'Sorts by close wins minus close losses.',
+      cell: (r, c) => <td className={`num ${c}`}>{closeCell(r)}</td>,
+    },
+    scoring: {
+      label: 'Scoring',
+      title:
+        "The league's scoring format that season. PPR gives a point per reception, " +
+        'Half PPR half a point, Standard none, so raw points are only comparable ' +
+        'within the same format. Use vs Avg to compare across formats.',
+      cell: (r, c) => <td className={c}>{SCORING_LABEL[r.scoring_type]}</td>,
+    },
+    finish: {
+      label: 'Finish',
+      title:
+        'Final place after the playoffs; 1 is the champion. For a season still in ' +
+        'progress, the current regular-season standing.',
+      cell: (r, c) => <td className={`num ${c}`}>{finishOf(r.team)}</td>,
+    },
+    record: {
+      label: 'Record',
+      title: 'Regular-season wins–losses, with ties last when there are any.',
+      cell: (r, c) => <td className={`num ${c}`}>{recordLabel(r.team)}</td>,
+    },
+    wins: { label: 'W', title: 'Regular-season wins.', cell: (r, c) => <td className={`num ${c}`}>{r.team.wins}</td> },
+    losses: { label: 'L', title: 'Regular-season losses.', cell: (r, c) => <td className={`num ${c}`}>{r.team.losses}</td> },
+    ties: { label: 'T', title: 'Regular-season ties.', cell: (r, c) => <td className={`num ${c}`}>{r.team.ties}</td> },
+    win_pct: {
+      label: 'Win %',
+      title: 'Regular-season win percentage, with ties counted as half a win.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.stats ? formatRate(r.stats.winPct) : '—'}</td>,
+    },
+    playoff_wins: {
+      label: 'PO W',
+      title: 'Wins in the championship bracket. Zero for teams that missed the playoffs.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.team.playoff_wins}</td>,
+    },
+    playoff_losses: {
+      label: 'PO L',
+      title:
+        'Losses in the championship bracket: at most one, since a loss ends the run. ' +
+        'Consolation games are not counted.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.team.playoff_losses}</td>,
+    },
+    points_against: {
+      label: 'PA',
+      title: 'Total points opponents scored against this team in the regular season.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.team.points_against.toFixed(1)}</td>,
+    },
+    avg_points_for: {
+      label: 'Avg PF',
+      title: 'Points scored per regular-season game played.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.team.avg_points_for.toFixed(2)}</td>,
+    },
+    avg_points_against: {
+      label: 'Avg PA',
+      title: 'Points allowed per regular-season game played.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.team.avg_points_against.toFixed(2)}</td>,
+    },
+    avg_plus_minus: {
+      label: 'Avg +/−',
+      title:
+        'Avg PF minus Avg PA. Positive means the team outscored its opponents on ' +
+        'average; negative means it was outscored.',
+      cell: (r, c) => (
+        <td className={`num ${tone(r.team.avg_plus_minus)} ${c}`}>{signed(r.team.avg_plus_minus, 2)}</td>
+      ),
+    },
+    pr_avg: {
+      label: 'Avg PR',
+      title: 'Average power rank that season, over the weeks rankings were posted.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.pr?.avgRank?.toFixed(2) ?? '—'}</td>,
+    },
+    pr_pre: {
+      label: 'Pre PR',
+      title: 'Preseason power rank.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.pr?.preseasonRank ?? '—'}</td>,
+    },
+    pr_at1: {
+      label: 'PR #1',
+      title: 'Weeks ranked #1 that season.',
+      cell: (r, c) => <td className={`num ${c}`}>{r.pr?.weeks ? r.pr.weeksAt1 : '—'}</td>,
+    },
+  }
+
+  // The second pinned column sits exactly where the first ends. Measured rather
+  // than fixed: a fixed width either wastes space or lets the header (with its
+  // sort arrow) slide under the next pinned column, depending on the font.
+  const wrapRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current
+    const first = wrap?.querySelector<HTMLElement>('th.sticky-1')
+    if (!wrap || !first) return
+    const set = () => wrap.style.setProperty('--sticky-1-w', `${first.offsetWidth}px`)
+    set()
+    const ro = new ResizeObserver(set)
+    ro.observe(first)
+    return () => ro.disconnect()
+  }, [singleSeason])
+
+  const pr = powerRankings ? PR_COLUMNS : []
+  const columns: ColumnKey[] = singleSeason
+    ? [...STANDINGS_BASIC, ...pr, ...(showMore ? STANDINGS_MORE : [])]
+    : [...HISTORY, ...pr, 'team_name']
+  const extra = (key: ColumnKey) => (singleSeason ? (STICKY[key] ?? '') : '')
+
   return (
-    <div className="teams-wrap">
-      <table className="teams season-history">
+    <div ref={wrapRef} className={`teams-wrap${singleSeason ? ' sticky' : ''}`}>
+      <table className={`teams season-history${singleSeason ? ' standings' : ''}`}>
         <thead>
           <tr>
-            {!singleSeason && th('year', 'Year')}
-            {th('owner', 'Owner')}
-            {th('points_for', 'PF', 'Total points scored in the regular season.')}
-            {th(
-              'pts_vs_avg',
-              'vs Avg',
-              "Points per game compared with the league average that season. +10% means " +
-                'scoring 10% more than the average team. Fair across PPR and standard years.',
-            )}
-            {th(
-              'all_play',
-              'All-Play',
-              'The record this team would have had playing every other team every week. ' +
-                'It removes schedule luck and shows how strong the scoring really was.',
-            )}
-            {th(
-              'luck',
-              'Luck',
-              'Actual wins minus the wins the all-play record predicts. +2.0 means two more ' +
-                'wins than the scoring earned (lucky); negative means unlucky.',
-            )}
-            {th('high', 'High', 'Highest single-week score in the regular season.')}
-            {th('low', 'Low', 'Lowest single-week score in the regular season.')}
-            {th('top_weeks', 'Top Wks', "Weeks this team posted the league's highest score.")}
-            {th(
-              'std_dev',
-              'Std Dev',
-              'Standard deviation of weekly scores, in points. Low means consistent; ' +
-                'high means boom-or-bust.',
-            )}
-            {th(
-              'close',
-              'Close',
-              `Record in regular-season games decided by fewer than ${margin} points. ` +
-                'Sorts by close wins minus close losses.',
-            )}
-            {!singleSeason && th(
-              'scoring',
-              'Scoring',
-              "The league's scoring format that season. PPR gives a point per reception, " +
-                'Half PPR half a point, Standard none, so raw points are only comparable ' +
-                'within the same format. Use vs Avg to compare across formats.',
-            )}
-            {th(
-              'finish',
-              'Finish',
-              'Final place after the playoffs; 1 is the champion. For a season still in ' +
-                'progress, the current regular-season standing.',
-            )}
-            {th('wins', 'W', 'Regular-season wins.')}
-            {th('losses', 'L', 'Regular-season losses.')}
-            {th('ties', 'T', 'Regular-season ties.')}
-            {th('win_pct', 'Win %', 'Regular-season win percentage, with ties counted as half a win.')}
-            {th('playoff_wins', 'PO W', 'Wins in the championship bracket. Zero for teams that missed the playoffs.')}
-            {th(
-              'playoff_losses',
-              'PO L',
-              'Losses in the championship bracket: at most one, since a loss ends the run. ' +
-                'Consolation games are not counted.',
-            )}
-            {th('points_against', 'PA', 'Total points opponents scored against this team in the regular season.')}
-            {th('avg_points_for', 'Avg PF', 'Points scored per regular-season game played.')}
-            {th('avg_points_against', 'Avg PA', 'Points allowed per regular-season game played.')}
-            {th(
-              'avg_plus_minus',
-              'Avg +/−',
-              'Avg PF minus Avg PA. Positive means the team outscored its opponents on ' +
-                'average; negative means it was outscored.',
-            )}
-            {powerRankings && th('pr_avg', 'Avg PR', 'Average power rank that season, over the weeks rankings were posted.')}
-            {powerRankings && th('pr_pre', 'Pre PR', 'Preseason power rank.')}
-            {powerRankings && th('pr_at1', 'PR #1', 'Weeks ranked #1 that season.')}
-            {th('team_name', 'Name')}
+            {columns.map((key) => (
+              <SortableTh
+                key={key}
+                sortKey={key}
+                activeKey={sortKey}
+                dir={sortDir}
+                onClick={handleSort}
+                title={COLUMNS[key].title}
+                numeric={!TEXT_COLUMNS.has(key)}
+                className={extra(key) || undefined}
+              >
+                {COLUMNS[key].label}
+              </SortableTh>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {sorted.map((r) => {
-            const { year, scoring_type, team: t, stats: s } = r
-            return (
-              <tr
-                key={`${year}-${t.team_id}`}
-                className={
-                  [
-                    r.inProgress && !singleSeason && 'current-season',
-                    t.owners.some((o) => isYours(yourTeam, o.id)) && 'your-team',
-                  ]
-                    .filter(Boolean)
-                    .join(' ') || undefined
-                }
-              >
-                {!singleSeason && <td className="num">{year}</td>}
-                <td>
-                  <TeamLink ownerId={t.owners[0]?.id} year={year} className="truncate">
-                    <span title={ownerName(t) || undefined}>{ownerName(t) || '—'}</span>
-                  </TeamLink>
-                </td>
-                <td className="num">{t.points_for.toFixed(1)}</td>
-                <td className={`num ${s ? (s.ptsVsAvg >= 0 ? 'pos' : 'neg') : ''}`}>
-                  {s ? `${signed(s.ptsVsAvg * 100, 1)}%` : '—'}
-                </td>
-                <td className="num" title={s ? `${formatRate(s.allPlayPct)} all-play win rate` : undefined}>
-                  {s ? formatRecord(s.allPlayWins, s.allPlayLosses, s.allPlayTies) : '—'}
-                </td>
-                <td className={`num ${s ? (s.luck >= 0 ? 'pos' : 'neg') : ''}`}>
-                  {s ? signed(s.luck, 1) : '—'}
-                </td>
-                <td className="num" title={s ? `Week ${s.highWeek}` : undefined}>
-                  {s ? s.highScore.toFixed(1) : '—'}
-                </td>
-                <td className="num" title={s ? `Week ${s.lowWeek}` : undefined}>
-                  {s ? s.lowScore.toFixed(1) : '—'}
-                </td>
-                <td className="num">{s ? s.topScorerWeeks : '—'}</td>
-                <td className="num">{s ? s.stdDev.toFixed(1) : '—'}</td>
-                <td className="num">{closeCell(r)}</td>
-                {!singleSeason && <td>{SCORING_LABEL[scoring_type]}</td>}
-                <td className="num">{finishOf(t)}</td>
-                <td className="num">{t.wins}</td>
-                <td className="num">{t.losses}</td>
-                <td className="num">{t.ties}</td>
-                <td className="num">{s ? formatRate(s.winPct) : '—'}</td>
-                <td className="num">{t.playoff_wins}</td>
-                <td className="num">{t.playoff_losses}</td>
-                <td className="num">{t.points_against.toFixed(1)}</td>
-                <td className="num">{t.avg_points_for.toFixed(2)}</td>
-                <td className="num">{t.avg_points_against.toFixed(2)}</td>
-                <td className={`num ${t.avg_plus_minus >= 0 ? 'pos' : 'neg'}`}>
-                  {signed(t.avg_plus_minus, 2)}
-                </td>
-                {powerRankings && <td className="num">{r.pr?.avgRank?.toFixed(2) ?? '—'}</td>}
-                {powerRankings && <td className="num">{r.pr?.preseasonRank ?? '—'}</td>}
-                {powerRankings && <td className="num">{r.pr?.weeks ? r.pr.weeksAt1 : '—'}</td>}
-                <td>
-                  <TeamLink ownerId={t.owners[0]?.id} year={year} className="truncate">
-                    <span title={t.team_name}>{t.team_name}</span>
-                  </TeamLink>
-                </td>
-              </tr>
-            )
-          })}
+          {sorted.map((r) => (
+            <tr
+              key={`${r.year}-${r.team.team_id}`}
+              className={
+                [
+                  r.inProgress && !singleSeason && 'current-season',
+                  r.team.owners.some((o) => isYours(yourTeam, o.id)) && 'your-team',
+                ]
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
+            >
+              {columns.map((key) => (
+                <Fragment key={key}>{COLUMNS[key].cell(r, extra(key))}</Fragment>
+              ))}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
