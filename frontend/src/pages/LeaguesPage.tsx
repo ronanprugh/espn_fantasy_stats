@@ -193,7 +193,7 @@ function LeagueRow({
         <div className="league-name">{league.display_name}</div>
         <div className="league-id">ESPN ID: {league.espn_league_id}</div>
         <div className="league-favorite" onClick={(e) => e.stopPropagation()}>
-          <span className="favorite-label">Favorite:</span>{' '}
+          <span className="favorite-label">Your team:</span>{' '}
           {editingFavorite ? (
             <span className="favorite-edit">
               <select

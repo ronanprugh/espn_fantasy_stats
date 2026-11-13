@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import type { PlayoffMatchup, PlayoffTeam, SeasonPlayoffs } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useTeamOwners } from '../hooks/useTeamOwners'
+import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import { teamHubHref } from '../lib/links'
 import { TeamLink } from './TeamLink'
 
@@ -52,8 +53,10 @@ const COMPACT_METRICS: BracketMetrics = {
 const MetricsContext = createContext<BracketMetrics>(DESKTOP_METRICS)
 const useMetrics = () => useContext(MetricsContext)
 
-/** Each bracket team's Team Hub link for this season, once its owner is known. */
-const TeamHrefContext = createContext<(teamId: number) => string | undefined>(() => undefined)
+/** Each bracket team's Team Hub link for this season, once its owner is
+ * known, and whether it is your team. */
+type TeamInfo = { href?: string; yours: boolean }
+const TeamInfoContext = createContext<(teamId: number) => TeamInfo>(() => ({ yours: false }))
 
 type BracketNode = {
   match: PlayoffMatchup
@@ -306,7 +309,7 @@ function TeamRow({
   yOffset: number
 }) {
   const m = useMetrics()
-  const teamHref = useContext(TeamHrefContext)
+  const teamInfo = useContext(TeamInfoContext)
   const textY = m.ROW_H / 2 + m.FONT * 0.38 // visual vertical center
   if (isPlaceholder) {
     return (
@@ -323,21 +326,29 @@ function TeamRow({
       </g>
     )
   }
-  const href = teamHref(team.team_id)
+  const { href, yours } = teamInfo(team.team_id)
   const name = (
     <text
       className="bracket-text"
       x={m.TEXT_PAD_X}
       y={textY}
       fontSize={m.FONT}
-      fontWeight={isWinner ? 600 : 400}
+      fontWeight={isWinner || yours ? 600 : 400}
     >
       <tspan className="bracket-text-muted">{team.seed}.</tspan>
       <tspan dx={6}>{truncate(team.team_name, nameLimit(m))}</tspan>
     </text>
   )
   return (
-    <g transform={`translate(0,${yOffset})`}>
+    <g transform={`translate(0,${yOffset})`} className={yours ? 'bracket-your-team' : undefined}>
+      {/* Your team's row: a tint and a leading accent bar inside the box. */}
+      {yours && (
+        <>
+          <rect className="bracket-your-row" width={m.BOX_W} height={m.ROW_H} rx={8} />
+          {/* Inset from the row ends so it clears the box's rounded corners. */}
+          <rect className="bracket-your-bar" x={0} y={6} width={3} height={m.ROW_H - 12} rx={1.5} />
+        </>
+      )}
       {/* An SVG <a>: the name opens the team's Team Hub. Its click stops here
        * so the match box around it doesn't open the box score as well. */}
       {href ? (
@@ -498,9 +509,10 @@ export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
   const metrics = isMobile ? COMPACT_METRICS : DESKTOP_METRICS
   const teamsById = new Map(data.teams.map((t) => [t.team_id, t]))
   const ownerOf = useTeamOwners(data.league_id, [data.year])
-  const teamHref = (teamId: number) => {
+  const yourTeam = useYourTeam()
+  const teamInfo = (teamId: number): TeamInfo => {
     const owner = ownerOf(data.year, teamId)
-    return owner ? teamHubHref(owner, { year: data.year }) : undefined
+    return { href: owner ? teamHubHref(owner, { year: data.year }) : undefined, yours: isYours(yourTeam, owner) }
   }
   const weeks = data.playoff_weeks
   if (weeks.length === 0) {
@@ -542,7 +554,7 @@ export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
 
   return (
     <MetricsContext.Provider value={metrics}>
-      <TeamHrefContext.Provider value={teamHref}>
+      <TeamInfoContext.Provider value={teamInfo}>
         <div className="playoffs">
           <BracketSection title="Championship" root={championship} onMatchClick={onMatchClick} />
           <StandalonePlacementGame
@@ -567,7 +579,7 @@ export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
             <h3>Final Standings</h3>
             <ol className="standings-list">
               {standings.map((t) => (
-                <li key={t.team_id}>
+                <li key={t.team_id} className={teamInfo(t.team_id).yours ? 'your-team' : undefined}>
                   <span className="rank">{t.final_standing}.</span>
                   <TeamLink ownerId={ownerOf(data.year, t.team_id)} year={data.year} className="team">
                     {t.team_name}
@@ -579,7 +591,7 @@ export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
             </ol>
           </section>
         </div>
-      </TeamHrefContext.Provider>
+      </TeamInfoContext.Provider>
     </MetricsContext.Provider>
   )
 }

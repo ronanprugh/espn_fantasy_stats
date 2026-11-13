@@ -3,6 +3,7 @@ import type { OwnerAggregate } from '../api'
 import type { OwnerPrStats } from '../lib/powerRankings'
 import { SortableTh, type SortDir } from './SortableTh'
 import { TeamLink } from './TeamLink'
+import { isYours, useYourTeam } from '../hooks/useYourTeam'
 
 type SortKey =
   | 'avg_finish'
@@ -73,6 +74,7 @@ export function AggregateTable({
   /** Power rankings stats by owner; the columns show only when given. */
   powerRankings?: Map<string, OwnerPrStats>
 }) {
+  const yourTeam = useYourTeam()
   const [sortKey, setSortKey] = useState<SortKey>('avg_finish')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -135,7 +137,7 @@ export function AggregateTable({
         </thead>
         <tbody>
           {sorted.map((o) => (
-            <tr key={o.owner_id}>
+            <tr key={o.owner_id} className={isYours(yourTeam, o.owner_id) ? 'your-team' : undefined}>
               <td className="num">{o.avg_finish.toFixed(2)}</td>
               <td>
                 <TeamLink ownerId={o.owner_id}>{o.owner_name}</TeamLink>
