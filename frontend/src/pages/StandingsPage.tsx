@@ -22,6 +22,8 @@ export function StandingsPage() {
   // The latest season stays parameter-free, so a bookmark of /standings keeps
   // meaning "this season" next year too.
   const setYear = (y: number) => update({ year: y === latest ? null : String(y) })
+  // The advanced columns, kept in the URL (?more=1) so they survive a refresh.
+  const showMore = params.get('more') === '1'
 
   const [seasonData, setSeasonData] = useState<SeasonTeams | null>(null)
   const [loading, setLoading] = useState(false)
@@ -70,14 +72,25 @@ export function StandingsPage() {
       {(loading || year === null) && !error && <Loading />}
       {!loading && seasonData && seasonData.year === year && (
         <>
-          <p className="subtitle">
-            {SCORING_LABEL[seasonData.scoring_type]} scoring
-            {isInProgress(seasonData) && ` · in progress, ${gamesPlayed(seasonData)} games played`}
-          </p>
+          <div className="season-history-bar">
+            <p className="subtitle">
+              {SCORING_LABEL[seasonData.scoring_type]} scoring
+              {isInProgress(seasonData) && ` · in progress, ${gamesPlayed(seasonData)} games played`}
+            </p>
+            <label className="season-toggle">
+              <input
+                type="checkbox"
+                checked={showMore}
+                onChange={(e) => update({ more: e.target.checked ? '1' : null })}
+              />
+              More stats
+            </label>
+          </div>
           <SeasonHistoryTable
             seasons={[seasonData]}
             closeGames={closeGames}
             singleSeason
+            showMore={showMore}
             powerRankings={
               prBySeason && prBySeason.has(`${seasonData.year}:${seasonData.teams[0]?.owners[0]?.id}`)
                 ? prBySeason
