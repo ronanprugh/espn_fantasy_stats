@@ -61,8 +61,8 @@ const valueOf = (
  * The All Time table: one row per owner, across every season.
  *
  * The owner is the pinned first column, with their most recent team name
- * beneath on one line (hover it for every name they've used), so a row is the
- * same two short lines as Standings however many names an owner has had.
+ * beside it on the same line (hover it for every name they've used), so every
+ * row is one line tall however many names an owner has had.
  * Record and Playoffs each fold W/L(/T) into one column.
  */
 export function AggregateTable({
@@ -128,7 +128,7 @@ export function AggregateTable({
             {th('points_against', 'PA', 'Total regular-season points scored against this owner across all seasons.')}
             {th('avg_points_for', 'Avg PF', 'Points scored per regular-season game across all seasons. Mixes scoring formats if the league has changed them.')}
             {th('avg_points_against', 'Avg PA', 'Points allowed per regular-season game across all seasons.')}
-            {th('avg_plus_minus', 'Avg +/−', 'Avg PF minus Avg PA. Positive means the owner outscored opponents on average.')}
+            {th('avg_plus_minus', 'Avg +/\u2060−', 'Avg PF minus Avg PA. Positive means the owner outscored opponents on average.')}
             {powerRankings && th('pr_avg', 'Avg PR', 'Average power rank across every posted week. Weeks with no rankings posted are not counted.')}
             {powerRankings && th('pr_at1', 'PR #1', 'Weeks ranked #1 in the power rankings.')}
           </tr>
@@ -136,14 +136,16 @@ export function AggregateTable({
         <tbody>
           {sorted.map((o) => (
             <tr key={o.owner_id} className={isYours(yourTeam, o.owner_id) ? 'your-team' : undefined}>
-              <td className={`team-cell ${PINNED}`}>
-                <TeamLink ownerId={o.owner_id} className="team-cell-name">
+              <td className={`owner-line ${PINNED}`}>
+                <TeamLink ownerId={o.owner_id} className="owner-line-name">
                   {o.owner_name}
                 </TeamLink>
-                <span className="team-cell-owner team-cell-sub" title={o.team_names.join(' / ')}>
-                  {o.team_names[0] ?? ''}
-                  {o.team_names.length > 1 && <span className="team-cell-more"> +{o.team_names.length - 1}</span>}
-                </span>
+                {o.team_names[0] && (
+                  <span className="owner-line-team" title={o.team_names.join(' / ')}>
+                    <span className="owner-line-team-name">{o.team_names[0]}</span>
+                    {o.team_names.length > 1 && <span className="team-cell-more"> +{o.team_names.length - 1}</span>}
+                  </span>
+                )}
               </td>
               <td className="num">{o.avg_finish.toFixed(2)}</td>
               <td className="num">{o.seasons_played}</td>

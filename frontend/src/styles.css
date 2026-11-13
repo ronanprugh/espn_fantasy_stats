@@ -1831,12 +1831,44 @@ table.teams td.team-cell {
   color: var(--text-muted);
 }
 
-/* All Time's line under the owner: their latest team name, one line, cut off
- * like the name above it. The "+2" (other names, listed on hover) stays. */
-.team-cell-sub {
-  max-width: 24ch;
+/* All Time's owner cell: the owner, then their latest team in muted type on
+ * the same line, so each row is one line tall. Only the team name cuts off
+ * with an ellipsis; the owner and the "+2" (other names, listed on hover)
+ * always show. */
+table.teams td.owner-line {
+  white-space: nowrap;
+}
+
+/* All Time's two-word headers ("Avg Finish", "Avg PF") may wrap onto two
+ * lines, so each column is as wide as its figures rather than its label. With
+ * owner and team sharing one line, that's what keeps the default columns
+ * inside a 1280px screen. */
+.teams-wrap.sticky table.all-time th {
+  white-space: normal;
+  vertical-align: bottom;
+}
+
+.owner-line-name {
+  font-weight: 600;
+}
+
+.owner-line-team {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.owner-line-team .team-cell-more {
+  margin-left: 3px;
+}
+
+.owner-line-team-name {
+  display: inline-block;
+  max-width: 14ch;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .team-cell-more {

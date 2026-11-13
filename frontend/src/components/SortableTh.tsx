@@ -34,7 +34,8 @@ export function SortableTh<K extends string>({
       className={`sortable${isActive ? ' active' : ''}${numeric ? ' num' : ''}${className ? ` ${className}` : ''}`}
     >
       {children}
-      <span className="sort-arrow">{isActive ? (dir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+      {/* A no-break space, so a wrapping header keeps the arrow on its last word. */}
+      <span className="sort-arrow">{isActive ? (dir === 'asc' ? '\u00a0▲' : '\u00a0▼') : ''}</span>
     </th>
   )
 }
