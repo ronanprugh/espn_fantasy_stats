@@ -16,6 +16,8 @@ Multi-user web app for analyzing ESPN Fantasy Football leagues across seasons.
 
 What's in it:
 
+- **This Week** — the front page: your team's record, standing, streak and game, this week's matchups,
+  the standings in brief and the latest power rankings (last season's champion in the offseason)
 - **Season Stats** — all-time aggregate + per-season standings tables, sortable columns
 - **Playoff History** — SVG bracket reconstruction with championship + consolation paths, click any match for box scores
 - **Scoreboard** — per-week matchup grid; click into the box score for any 2019+ game

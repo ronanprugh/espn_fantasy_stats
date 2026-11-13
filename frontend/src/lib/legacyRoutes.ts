@@ -9,11 +9,11 @@
  *   /?view=2024     → /standings?year=2024
  *   /?view=seasons  → /all_time?view=seasons
  *   /?view=         → /all_time   (any other value meant All Time too)
- *   /               → /standings  (the front page until This Week exists)
+ *   /               → null        (no redirect: This Week)
  */
-export function frontPageTarget(search: string): string {
+export function frontPageTarget(search: string): string | null {
   const view = new URLSearchParams(search).get('view')
-  if (view === null) return '/standings'
+  if (view === null) return null
   if (/^\d{4}$/.test(view)) return `/standings?year=${view}`
   if (view === 'seasons') return '/all_time?view=seasons'
   return '/all_time'

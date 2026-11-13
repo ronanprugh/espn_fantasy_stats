@@ -9,9 +9,8 @@ type Props = {
 }
 
 /**
- * The mobile navigation surface: Standings · Scores · Rankings · My Team, plus
- * a More trigger. Rankings becomes Head to Head in a league without power
- * rankings (see tabLayout).
+ * The mobile navigation surface: This Week · Standings · Scores · My Team,
+ * plus a More trigger (see tabLayout).
  *
  * Always rendered — visibility is CSS-only, `display: none` above the 900px
  * breakpoint. There is deliberately no `matchMedia` check or resize listener:
@@ -36,6 +35,7 @@ export function BottomTabBar({ onMoreClick, moreOpen }: Props) {
         <NavLink
           key={d.path}
           to={href(d.path)}
+          end={d.path === '/'}
           className="tab-bar-item"
           aria-label={d.tab?.ariaLabel}
           title={d.label}

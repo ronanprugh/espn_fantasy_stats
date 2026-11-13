@@ -11,7 +11,9 @@ export function ordinal(n: number): string {
 /** The current run of the same result, from the latest played game back:
  * "W3", "L1", "T1". Byes and unplayed weeks don't count. Null before the
  * first game. */
-export function currentStreak(schedule: readonly TeamHubGame[]): string | null {
+export function currentStreak(
+  schedule: readonly Pick<TeamHubGame, 'week' | 'is_bye' | 'result'>[],
+): string | null {
   const played = [...schedule]
     .sort((a, b) => a.week - b.week)
     .filter((g) => !g.is_bye && (g.result === 'W' || g.result === 'L' || g.result === 'T'))

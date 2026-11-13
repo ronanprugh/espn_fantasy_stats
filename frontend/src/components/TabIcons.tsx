@@ -7,6 +7,13 @@ import type { TabIcon as TabIconName } from './navDestinations'
  * the tab's label carries the name.
  */
 const PATHS: Record<TabIconName | 'more', ReactNode> = {
+  // A calendar page.
+  week: (
+    <>
+      <rect x="4" y="5" width="16" height="15" rx="2" />
+      <path d="M4 10h16M9 3v4M15 3v4M9 15h.01M12 15h.01M15 15h.01" />
+    </>
+  ),
   // A ranked list: rows getting shorter down the table.
   standings: (
     <>

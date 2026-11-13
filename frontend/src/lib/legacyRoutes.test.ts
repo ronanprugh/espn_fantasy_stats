@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { frontPageTarget } from './legacyRoutes'
 
 describe('frontPageTarget', () => {
-  it('opens Standings on a bare front page', () => {
-    expect(frontPageTarget('')).toBe('/standings')
-    expect(frontPageTarget('?')).toBe('/standings')
+  it('stays on This Week for a bare front page', () => {
+    expect(frontPageTarget('')).toBeNull()
+    expect(frontPageTarget('?')).toBeNull()
   })
 
   it('sends an old single-season link to that year of Standings', () => {
