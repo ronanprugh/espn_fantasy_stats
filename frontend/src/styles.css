@@ -292,6 +292,20 @@ body {
   cursor: pointer;
 }
 
+/* Icon above a short label. The label never wraps: at 320px each of the five
+ * tabs is 64px wide, which fits the longest label ("Standings") at this size. */
+.tab-bar-icon {
+  flex-shrink: 0;
+}
+
+.tab-bar-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
 /* The single accent marks the active destination, matching the sidebar's rule.
  * `.active` covers both NavLink's own class and the More button's open state. */
 .tab-bar-item.active {

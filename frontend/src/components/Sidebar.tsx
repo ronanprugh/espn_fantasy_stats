@@ -12,7 +12,7 @@ type Props = {
 
 export function Sidebar({ collapsed, onToggle }: Props) {
   const { leagues, selectedLeague, select } = useLeague()
-  const destinations = useNavDestinations()
+  const { destinations } = useNavDestinations()
   const { pathname } = useLocation()
   // Where you are, for the collapsed sidebar: "This Season · Standings".
   const current = destinationFor(pathname)
