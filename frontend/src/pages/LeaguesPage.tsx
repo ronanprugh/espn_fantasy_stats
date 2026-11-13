@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   createLeague,
   deleteLeague,
@@ -10,8 +10,24 @@ import {
 import { useLeague } from '../contexts/LeagueContext'
 
 export function LeaguesPage() {
-  const { leagues, refresh, select, selectedLeague } = useLeague()
-  const [showForm, setShowForm] = useState(leagues.length === 0)
+  const { leagues, loaded, refresh, select, selectedLeague } = useLeague()
+  // Until the list has loaded, an empty `leagues` means "not fetched yet", so
+  // the form can't be opened from it at mount (a direct load of /leagues would
+  // always see []). Decide once, when the list first arrives: open the form
+  // only for someone who really has no leagues.
+  const [showForm, setShowForm] = useState(loaded && leagues.length === 0)
+  const formDecided = useRef(loaded)
+
+  useEffect(() => {
+    if (formDecided.current || !loaded) return
+    formDecided.current = true
+    if (leagues.length === 0) setShowForm(true)
+  }, [loaded, leagues.length])
+
+  const closeForm = () => {
+    formDecided.current = true
+    setShowForm(false)
+  }
 
   return (
     <div className="page">
@@ -24,11 +40,11 @@ export function LeaguesPage() {
         )}
       </header>
 
-      {leagues.length === 0 && !showForm && (
+      {loaded && leagues.length === 0 && !showForm && (
         <p className="subtitle">You haven't added any leagues yet.</p>
       )}
 
-      {showForm && <AddLeagueForm onDone={async () => { await refresh(); setShowForm(false) }} onCancel={() => setShowForm(false)} />}
+      {showForm && <AddLeagueForm onDone={async () => { await refresh(); closeForm() }} onCancel={closeForm} />}
 
       <ul className="leagues-list">
         {leagues.map((l) => (
