@@ -2,10 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   NAV_DESTINATIONS,
   NAV_GROUPS,
-  OVERFLOW_DESTINATIONS,
-  PRIMARY_DESTINATIONS,
   SETTINGS_DESTINATIONS,
   destinationFor,
+  tabLayout,
   visibleDestinations,
 } from './navDestinations'
 
@@ -42,21 +41,6 @@ const ROUTER_PATHS = [
 describe('navigation destinations (FR U2-3)', () => {
   it('exposes exactly nine main destinations', () => {
     expect(NAV_DESTINATIONS).toHaveLength(9)
-  })
-
-  // Four tabs plus the More trigger is five targets, which is what fits at
-  // 320px while holding the 44px minimum from FR U2-4.
-  it('marks exactly four destinations primary', () => {
-    expect(PRIMARY_DESTINATIONS.map((d) => d.path)).toEqual([
-      '/standings',
-      '/scoreboard',
-      '/team_hub',
-      '/playoffs',
-    ])
-  })
-
-  it('routes the remaining five through the More sheet', () => {
-    expect(OVERFLOW_DESTINATIONS).toHaveLength(5)
   })
 
   it('never lists the same path twice', () => {
@@ -135,5 +119,75 @@ describe('destinationFor', () => {
 
   it('does not match on a shared prefix alone', () => {
     expect(destinationFor('/standingsx')).toBeUndefined()
+  })
+})
+
+describe('tabLayout (phone tabs)', () => {
+  const layout = (hasPowerRankings: boolean, isAdmin = false) =>
+    tabLayout(visibleDestinations(NAV_DESTINATIONS, { hasPowerRankings, isAdmin }), {
+      hasPowerRankings,
+    })
+  const tabLabels = (hasPowerRankings: boolean) =>
+    layout(hasPowerRankings).tabs.map((d) => d.tab?.label)
+
+  // Four tabs plus the More trigger is five targets, which is what fits at
+  // 320px while holding the 44px minimum from FR U2-4.
+  it('always gives exactly four tabs', () => {
+    expect(layout(true).tabs).toHaveLength(4)
+    expect(layout(false).tabs).toHaveLength(4)
+    expect(layout(false, true).tabs).toHaveLength(4)
+  })
+
+  it('reads Standings · Scores · Rankings · My Team', () => {
+    expect(tabLabels(true)).toEqual(['Standings', 'Scores', 'Rankings', 'My Team'])
+    expect(layout(true).tabs.map((d) => d.path)).toEqual([
+      '/standings',
+      '/scoreboard',
+      '/power_rankings',
+      '/team_hub',
+    ])
+  })
+
+  it('gives the Rankings slot to Head to Head in a league without rankings', () => {
+    expect(tabLabels(false)).toEqual(['Standings', 'Scores', 'H2H', 'My Team'])
+  })
+
+  // Every destination is on a phone somewhere: a tab or the More sheet, never
+  // both and never neither.
+  it('puts every other visible destination in the More sheet', () => {
+    for (const [hasPowerRankings, isAdmin] of [
+      [true, false],
+      [false, false],
+      [false, true],
+    ]) {
+      const visible = visibleDestinations(NAV_DESTINATIONS, { hasPowerRankings, isAdmin })
+      const { tabs, overflow } = tabLayout(visible, { hasPowerRankings })
+      const paths = [...tabs, ...overflow].map((d) => d.path)
+      expect(new Set(paths).size).toBe(paths.length)
+      expect([...paths].sort()).toEqual(visible.map((d) => d.path).sort())
+    }
+  })
+
+  // An admin in a league without rankings keeps Power Rankings (to import),
+  // but in More: the tab is Head to Head.
+  it('keeps Power Rankings in More for an admin of a league without rankings', () => {
+    const { overflow } = layout(false, true)
+    expect(overflow.map((d) => d.label)).toContain('Power Rankings')
+    expect(overflow.map((d) => d.label)).not.toContain('Head to Head')
+  })
+
+  it('gives every possible tab an icon and a short label', () => {
+    const tabs = [...layout(true).tabs, ...layout(false).tabs]
+    for (const d of tabs) {
+      expect(d.tab?.icon).toBeTruthy()
+      expect(d.tab?.label.length).toBeLessThanOrEqual(9)
+    }
+  })
+
+  // WCAG 2.5.3: an accessible name must contain the visible label.
+  it('keeps the visible label in any accessible name', () => {
+    for (const d of NAV_DESTINATIONS) {
+      if (d.tab?.ariaLabel) expect(d.tab.ariaLabel).toContain(d.tab.label)
+    }
   })
 })

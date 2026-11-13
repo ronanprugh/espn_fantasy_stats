@@ -29,7 +29,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), select, input, [tabindex]:no
  */
 export function MoreSheet({ open, onClose }: Props) {
   const { user, logout } = useAuth()
-  const destinations = useNavDestinations().filter((d) => d.tier === 'overflow')
+  const { overflow: destinations } = useNavDestinations()
   const { leagues, selectedLeague, select } = useLeague()
   const { theme, toggle } = useTheme()
   const navigate = useNavigate()
