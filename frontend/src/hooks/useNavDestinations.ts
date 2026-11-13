@@ -25,6 +25,6 @@ export function useNavDestinations(): Nav {
   const isAdmin = !!user?.is_admin
   return useMemo(() => {
     const destinations = visibleDestinations(NAV_DESTINATIONS, { hasPowerRankings: hasData, isAdmin })
-    return { destinations, ...tabLayout(destinations, { hasPowerRankings: hasData }) }
+    return { destinations, ...tabLayout(destinations) }
   }, [hasData, isAdmin])
 }

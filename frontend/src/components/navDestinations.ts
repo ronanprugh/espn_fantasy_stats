@@ -6,27 +6,28 @@
  * literal JSX, which meant a new route had to be added in several places to be
  * reachable on every shell — the tab bar would silently lack it.
  *
- * Grouped by what people come to do, not by data type. Below 900px four
+ * This Week (the front page) comes first, on its own; the rest are grouped
+ * by what people come to do, not by data type. Below 900px four
  * destinations get a tab and the rest live in the More sheet: four tabs plus
  * the More trigger is what fits at 320px with 44px targets. Which four is
- * decided by tabLayout, since the third tab depends on the league.
+ * decided by tabLayout.
  *
  * Leagues and Account are rarely opened, so they are not in the main list:
  * they live in SETTINGS_DESTINATIONS, under your name in the sidebar footer and
  * at the bottom of the More sheet.
  *
  * Enforced by navDestinations.test.ts: always four tabs, every path registered
- * as a route in main.tsx, and every route but the redirecting front page
- * listed here.
+ * as a route in main.tsx, and every route listed here.
  */
 export type NavGroup = 'This Season' | 'Teams' | 'History'
 
-export type TabIcon = 'standings' | 'scores' | 'rankings' | 'h2h' | 'team'
+export type TabIcon = 'week' | 'standings' | 'scores' | 'rankings' | 'h2h' | 'team'
 
 export type NavDestination = {
   path: string
   label: string
-  group: NavGroup
+  /** Null for This Week, which sits above the groups. */
+  group: NavGroup | null
   /** How it looks as a phone tab, for the destinations that can be one: a
    * short label, an icon, and (when the short label is cryptic) the accessible
    * name, which keeps the short label in it. */
@@ -37,6 +38,12 @@ export type NavDestination = {
 }
 
 export const NAV_DESTINATIONS: readonly NavDestination[] = [
+  {
+    path: '/',
+    label: 'This Week',
+    group: null,
+    tab: { label: 'This Week', icon: 'week' },
+  },
   {
     path: '/standings',
     label: 'Standings',
@@ -85,16 +92,18 @@ export const SETTINGS_DESTINATIONS: readonly { path: string; label: string }[] =
 /**
  * The phone tabs and what's left for the More sheet.
  *
- * Tabs, in order: Standings · Scores · Rankings · My Team. A league without
- * power rankings has nothing behind Rankings, so Head to Head takes that slot.
+ * Tabs, in order: This Week · Standings · Scores · My Team. This Week carries
+ * the latest power rankings, so Rankings lives in More with Head to Head.
  * Everything visible that isn't a tab goes to More, so every destination stays
  * reachable on a phone.
  */
-export function tabLayout(
-  visible: readonly NavDestination[],
-  { hasPowerRankings }: { hasPowerRankings: boolean },
-): { tabs: NavDestination[]; overflow: NavDestination[] } {
-  const tabPaths = ['/standings', '/scoreboard', hasPowerRankings ? '/power_rankings' : '/h2h', '/team_hub']
+export const TAB_PATHS = ['/', '/standings', '/scoreboard', '/team_hub'] as const
+
+export function tabLayout(visible: readonly NavDestination[]): {
+  tabs: NavDestination[]
+  overflow: NavDestination[]
+} {
+  const tabPaths: readonly string[] = TAB_PATHS
   const tabs = tabPaths.map((p) => NAV_DESTINATIONS.find((d) => d.path === p)!)
   const overflow = visible.filter((d) => !tabPaths.includes(d.path))
   return { tabs, overflow }

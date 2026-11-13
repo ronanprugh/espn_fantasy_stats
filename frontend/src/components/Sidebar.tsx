@@ -17,7 +17,13 @@ export function Sidebar({ collapsed, onToggle }: Props) {
   // Where you are, for the collapsed sidebar: "This Season · Standings".
   const current = destinationFor(pathname)
   const setting = SETTINGS_DESTINATIONS.find((d) => d.path === pathname)
-  const here = current ? `${current.group} · ${current.label}` : setting ? `Settings · ${setting.label}` : null
+  const here = current
+    ? current.group
+      ? `${current.group} · ${current.label}`
+      : current.label
+    : setting
+      ? `Settings · ${setting.label}`
+      : null
 
   return (
     <aside className="sidebar">
@@ -72,6 +78,15 @@ export function Sidebar({ collapsed, onToggle }: Props) {
          * sidebar and the mobile tab bar cannot drift apart: a destination
          * added in one place appears in both. */}
         <nav className="sidebar-nav">
+          {/* This Week sits above the groups. `end`, so it isn't marked as
+            * current on every page under /. */}
+          {destinations
+            .filter((d) => d.group === null)
+            .map((d) => (
+              <NavLink key={d.path} to={d.path} end className="nav-top">
+                {d.label}
+              </NavLink>
+            ))}
           {NAV_GROUPS.map((group) => (
             <Fragment key={group}>
               <div className="nav-section">{group}</div>

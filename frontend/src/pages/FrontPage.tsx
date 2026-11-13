@@ -1,12 +1,13 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { frontPageTarget } from '../lib/legacyRoutes'
+import { ThisWeekPage } from './ThisWeekPage'
 
 /**
- * The index route. It has no page of its own yet: it opens Standings, and
- * sends old Season Stats links (`/?view=…`) to their new page. See
- * frontPageTarget for the mapping.
+ * The index route: This Week. Old Season Stats links (`/?view=…`) still go to
+ * their new page; see frontPageTarget for the mapping.
  */
 export function FrontPage() {
   const { search } = useLocation()
-  return <Navigate to={frontPageTarget(search)} replace />
+  const target = frontPageTarget(search)
+  return target ? <Navigate to={target} replace /> : <ThisWeekPage />
 }

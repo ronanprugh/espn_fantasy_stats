@@ -21,10 +21,10 @@ import {
  *
  * `box_score/:year/:week/:teamA/:teamB` is intentionally absent from the
  * navigation list: it is reached by clicking through from Scoreboard or
- * Playoffs and has no standalone destination. So is the index route `/`: it
- * only redirects (to Standings, or an old Season Stats link's new page).
+ * Playoffs and has no standalone destination.
  */
 const ROUTER_PATHS = [
+  '/',
   '/standings',
   '/all_time',
   '/playoffs',
@@ -39,8 +39,8 @@ const ROUTER_PATHS = [
 ]
 
 describe('navigation destinations (FR U2-3)', () => {
-  it('exposes exactly nine main destinations', () => {
-    expect(NAV_DESTINATIONS).toHaveLength(9)
+  it('exposes exactly ten main destinations', () => {
+    expect(NAV_DESTINATIONS).toHaveLength(10)
   })
 
   it('never lists the same path twice', () => {
@@ -70,6 +70,11 @@ describe('navigation destinations (FR U2-3)', () => {
     expect(unreachable).toEqual([])
   })
 
+  it('puts This Week first, above the groups', () => {
+    expect(NAV_DESTINATIONS[0]).toMatchObject({ path: '/', label: 'This Week', group: null })
+    expect(NAV_DESTINATIONS.filter((d) => d.group === null)).toHaveLength(1)
+  })
+
   it('groups destinations by task, in menu order', () => {
     expect(NAV_GROUPS).toEqual(['This Season', 'Teams', 'History'])
     const byGroup = Object.fromEntries(
@@ -93,7 +98,7 @@ describe('visibleDestinations', () => {
 
   it('hides Power Rankings from members of a league with no rankings', () => {
     expect(labels({ hasPowerRankings: false, isAdmin: false })).not.toContain('Power Rankings')
-    expect(labels({ hasPowerRankings: false, isAdmin: false })).toHaveLength(8)
+    expect(labels({ hasPowerRankings: false, isAdmin: false })).toHaveLength(9)
   })
 
   it('shows Power Rankings once the league has rankings', () => {
@@ -110,6 +115,11 @@ describe('destinationFor', () => {
   it('finds the page you are on, and its group', () => {
     expect(destinationFor('/standings')).toMatchObject({ label: 'Standings', group: 'This Season' })
     expect(destinationFor('/compare')).toMatchObject({ label: 'Trends', group: 'Teams' })
+    expect(destinationFor('/')).toMatchObject({ label: 'This Week' })
+  })
+
+  it('does not treat every page as under This Week', () => {
+    expect(destinationFor('/standings')?.path).toBe('/standings')
   })
 
   it('has no destination for click-through and settings pages', () => {
@@ -124,9 +134,7 @@ describe('destinationFor', () => {
 
 describe('tabLayout (phone tabs)', () => {
   const layout = (hasPowerRankings: boolean, isAdmin = false) =>
-    tabLayout(visibleDestinations(NAV_DESTINATIONS, { hasPowerRankings, isAdmin }), {
-      hasPowerRankings,
-    })
+    tabLayout(visibleDestinations(NAV_DESTINATIONS, { hasPowerRankings, isAdmin }))
   const tabLabels = (hasPowerRankings: boolean) =>
     layout(hasPowerRankings).tabs.map((d) => d.tab?.label)
 
@@ -138,18 +146,17 @@ describe('tabLayout (phone tabs)', () => {
     expect(layout(false, true).tabs).toHaveLength(4)
   })
 
-  it('reads Standings · Scores · Rankings · My Team', () => {
-    expect(tabLabels(true)).toEqual(['Standings', 'Scores', 'Rankings', 'My Team'])
-    expect(layout(true).tabs.map((d) => d.path)).toEqual([
-      '/standings',
-      '/scoreboard',
-      '/power_rankings',
-      '/team_hub',
-    ])
+  it('reads This Week · Standings · Scores · My Team, with or without rankings', () => {
+    for (const hasPowerRankings of [true, false]) {
+      expect(tabLabels(hasPowerRankings)).toEqual(['This Week', 'Standings', 'Scores', 'My Team'])
+    }
+    expect(layout(true).tabs.map((d) => d.path)).toEqual(['/', '/standings', '/scoreboard', '/team_hub'])
   })
 
-  it('gives the Rankings slot to Head to Head in a league without rankings', () => {
-    expect(tabLabels(false)).toEqual(['Standings', 'Scores', 'H2H', 'My Team'])
+  it('puts Power Rankings and Head to Head in More', () => {
+    const more = layout(true).overflow.map((d) => d.label)
+    expect(more).toContain('Power Rankings')
+    expect(more).toContain('Head to Head')
   })
 
   // Every destination is on a phone somewhere: a tab or the More sheet, never
@@ -161,24 +168,15 @@ describe('tabLayout (phone tabs)', () => {
       [false, true],
     ]) {
       const visible = visibleDestinations(NAV_DESTINATIONS, { hasPowerRankings, isAdmin })
-      const { tabs, overflow } = tabLayout(visible, { hasPowerRankings })
+      const { tabs, overflow } = tabLayout(visible)
       const paths = [...tabs, ...overflow].map((d) => d.path)
       expect(new Set(paths).size).toBe(paths.length)
       expect([...paths].sort()).toEqual(visible.map((d) => d.path).sort())
     }
   })
 
-  // An admin in a league without rankings keeps Power Rankings (to import),
-  // but in More: the tab is Head to Head.
-  it('keeps Power Rankings in More for an admin of a league without rankings', () => {
-    const { overflow } = layout(false, true)
-    expect(overflow.map((d) => d.label)).toContain('Power Rankings')
-    expect(overflow.map((d) => d.label)).not.toContain('Head to Head')
-  })
-
   it('gives every possible tab an icon and a short label', () => {
-    const tabs = [...layout(true).tabs, ...layout(false).tabs]
-    for (const d of tabs) {
+    for (const d of layout(true).tabs) {
       expect(d.tab?.icon).toBeTruthy()
       expect(d.tab?.label.length).toBeLessThanOrEqual(9)
     }
