@@ -18,10 +18,12 @@ import {
  *
  * `box_score/:year/:week/:teamA/:teamB` is intentionally absent from the
  * navigation list: it is reached by clicking through from Scoreboard or
- * Playoffs and has no standalone destination.
+ * Playoffs and has no standalone destination. So is the index route `/`: it
+ * only redirects (to Standings, or an old Season Stats link's new page).
  */
 const ROUTER_PATHS = [
-  '/',
+  '/standings',
+  '/all_time',
   '/playoffs',
   '/compare',
   '/h2h',
@@ -34,23 +36,23 @@ const ROUTER_PATHS = [
 ]
 
 describe('navigation destinations (FR U2-3)', () => {
-  it('exposes exactly ten destinations', () => {
-    expect(NAV_DESTINATIONS).toHaveLength(10)
+  it('exposes exactly eleven destinations', () => {
+    expect(NAV_DESTINATIONS).toHaveLength(11)
   })
 
   // Four tabs plus the More trigger is five targets, which is what fits at
   // 320px while holding the 44px minimum from FR U2-4.
   it('marks exactly four destinations primary', () => {
     expect(PRIMARY_DESTINATIONS.map((d) => d.path)).toEqual([
-      '/',
+      '/standings',
       '/playoffs',
       '/scoreboard',
       '/team_hub',
     ])
   })
 
-  it('routes the remaining six through the More sheet', () => {
-    expect(OVERFLOW_DESTINATIONS).toHaveLength(6)
+  it('routes the remaining seven through the More sheet', () => {
+    expect(OVERFLOW_DESTINATIONS).toHaveLength(7)
   })
 
   it('never lists the same path twice', () => {

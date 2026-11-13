@@ -7,10 +7,11 @@ import { AuthProvider } from './contexts/AuthContext'
 import { LeagueProvider } from './contexts/LeagueContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AccountPage } from './pages/AccountPage'
+import { AllTimePage } from './pages/AllTimePage'
 import { BoxScorePage } from './pages/BoxScorePage'
 import { ComparePage } from './pages/ComparePage'
+import { FrontPage } from './pages/FrontPage'
 import { HeadToHeadPage } from './pages/HeadToHeadPage'
-import { HomePage } from './pages/HomePage'
 import { LeaguesPage } from './pages/LeaguesPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
@@ -18,6 +19,7 @@ import { PlayoffsPage } from './pages/PlayoffsPage'
 import { PositionalStatsPage } from './pages/PositionalStatsPage'
 import { PowerRankingsPage } from './pages/PowerRankingsPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
+import { StandingsPage } from './pages/StandingsPage'
 import { TeamHubPage } from './pages/TeamHubPage'
 import './styles.css'
 
@@ -31,7 +33,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/" element={<App />}>
-              <Route index element={<HomePage />} />
+              <Route index element={<FrontPage />} />
+              <Route path="standings" element={<StandingsPage />} />
+              <Route path="all_time" element={<AllTimePage />} />
               <Route path="playoffs" element={<PlayoffsPage />} />
               <Route path="compare" element={<ComparePage />} />
               <Route path="h2h" element={<HeadToHeadPage />} />
