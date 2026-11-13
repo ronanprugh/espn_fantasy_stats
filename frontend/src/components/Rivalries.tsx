@@ -1,5 +1,5 @@
-import { useState, type MouseEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { Rivalry, RivalrySummary } from '../api'
 import { headToHeadHref } from '../lib/links'
 import { rivalryCallouts, winRate } from '../lib/rivalries'
@@ -44,7 +44,6 @@ const lastLabel = (r: Rivalry) => {
  * here.
  */
 export function Rivalries({ summary }: { summary: RivalrySummary }) {
-  const navigate = useNavigate()
   const [sortKey, setSortKey] = useState<SortKey>('meetings')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const { best, toughest, mostPlayed } = rivalryCallouts(summary.opponents)
@@ -66,12 +65,6 @@ export function Rivalries({ summary }: { summary: RivalrySummary }) {
   })
 
   const href = (r: Rivalry) => headToHeadHref(summary.owner_id, r.opponent_id)
-  // The whole row opens the pair, like the link in its first cell. Clicks on
-  // that link (or with a modifier, for a new tab) are left to the link.
-  const openRow = (r: Rivalry) => (e: MouseEvent) => {
-    if ((e.target as HTMLElement).closest('a') || e.metaKey || e.ctrlKey || e.shiftKey) return
-    navigate(href(r))
-  }
 
   const th = (key: SortKey, label: string, title?: string, className?: string) => (
     <SortableTh
@@ -128,7 +121,7 @@ export function Rivalries({ summary }: { summary: RivalrySummary }) {
           </thead>
           <tbody>
             {sorted.map((r) => (
-              <tr key={r.opponent_id} className="clickable-row" onClick={openRow(r)}>
+              <tr key={r.opponent_id} className="clickable-row link-row">
                 <td className={`owner-line ${PINNED}`}>
                   <Link to={href(r)} className="team-link owner-line-name">
                     {r.opponent_name}
@@ -137,7 +130,14 @@ export function Rivalries({ summary }: { summary: RivalrySummary }) {
                     <span className="owner-line-team-name">{r.opponent_team_name}</span>
                   </span>
                 </td>
-                <td className="num">{r.meetings}</td>
+                <td className="num">
+                  {/* The whole row opens the pair. The opponent's name is the
+                    * same link for the keyboard and screen readers, so this
+                    * cover is for the pointer only. It sits here, not in the
+                    * pinned cell, which would contain it (see .row-cover). */}
+                  <Link to={href(r)} className="row-cover" tabIndex={-1} aria-hidden="true" />
+                  {r.meetings}
+                </td>
                 <td className="num">{r.meetings ? formatDashRecord(r.wins, r.losses, r.ties) : '—'}</td>
                 <td className="num">{r.meetings ? formatRate(winRate(r)!) : '—'}</td>
                 <td className="num">{r.avg_pf?.toFixed(2) ?? '—'}</td>

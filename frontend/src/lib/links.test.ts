@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { headToHeadHref, teamHubHref } from './links'
+import { boxScoreHref, headToHeadHref, noBoxScoreReason, teamHubHref } from './links'
 
 describe('teamHubHref', () => {
   it('opens a team', () => {
@@ -29,5 +29,19 @@ describe('headToHeadHref', () => {
 
   it('encodes owner ids', () => {
     expect(headToHeadHref('{A}', '{B}')).toBe('/h2h?a=%7BA%7D&b=%7BB%7D')
+  })
+})
+
+describe('boxScoreHref and noBoxScoreReason', () => {
+  it('builds the Box Score path', () => {
+    expect(boxScoreHref(2024, 6, 1, 2)).toBe('/box_score/2024/6/1/2')
+  })
+
+  it('explains a missing box score', () => {
+    expect(noBoxScoreReason(2018)).toBe('Box scores start in 2019')
+    expect(noBoxScoreReason(2024, { isBye: true })).toBe('Bye week: no game to show')
+    expect(noBoxScoreReason(2024, { unplayed: true })).toBe('Not played yet')
+    expect(noBoxScoreReason(2024, { opponent: null })).toBe('No opponent this week')
+    expect(noBoxScoreReason(2019, { opponent: 3 })).toBeNull()
   })
 })

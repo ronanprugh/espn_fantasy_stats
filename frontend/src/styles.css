@@ -1001,8 +1001,38 @@ body {
   transition: opacity 0.15s;
 }
 
-.leagues-list li.clickable:hover .use-this {
+.leagues-list li.clickable:hover .use-this,
+.leagues-list li.clickable:focus-within .use-this {
   opacity: 1;
+}
+
+/* The "use this league" button covers the row; the row's text stays
+ * clickable through it, and its own controls (Your team, Edit, Remove) are
+ * lifted above it. */
+.leagues-list li.clickable {
+  position: relative;
+}
+
+.league-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.league-cover:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.leagues-list li.clickable .league-favorite,
+.leagues-list li.clickable .league-row-actions button {
+  position: relative;
+  z-index: 1;
 }
 
 .pill-tag.use-this {
@@ -1264,8 +1294,15 @@ body {
 }
 
 .record-card.clickable {
+  position: relative;
   cursor: pointer;
   transition: background 0.15s;
+}
+
+/* The opponent link in a record's line sits above the card's cover link. */
+.record-card .team-link {
+  position: relative;
+  z-index: 1;
 }
 
 .record-card.clickable:hover {
@@ -3021,6 +3058,32 @@ a.scoreboard-card:focus-visible {
   cursor: pointer;
 }
 
+/* A table row whose whole surface is one link (a box score, a rivalry).
+ * Rows can't be wrapped in a link, so the link is an empty cover laid over
+ * the row from inside a plain cell: with the row positioned, the row is the
+ * cover's containing block. Links inside the row are lifted above it, as on
+ * .card-cover. The cover must not sit in a sticky cell, which would contain
+ * it instead. */
+tr.link-row {
+  position: relative;
+}
+
+.row-cover {
+  position: absolute;
+  inset: 0;
+}
+
+.row-cover:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+tr.link-row .team-link,
+tr.link-row .pr-badge {
+  position: relative;
+  z-index: 1;
+}
+
 .clickable-row:hover {
   background: var(--accent-tint);
 }
@@ -3245,7 +3308,14 @@ a.rivalry-callout:focus-visible {
 }
 
 .h2h-m-card.clickable {
+  display: block;
+  color: inherit;
+  text-decoration: none;
   cursor: pointer;
+}
+
+.h2h-m-card.clickable:hover {
+  border-color: var(--accent);
 }
 
 .h2h-m-card.clickable:active {
