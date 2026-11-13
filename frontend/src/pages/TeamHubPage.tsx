@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import {
   fetchOwnerHistory,
   fetchTeamHub,
+  fetchTeams,
+  type SeasonTeams,
   type OwnerHistory,
   type RecordEntry,
   type TeamHub,
@@ -17,6 +19,7 @@ import { SeasonPicker } from '../components/SeasonPicker'
 import { H2HLink } from '../components/TeamLink'
 import { useTeamOwners } from '../hooks/useTeamOwners'
 import { useFromHere } from '../hooks/useFromHere'
+import { hubHeadline } from '../lib/teamHub'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
@@ -72,6 +75,31 @@ export function TeamHubPage() {
     : undefined
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The selected season's teams, for the headline's standing and PF rank.
+  const [seasonTeams, setSeasonTeams] = useState<SeasonTeams | null>(null)
+  useEffect(() => {
+    if (!selectedLeague || !hub) return
+    let cancelled = false
+    fetchTeams(selectedLeague.espn_league_id, hub.selected_year)
+      .then((s) => !cancelled && setSeasonTeams(s))
+      .catch(() => !cancelled && setSeasonTeams(null))
+    return () => {
+      cancelled = true
+    }
+  }, [selectedLeague?.espn_league_id, hub?.selected_year])
+  const formats = hub
+    ? (
+        [
+          ['PPR', hub.ppr_avg_pf],
+          ['Half PPR', hub.half_ppr_avg_pf],
+          ['Standard', hub.standard_avg_pf],
+        ] as [string, number | null][]
+      ).filter((f): f is [string, number] => f[1] != null)
+    : []
+  const headline =
+    hub && seasonTeams?.year === hub.selected_year
+      ? hubHeadline(seasonTeams, hub.selected_team_id, hub.schedule)
+      : null
   // Opponents arrive as per-season team ids; Head to Head links need their
   // owners, from every season the schedule, last matchup and records mention.
   const recordYears = hub
@@ -171,6 +199,15 @@ export function TeamHubPage() {
           <section className="hub-header">
             <div className="hub-header-main">
               <h3 className="hub-team-name">{hub.current_team_name}</h3>
+              {/* Record and standing first: what you open Team Hub to see. */}
+              {headline && (
+                <div className="hub-headline">
+                  <span className="hub-headline-year">{hub.selected_year}</span>{' '}
+                  <strong>{headline.record}</strong> · {headline.standing}
+                  {headline.pfRank && <> · {headline.pfRank}</>}
+                  {headline.streak && <> · {headline.streak} streak</>}
+                </div>
+              )}
               <div className="hub-owner">
                 {hub.owner_name} · {hub.seasons_played} seasons played
                 {hub.selected_team_name !== hub.current_team_name && (
@@ -212,41 +249,29 @@ export function TeamHubPage() {
 
           {tab === 'summary' && (
             <>
+              {/* At most five cards. The season's place is in the headline above,
+               * worded for a season in progress; points per game is one card
+               * for the season (all-time beneath), plus one listing each
+               * scoring format when the owner has played more than one. */}
               <section className="hub-summary">
-                <StatCard
-                  label={`${hub.selected_year} Final Place`}
-                  value={`#${hub.selected_finish}`}
-                />
                 <StatCard label="Average Finish" value={hub.avg_finish.toFixed(2)} sub="all-time" />
-                <StatCard
-                  label="Avg PF / Game"
-                  value={hub.career_avg_pf.toFixed(2)}
-                  sub="all-time"
-                />
                 <StatCard
                   label={`Avg PF / Game (${hub.selected_year})`}
                   value={hub.selected_avg_pf.toFixed(2)}
+                  sub={`${hub.career_avg_pf.toFixed(2)} all-time`}
                 />
-                {hub.ppr_avg_pf != null && (
-                  <StatCard
-                    label="Avg PF / Game"
-                    value={hub.ppr_avg_pf.toFixed(2)}
-                    sub="PPR seasons"
-                  />
-                )}
-                {hub.half_ppr_avg_pf != null && (
-                  <StatCard
-                    label="Avg PF / Game"
-                    value={hub.half_ppr_avg_pf.toFixed(2)}
-                    sub="Half-PPR seasons"
-                  />
-                )}
-                {hub.standard_avg_pf != null && (
-                  <StatCard
-                    label="Avg PF / Game"
-                    value={hub.standard_avg_pf.toFixed(2)}
-                    sub="Standard seasons"
-                  />
+                {formats.length > 1 && (
+                  <div className="stat-card">
+                    <div className="stat-label">Avg PF / Game by format</div>
+                    <dl className="format-list">
+                      {formats.map(([label, v]) => (
+                        <div key={label}>
+                          <dt>{label}</dt>
+                          <dd>{v.toFixed(2)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
                 )}
                 {prAll?.avgRank != null && (
                   <StatCard
