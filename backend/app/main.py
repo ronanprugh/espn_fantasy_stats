@@ -9,6 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from . import cache
 from . import power_rankings as pr
+from .accolades import accolades as count_accolades
 from .rivalries import is_unplayed, rivalry_summary
 from .auth import current_user, hash_password, login, logout, require_admin, verify_password
 from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
@@ -759,6 +760,7 @@ def team_hub(
 
     # Gather every season this owner played in.
     seasons_by_year: dict[int, dict] = {}
+    payload_by_year: dict[int, dict] = {}
     for y in all_years:
         teams_payload = _get_season_teams(
             ctx.espn_league_id, y, ctx.espn_s2, ctx.swid, refresh
@@ -773,6 +775,7 @@ def team_hub(
         )
         if td is not None:
             seasons_by_year[y] = td
+            payload_by_year[y] = teams_payload
 
     if not seasons_by_year:
         raise HTTPException(status_code=404, detail="Owner not found in any season")
@@ -839,35 +842,10 @@ def team_hub(
     except Exception:
         roster = []
 
-    # Accolades: count finishes across all seasons this owner played.
-    championships: list[int] = []
-    runner_ups: list[int] = []
-    third_places: list[int] = []
-    last_places: list[int] = []
-    # last-place threshold: total team count (max final_standing observed)
-    league_size = max(
-        (td["final_standing"] or td["standing"]) for td in seasons_by_year.values()
+    # Accolades: podium and last-place finishes, in finished seasons only.
+    accolades = count_accolades(
+        (y, td, payload_by_year[y]) for y, td in seasons_by_year.items()
     )
-    for y, td in sorted(seasons_by_year.items()):
-        f = td["final_standing"] or td["standing"]
-        if f == 1:
-            championships.append(y)
-        elif f == 2:
-            runner_ups.append(y)
-        elif f == 3:
-            third_places.append(y)
-        if f == league_size:
-            last_places.append(y)
-    accolades = {
-        "championships": len(championships),
-        "runner_ups": len(runner_ups),
-        "third_places": len(third_places),
-        "last_places": len(last_places),
-        "championship_years": championships,
-        "runner_up_years": runner_ups,
-        "third_place_years": third_places,
-        "last_place_years": last_places,
-    }
 
     # Career records: scan every season's scoreboard for this owner's team.
     # Tuples: (value, year, week, opp_name, own_team_id, opp_team_id)
