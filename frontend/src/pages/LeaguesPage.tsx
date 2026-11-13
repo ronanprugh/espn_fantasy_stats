@@ -183,16 +183,22 @@ function LeagueRow({
   }
 
   return (
-    <li
-      className={isSelected ? 'selected' : 'clickable'}
-      onClick={() => {
-        if (!isSelected) onSelect()
-      }}
-    >
+    <li className={isSelected ? 'selected' : 'clickable'}>
+      {/* Switching leagues is a real button laid over the whole row, so a
+        * click anywhere on it still switches; the row's own controls sit
+        * above it (see .league-cover). */}
+      {!isSelected && (
+        <button
+          type="button"
+          className="league-cover"
+          onClick={onSelect}
+          aria-label={`Use ${league.display_name}`}
+        />
+      )}
       <div className="league-row-main">
         <div className="league-name">{league.display_name}</div>
         <div className="league-id">ESPN ID: {league.espn_league_id}</div>
-        <div className="league-favorite" onClick={(e) => e.stopPropagation()}>
+        <div className="league-favorite">
           <span className="favorite-label">Your team:</span>{' '}
           {editingFavorite ? (
             <span className="favorite-edit">
@@ -235,13 +241,12 @@ function LeagueRow({
         {isSelected ? (
           <span className="pill-tag active">Active</span>
         ) : (
-          <span className="pill-tag use-this">Use this</span>
+          <span className="pill-tag use-this" aria-hidden="true">Use this</span>
         )}
         <button className="edit-btn" onClick={startEditName}>Edit</button>
         <button
           className="danger-btn"
-          onClick={async (e) => {
-            e.stopPropagation()
+          onClick={async () => {
             if (confirm(`Remove "${league.display_name}" from your account?`)) {
               await deleteLeague(league.id)
               await onChanged()

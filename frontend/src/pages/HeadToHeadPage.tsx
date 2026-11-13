@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import {
   fetchHeadToHead,
   fetchHeadToHeadSummary,
@@ -15,6 +15,7 @@ import { RoundBadge } from '../components/RoundBadge'
 import { TeamLink } from '../components/TeamLink'
 import { Rivalries } from '../components/Rivalries'
 import { useFromHere } from '../hooks/useFromHere'
+import { boxScoreHref, noBoxScoreReason } from '../lib/links'
 import { useLeague } from '../contexts/LeagueContext'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { Loading } from '../components/Loading'
@@ -24,7 +25,8 @@ import { usePowerRankings } from '../hooks/usePowerRankings'
 import { ownerStats, rankLookup, type OwnerPrStats, type RankLookup } from '../lib/powerRankings'
 
 export function HeadToHeadPage() {
-  const navigate = useNavigate()
+  // Box Score's back link names this page.
+  const fromHere = useFromHere('Head to Head')
   const isMobile = useIsMobile()
   const { selectedLeague } = useLeague()
   const [owners, setOwners] = useState<OwnerHistory[]>([])
@@ -90,11 +92,6 @@ export function HeadToHeadPage() {
   if (!selectedLeague) return <NoLeagueSelected />
 
 
-  const fromHere = useFromHere('Head to Head')
-  const handleMatchupClick = (m: HeadToHeadMatchup) => {
-    if (m.year < 2019) return // box scores unavailable
-    navigate(`/box_score/${m.year}/${m.week}/${m.owner_a_team_id}/${m.owner_b_team_id}`, { state: fromHere })
-  }
 
   return (
     <div className="page">
@@ -157,9 +154,9 @@ export function HeadToHeadPage() {
           {isMobile ? <H2HSummaryMobile data={data} pr={prStats} /> : <H2HSummary data={data} pr={prStats} />}
           {look && <RankedRecord data={data} look={look} />}
           {isMobile ? (
-            <H2HMatchupsMobile matchups={data.matchups} data={data} onClick={handleMatchupClick} look={look} />
+            <H2HMatchupsMobile matchups={data.matchups} data={data} fromHere={fromHere} look={look} />
           ) : (
-            <H2HMatchupsList matchups={data.matchups} data={data} onClick={handleMatchupClick} look={look} />
+            <H2HMatchupsList matchups={data.matchups} data={data} fromHere={fromHere} look={look} />
           )}
         </>
       )}
@@ -374,12 +371,12 @@ function H2HSummaryMobile({ data, pr }: { data: HeadToHeadStats; pr?: Map<string
 function H2HMatchupsMobile({
   matchups,
   data,
-  onClick,
+  fromHere,
   look,
 }: {
   matchups: HeadToHeadMatchup[]
   data: HeadToHeadStats
-  onClick: (m: HeadToHeadMatchup) => void
+  fromHere: FromHere
   look?: RankLookup
 }) {
   return (
@@ -395,25 +392,8 @@ function H2HMatchupsMobile({
         {matchups.map((m, i) => {
           const aWon = m.winner_owner_id === data.owner_a_id
           const bWon = m.winner_owner_id === data.owner_b_id
-          const clickable = m.year >= 2019
           return (
-            <div
-              key={i}
-              className={`h2h-m-card${clickable ? ' clickable' : ''}`}
-              onClick={clickable ? () => onClick(m) : undefined}
-              role={clickable ? 'button' : undefined}
-              tabIndex={clickable ? 0 : undefined}
-              onKeyDown={
-                clickable
-                  ? (e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        onClick(m)
-                      }
-                    }
-                  : undefined
-              }
-            >
+            <MatchupCard key={i} m={m} fromHere={fromHere}>
               <div className="h2h-m-meta">
                 <span>
                   {m.year} · Wk {m.week}
@@ -429,11 +409,36 @@ function H2HMatchupsMobile({
                   {m.owner_b_score.toFixed(1)} <Rank look={look} m={m} side="b" />
                 </span>
               </div>
-            </div>
+            </MatchupCard>
           )
         })}
       </div>
     </section>
+  )
+}
+
+type FromHere = ReturnType<typeof useFromHere>
+
+const matchupHref = (m: HeadToHeadMatchup) =>
+  boxScoreHref(m.year, m.week, m.owner_a_team_id, m.owner_b_team_id)
+
+/** A phone matchup card. Nothing inside it is a link, so the card itself is
+ * one; a game with no box score is a plain card that says why on hover. */
+function MatchupCard({ m, fromHere, children }: { m: HeadToHeadMatchup; fromHere: FromHere; children: ReactNode }) {
+  const unavailable = noBoxScoreReason(m.year)
+  return unavailable ? (
+    <div className="h2h-m-card" title={unavailable}>
+      {children}
+    </div>
+  ) : (
+    <Link
+      to={matchupHref(m)}
+      state={fromHere}
+      className="h2h-m-card clickable"
+      aria-label={`Box score: ${m.year} week ${m.week}, ${m.owner_a_score.toFixed(1)} to ${m.owner_b_score.toFixed(1)}`}
+    >
+      {children}
+    </Link>
   )
 }
 
@@ -445,12 +450,12 @@ function Rank({ look, m, side }: { look?: RankLookup; m: HeadToHeadMatchup; side
 function H2HMatchupsList({
   matchups,
   data,
-  onClick,
+  fromHere,
   look,
 }: {
   matchups: HeadToHeadMatchup[]
   data: HeadToHeadStats
-  onClick: (m: HeadToHeadMatchup) => void
+  fromHere: FromHere
   look?: RankLookup
 }) {
   return (
@@ -472,14 +477,25 @@ function H2HMatchupsList({
           {matchups.map((m, i) => {
             const aWon = m.winner_owner_id === data.owner_a_id
             const bWon = m.winner_owner_id === data.owner_b_id
+            const unavailable = noBoxScoreReason(m.year)
             return (
               <tr
                 key={i}
-                onClick={() => onClick(m)}
-                className={m.year >= 2019 ? 'clickable-row' : ''}
-                title={m.year >= 2019 ? 'View box score' : 'Box scores not available before 2019'}
+                className={unavailable ? '' : 'clickable-row link-row'}
+                title={unavailable ?? undefined}
               >
-                <td className="num">{m.year}</td>
+                <td className="num">
+                  {!unavailable && (
+                    <Link
+                      to={matchupHref(m)}
+                      state={fromHere}
+                      className="row-cover"
+                      title="View box score"
+                      aria-label={`Box score: ${m.year} week ${m.week}`}
+                    />
+                  )}
+                  {m.year}
+                </td>
                 <td className="num">Wk {m.week}</td>
                 <td><RoundBadge round={m.round_label} /></td>
                 <td className={`num ${aWon ? 'winner-cell' : ''}`}>

@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   fetchOwnerHistory,
   fetchTeamHub,
@@ -20,6 +20,7 @@ import { H2HLink } from '../components/TeamLink'
 import { useTeamOwners } from '../hooks/useTeamOwners'
 import { useFromHere } from '../hooks/useFromHere'
 import { hubHeadline } from '../lib/teamHub'
+import { boxScoreHref, noBoxScoreReason } from '../lib/links'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
@@ -54,7 +55,6 @@ const HUB_TABS: HubTab[] = ['summary', 'roster', 'schedule', 'power']
 
 export function TeamHubPage() {
   const { selectedLeague } = useLeague()
-  const navigate = useNavigate()
   const fromHere = useFromHere('Team Hub')
   const [owners, setOwners] = useState<OwnerHistory[]>([])
   // ?team=<owner id>&year=. No year means the hub's default (most recent),
@@ -292,27 +292,14 @@ export function TeamHubPage() {
               {hub.last_matchup && (
                 <section className="hub-last-matchup">
                   <h3>Last Matchup — {hub.selected_year}</h3>
-                  <LastMatchupCard
-                    hub={hub}
-                    opponent={opponent}
-                    onClick={() => {
-                      if (hub.last_matchup!.year < 2019) return
-                      navigate(
-                        `/box_score/${hub.last_matchup!.year}/${hub.last_matchup!.week}/${hub.last_matchup!.own_team_id}/${hub.last_matchup!.opp_team_id}`,
-                        { state: fromHere },
-                      )
-                    }}
-                  />
+                  <LastMatchupCard hub={hub} opponent={opponent} fromHere={fromHere} />
                 </section>
               )}
 
               <RecordsSection
                 records={hub.records}
                 opponent={opponent}
-                onRecordClick={(r) => {
-                  if (r.year < 2019) return
-                  navigate(`/box_score/${r.year}/${r.week}/${r.own_team_id}/${r.opp_team_id}`, { state: fromHere })
-                }}
+                fromHere={fromHere}
               />
             </>
           )}
@@ -340,13 +327,7 @@ export function TeamHubPage() {
                 schedule={hub.schedule}
                 year={hub.selected_year}
                 opponent={opponent}
-                onGameClick={(g) => {
-                  if (g.is_bye || hub.selected_year < 2019 || g.opp_team_id == null) return
-                  navigate(
-                    `/box_score/${hub.selected_year}/${g.week}/${g.own_team_id}/${g.opp_team_id}`,
-                    { state: fromHere },
-                  )
-                }}
+                fromHere={fromHere}
               />
             </section>
           )}
@@ -390,15 +371,16 @@ function TrophyCabinet({ accolades }: { accolades: TeamHub['accolades'] }) {
 }
 
 type Opponent = (year: number, teamId: number | null, name: ReactNode) => ReactNode
+type FromHere = ReturnType<typeof useFromHere>
 
 function RecordsSection({
   records,
   opponent,
-  onRecordClick,
+  fromHere,
 }: {
   records: TeamHub['records']
   opponent: Opponent
-  onRecordClick: (r: RecordEntry) => void
+  fromHere: FromHere
 }) {
   const fmtCtx = (r: RecordEntry | null) =>
     r ? (
@@ -410,7 +392,9 @@ function RecordsSection({
     )
   const fmtVal = (r: RecordEntry | null, sign = '') =>
     r ? `${sign}${r.value.toFixed(1)}` : '—'
-  const clickable = (r: RecordEntry | null) => !!r && r.year >= 2019
+  // Each game record opens its box score; the streak cards are not games.
+  const game = (r: RecordEntry | null) =>
+    r ? { href: boxScoreHref(r.year, r.week, r.own_team_id, r.opp_team_id), year: r.year, fromHere } : undefined
   return (
     <section className="hub-records">
       <h3>Career Records</h3>
@@ -419,27 +403,27 @@ function RecordsSection({
           label="Highest Score"
           value={fmtVal(records.highest_score)}
           sub={fmtCtx(records.highest_score)}
-          onClick={clickable(records.highest_score) ? () => onRecordClick(records.highest_score!) : undefined}
+          game={game(records.highest_score)}
         />
         <RecordCard
           label="Lowest Score"
           value={fmtVal(records.lowest_score)}
           sub={fmtCtx(records.lowest_score)}
-          onClick={clickable(records.lowest_score) ? () => onRecordClick(records.lowest_score!) : undefined}
+          game={game(records.lowest_score)}
         />
         <RecordCard
           label="Biggest Win"
           value={fmtVal(records.biggest_win_margin, '+')}
           sub={fmtCtx(records.biggest_win_margin)}
           accent="pos"
-          onClick={clickable(records.biggest_win_margin) ? () => onRecordClick(records.biggest_win_margin!) : undefined}
+          game={game(records.biggest_win_margin)}
         />
         <RecordCard
           label="Worst Loss"
           value={fmtVal(records.biggest_loss_margin, '−')}
           sub={fmtCtx(records.biggest_loss_margin)}
           accent="neg"
-          onClick={clickable(records.biggest_loss_margin) ? () => onRecordClick(records.biggest_loss_margin!) : undefined}
+          game={game(records.biggest_loss_margin)}
         />
         <RecordCard
           label="Longest Win Streak"
@@ -461,20 +445,32 @@ function RecordCard({
   value,
   sub,
   accent,
-  onClick,
+  game,
 }: {
   label: string
   value: string
   sub?: ReactNode
   accent?: 'pos' | 'neg'
-  onClick?: () => void
+  game?: { href: string; year: number; fromHere: FromHere }
 }) {
+  // The opponent inside `sub` is a link of its own, so the box score link is
+  // a cover laid over the card rather than a wrapper (see .card-cover).
+  const unavailable = game ? noBoxScoreReason(game.year) : null
+  const linked = !!game && !unavailable
   return (
     <div
-      className={`record-card${accent ? ` ${accent}` : ''}${onClick ? ' clickable' : ''}`}
-      onClick={onClick}
-      title={onClick ? 'View box score' : undefined}
+      className={`record-card${accent ? ` ${accent}` : ''}${linked ? ' clickable' : ''}`}
+      title={unavailable ?? undefined}
     >
+      {linked && (
+        <Link
+          to={game.href}
+          state={game.fromHere}
+          className="card-cover"
+          title="View box score"
+          aria-label={`${label}: view box score`}
+        />
+      )}
       <div className="record-label">{label}</div>
       <div className="record-value">{value}</div>
       {sub && <div className="record-sub">{sub}</div>}
@@ -482,17 +478,25 @@ function RecordCard({
   )
 }
 
-function LastMatchupCard({ hub, opponent, onClick }: { hub: TeamHub; opponent: Opponent; onClick: () => void }) {
+function LastMatchupCard({ hub, opponent, fromHere }: { hub: TeamHub; opponent: Opponent; fromHere: FromHere }) {
   const m = hub.last_matchup!
   const ownWon = m.result === 'W'
   const oppWon = m.result === 'L'
-  const clickable = m.year >= 2019
+  const unavailable = noBoxScoreReason(m.year)
   return (
     <div
-      className={`scoreboard-card ${clickable ? 'clickable' : 'disabled'}`}
-      onClick={clickable ? onClick : undefined}
-      title={clickable ? 'View box score' : ''}
+      className={`scoreboard-card ${unavailable ? 'disabled' : 'clickable'}`}
+      title={unavailable ?? undefined}
     >
+      {!unavailable && (
+        <Link
+          to={boxScoreHref(m.year, m.week, m.own_team_id, m.opp_team_id)}
+          state={fromHere}
+          className="card-cover"
+          title="View box score"
+          aria-label={`Box score: ${m.own_team_name} vs ${m.opp_team_name}, ${m.year} week ${m.week}`}
+        />
+      )}
       <div className="card-badge">
         <RoundBadge round={m.round_label} hideRegular />
       </div>
@@ -565,14 +569,13 @@ function ScheduleTable({
   schedule,
   year,
   opponent,
-  onGameClick,
+  fromHere,
 }: {
   schedule: TeamHubGame[]
   year: number
   opponent: Opponent
-  onGameClick: (g: TeamHubGame) => void
+  fromHere: FromHere
 }) {
-  const boxScoresAvailable = year >= 2019
   return (
     <table className="schedule-table">
       <thead>
@@ -589,15 +592,31 @@ function ScheduleTable({
         {schedule.map((g) => {
           const won = g.result === 'W'
           const lost = g.result === 'L'
-          const clickable = !g.is_bye && boxScoresAvailable && g.opp_team_id != null
+          const unavailable = noBoxScoreReason(year, {
+            isBye: g.is_bye,
+            unplayed: g.result === 'U',
+            opponent: g.opp_team_id,
+          })
+          // The row's box score link is a cover over the whole row; the
+          // opponent's Head to Head link sits above it (see .row-cover).
           return (
             <tr
               key={g.week}
-              className={clickable ? 'clickable-row' : ''}
-              onClick={clickable ? () => onGameClick(g) : undefined}
-              title={clickable ? 'View box score' : ''}
+              className={unavailable ? '' : 'clickable-row link-row'}
+              title={unavailable ?? undefined}
             >
-              <td className="num">{g.week}</td>
+              <td className="num">
+                {!unavailable && (
+                  <Link
+                    to={boxScoreHref(year, g.week, g.own_team_id, g.opp_team_id!)}
+                    state={fromHere}
+                    className="row-cover"
+                    title="View box score"
+                    aria-label={`Box score: week ${g.week} vs ${g.opp_team_name}`}
+                  />
+                )}
+                {g.week}
+              </td>
               <td>
                 <RoundBadge round={g.round_label} />
               </td>
