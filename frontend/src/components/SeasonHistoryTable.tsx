@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { TeamLink } from './TeamLink'
+import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import type { CloseGameRecord, CloseGames, SeasonTeams, Team } from '../api'
 import {
   computeSeasonStats,
@@ -158,6 +159,7 @@ export function SeasonHistoryTable({
    * and without the in-progress tint, which would cover every row. */
   singleSeason?: boolean
 }) {
+  const yourTeam = useYourTeam()
   // Across seasons, Avg PF rather than total PF: regular-season length can
   // differ between years, and totals would favour the longer seasons.
   const [sortKey, setSortKey] = useState<SortKey>(singleSeason ? 'finish' : 'avg_points_for')
@@ -322,7 +324,14 @@ export function SeasonHistoryTable({
             return (
               <tr
                 key={`${year}-${t.team_id}`}
-                className={r.inProgress && !singleSeason ? 'current-season' : undefined}
+                className={
+                  [
+                    r.inProgress && !singleSeason && 'current-season',
+                    t.owners.some((o) => isYours(yourTeam, o.id)) && 'your-team',
+                  ]
+                    .filter(Boolean)
+                    .join(' ') || undefined
+                }
               >
                 {!singleSeason && <td className="num">{year}</td>}
                 <td>

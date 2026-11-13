@@ -9,6 +9,7 @@ import {
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { SortableTh, type SortDir } from '../components/SortableTh'
 import { TeamLink } from '../components/TeamLink'
+import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
@@ -44,6 +45,7 @@ type SortKey =
 
 export function PositionalStatsPage() {
   const { leagueId, years } = useLeagueYears()
+  const yourTeam = useYourTeam()
   // ?year=<year>|all&pos=<position>. With no year, the latest eligible
   // season is shown without being written to the URL.
   const [params, update] = useUrlState()
@@ -310,7 +312,7 @@ export function PositionalStatsPage() {
             </thead>
             <tbody>
               {sorted.map((r) => (
-                <tr key={r.label + r.sublabel}>
+                <tr key={r.label + r.sublabel} className={isYours(yourTeam, r.ownerId) ? 'your-team' : undefined}>
                   <td className="num">{r.rank}</td>
                   <td>
                     <div>

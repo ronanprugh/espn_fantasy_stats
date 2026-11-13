@@ -177,6 +177,8 @@ const SURFACE_TOKENS = [
   '--bg-subtle',
   '--bg-hover',
   '--bg-row-stripe',
+  // Your team's rows (#27) put every kind of stat text on this tint.
+  '--accent-softer',
 ]
 
 /**

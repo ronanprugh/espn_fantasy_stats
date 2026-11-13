@@ -5,8 +5,8 @@
 
 ## Summary
 
-- Pairings measured: **124**
-- Passing: **124**
+- Pairings measured: **144**
+- Passing: **144**
 - Failing: **0**
 
 Thresholds: 4.5:1 for foreground text tokens (WCAG 2.1 SC 1.4.3), 3:1 for
@@ -82,6 +82,16 @@ force heavy outlines that contradict the design's hairline density goal.
 | light | `--success` | `--bg-row-stripe` | 5.90:1 | 4.5:1 | PASS |
 | light | `--danger` | `--bg-row-stripe` | 5.13:1 | 4.5:1 | PASS |
 | light | `--warn` | `--bg-row-stripe` | 5.59:1 | 4.5:1 | PASS |
+| light | `--text-strong` | `--accent-softer` | 16.80:1 | 4.5:1 | PASS |
+| light | `--text-primary` | `--accent-softer` | 14.04:1 | 4.5:1 | PASS |
+| light | `--text-secondary` | `--accent-softer` | 7.17:1 | 4.5:1 | PASS |
+| light | `--text-muted` | `--accent-softer` | 5.26:1 | 4.5:1 | PASS |
+| light | `--text-faint` | `--accent-softer` | 4.73:1 | 4.5:1 | PASS |
+| light | `--accent` | `--accent-softer` | 4.80:1 | 4.5:1 | PASS |
+| light | `--accent-hover` | `--accent-softer` | 6.76:1 | 4.5:1 | PASS |
+| light | `--success` | `--accent-softer` | 5.56:1 | 4.5:1 | PASS |
+| light | `--danger` | `--accent-softer` | 4.84:1 | 4.5:1 | PASS |
+| light | `--warn` | `--accent-softer` | 5.27:1 | 4.5:1 | PASS |
 | light | `--border-strong` | `--bg-page` | 3.30:1 | 3:1 | PASS |
 | light | `--border-strong` | `--bg-card` | 3.69:1 | 3:1 | PASS |
 | dark | `--text-strong` | `--bg-page` | 17.59:1 | 4.5:1 | PASS |
@@ -144,5 +154,15 @@ force heavy outlines that contradict the design's hairline density goal.
 | dark | `--success` | `--bg-row-stripe` | 7.16:1 | 4.5:1 | PASS |
 | dark | `--danger` | `--bg-row-stripe` | 5.62:1 | 4.5:1 | PASS |
 | dark | `--warn` | `--bg-row-stripe` | 6.00:1 | 4.5:1 | PASS |
+| dark | `--text-strong` | `--accent-softer` | 12.91:1 | 4.5:1 | PASS |
+| dark | `--text-primary` | `--accent-softer` | 11.36:1 | 4.5:1 | PASS |
+| dark | `--text-secondary` | `--accent-softer` | 6.98:1 | 4.5:1 | PASS |
+| dark | `--text-muted` | `--accent-softer` | 5.11:1 | 4.5:1 | PASS |
+| dark | `--text-faint` | `--accent-softer` | 4.57:1 | 4.5:1 | PASS |
+| dark | `--accent` | `--accent-softer` | 6.89:1 | 4.5:1 | PASS |
+| dark | `--accent-hover` | `--accent-softer` | 8.12:1 | 4.5:1 | PASS |
+| dark | `--success` | `--accent-softer` | 6.13:1 | 4.5:1 | PASS |
+| dark | `--danger` | `--accent-softer` | 4.81:1 | 4.5:1 | PASS |
+| dark | `--warn` | `--accent-softer` | 5.13:1 | 4.5:1 | PASS |
 | dark | `--border-strong` | `--bg-page` | 3.49:1 | 3:1 | PASS |
 | dark | `--border-strong` | `--bg-card` | 3.19:1 | 3:1 | PASS |

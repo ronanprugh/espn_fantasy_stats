@@ -18,6 +18,7 @@ import { useLeague } from '../contexts/LeagueContext'
 import { usePowerRankings } from '../hooks/usePowerRankings'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
 import { teamHubHref } from '../lib/links'
+import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import {
   authorOwnerId,
   biggestUpsets,
@@ -201,6 +202,7 @@ function WeekView({
   const extras = w.extra_post_ids.map((id) => posts.get(id)).filter((p): p is PowerRankingPostSummary => !!p)
   const previews = season.previews.map((id) => posts.get(id)).filter((p): p is PowerRankingPostSummary => !!p)
   const rankOf = new Map(w.entries.map((e) => [e.team_id, e.rank]))
+  const yourTeam = useYourTeam()
 
   return (
     <section className="pr-week">
@@ -284,7 +286,12 @@ function WeekView({
           const opp = oppId != null ? teamIn(season, oppId) : undefined
           const result = game ? (game[2] === e.team_id ? 'W' : game[2] == null ? 'T' : 'L') : null
           return (
-            <li key={e.team_id} className={`pr-row${isAssumed(w) ? ' assumed' : ''}${e.rank === 1 ? ' top' : ''}`}>
+            <li
+              key={e.team_id}
+              className={`pr-row${isAssumed(w) ? ' assumed' : ''}${e.rank === 1 ? ' top' : ''}${
+                isYours(yourTeam, t?.owner_id) ? ' your-team' : ''
+              }`}
+            >
               <div className="pr-rank">{e.rank}</div>
               <div className="pr-main">
                 <div className="pr-team-line">

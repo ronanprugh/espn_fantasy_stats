@@ -12,6 +12,7 @@ import { rankLookup, type RankLookup } from '../lib/powerRankings'
 import { RoundBadge } from '../components/RoundBadge'
 import { TeamLink } from '../components/TeamLink'
 import { useTeamOwners } from '../hooks/useTeamOwners'
+import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
@@ -37,6 +38,10 @@ export function ScoreboardPage() {
   const [error, setError] = useState<string | null>(null)
   const pr = usePowerRankings(leagueId)
   const ownerOf = useTeamOwners(leagueId, year === '' ? [] : [year])
+  const yourTeam = useYourTeam()
+  const isYourMatchup = (m: ScoreboardMatchup) =>
+    year !== '' &&
+    (isYours(yourTeam, ownerOf(year, m.team_a_id)) || (!m.is_bye && isYours(yourTeam, ownerOf(year, m.team_b_id))))
   const look = useMemo(() => (pr.hasData ? rankLookup(pr.data) : undefined), [pr.data, pr.hasData])
 
   useEffect(() => {
@@ -80,8 +85,13 @@ export function ScoreboardPage() {
     const prev = roundOfWeek.get(m.week)
     if (!prev || ROUND_ORDER.indexOf(r) > ROUND_ORDER.indexOf(prev)) roundOfWeek.set(m.week, r)
   }
+  // Your matchup first; the rest keep ESPN's order (sort is stable).
   const weekMatchups =
-    seasonData && week !== '' ? seasonData.matchups.filter((m) => m.week === week) : []
+    seasonData && week !== ''
+      ? seasonData.matchups
+          .filter((m) => m.week === week)
+          .sort((a, b) => Number(isYourMatchup(b)) - Number(isYourMatchup(a)))
+      : []
 
   const boxScoreHref = (m: ScoreboardMatchup) =>
     `/box_score/${year}/${m.week}/${m.team_a_id}/${m.team_b_id}`
@@ -147,6 +157,7 @@ export function ScoreboardPage() {
                 rank={look ? (teamId) => look(year as number, m.week, teamId) : undefined}
                 owner={(teamId) => ownerOf(year as number, teamId)}
                 year={year as number}
+                yours={isYourMatchup(m)}
                 href={boxScoreHref(m)}
                 disabled={
                   !boxScoresAvailable || m.is_bye || m.round_label === 'consolation' || isUnplayed(m)
@@ -185,6 +196,7 @@ function ScoreboardCard({
   rank,
   owner,
   year,
+  yours = false,
 }: {
   matchup: ScoreboardMatchup
   href: string
@@ -194,7 +206,10 @@ function ScoreboardCard({
   /** Each team's owner, for the Team Hub links. */
   owner: (teamId: number) => string | undefined
   year: number
+  /** Your team plays in it: outlined. */
+  yours?: boolean
 }) {
+  const mine = yours ? ' your-matchup' : ''
   const name = (teamId: number, teamName: string) => (
     <TeamLink ownerId={owner(teamId)} year={year}>
       {teamName}
@@ -206,7 +221,7 @@ function ScoreboardCard({
   }
   if (matchup.is_bye) {
     return (
-      <div className="scoreboard-card bye">
+      <div className={`scoreboard-card bye${mine}`}>
         <div className="card-badge">
           <RoundBadge round={matchup.round_label} hideRegular />
         </div>
@@ -256,9 +271,9 @@ function ScoreboardCard({
   // because the team names inside are links too and links can't nest; they sit
   // above the cover instead (see .card-cover in styles.css).
   return disabled ? (
-    <div className="scoreboard-card disabled">{content}</div>
+    <div className={`scoreboard-card disabled${mine}`}>{content}</div>
   ) : (
-    <div className="scoreboard-card clickable">
+    <div className={`scoreboard-card clickable${mine}`}>
       <Link
         to={href}
         className="card-cover"

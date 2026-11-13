@@ -1696,6 +1696,24 @@ table.season-history tr.current-season td:first-child {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+/* Your team's row (useYourTeam), in every stats table: a stronger tint than
+ * the in-progress season's, the same leading accent bar, and bold text, so it
+ * doesn't rely on colour alone and stays distinct from in-progress rows. */
+table tr.your-team > td {
+  background: var(--accent-softer);
+  font-weight: 600;
+}
+
+table tr.your-team > td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Same specificity as the in-progress rule above, and later, so a row that is
+ * both yours and in progress reads as yours. */
+table.season-history tr.your-team td {
+  background: var(--accent-softer);
+}
+
 .season-history-bar {
   display: flex;
   flex-wrap: wrap;
@@ -2089,6 +2107,12 @@ a.scoreboard-card:focus-visible {
 
 .scoreboard-card.disabled {
   opacity: 0.7;
+}
+
+/* Your matchup: listed first and outlined in the accent. */
+.scoreboard-card.your-matchup {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .scoreboard-card .card-row {
@@ -2949,6 +2973,14 @@ a.scoreboard-card:focus-visible {
   fill: var(--text-primary);
 }
 
+.bracket-your-row {
+  fill: var(--accent-softer);
+}
+
+.bracket-your-bar {
+  fill: var(--accent);
+}
+
 .bracket-team-link:hover .bracket-text,
 .bracket-team-link:focus-visible .bracket-text {
   fill: var(--accent);
@@ -2990,6 +3022,12 @@ a.scoreboard-card:focus-visible {
   font-size: 14px;
   align-items: baseline;
   color: var(--text-primary);
+}
+
+.standings-list li.your-team {
+  background: var(--accent-softer);
+  box-shadow: inset 3px 0 0 var(--accent);
+  font-weight: 600;
 }
 
 .standings-list .rank {
@@ -3217,6 +3255,10 @@ a.scoreboard-card:focus-visible {
 }
 .pr-row.top { border-color: var(--accent); }
 .pr-row.assumed { border-style: dashed; background: transparent; }
+/* Your team: tinted with a leading accent bar (after .assumed, so it keeps
+ * the tint in a carried-over week too). */
+.pr-row.your-team { background: var(--accent-softer); box-shadow: inset 3px 0 0 var(--accent); }
+.pr-row.your-team .pr-team { font-weight: 700; }
 .pr-rank {
   font-size: 26px;
   font-weight: 800;
