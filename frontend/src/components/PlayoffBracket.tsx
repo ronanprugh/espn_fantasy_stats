@@ -1,7 +1,10 @@
 import { createContext, useContext } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { PlayoffMatchup, PlayoffTeam, SeasonPlayoffs } from '../api'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useTeamOwners } from '../hooks/useTeamOwners'
+import { teamHubHref } from '../lib/links'
+import { TeamLink } from './TeamLink'
 
 /* Bracket geometry.
  *
@@ -48,6 +51,9 @@ const COMPACT_METRICS: BracketMetrics = {
 
 const MetricsContext = createContext<BracketMetrics>(DESKTOP_METRICS)
 const useMetrics = () => useContext(MetricsContext)
+
+/** Each bracket team's Team Hub link for this season, once its owner is known. */
+const TeamHrefContext = createContext<(teamId: number) => string | undefined>(() => undefined)
 
 type BracketNode = {
   match: PlayoffMatchup
@@ -300,6 +306,7 @@ function TeamRow({
   yOffset: number
 }) {
   const m = useMetrics()
+  const teamHref = useContext(TeamHrefContext)
   const textY = m.ROW_H / 2 + m.FONT * 0.38 // visual vertical center
   if (isPlaceholder) {
     return (
@@ -316,18 +323,31 @@ function TeamRow({
       </g>
     )
   }
+  const href = teamHref(team.team_id)
+  const name = (
+    <text
+      className="bracket-text"
+      x={m.TEXT_PAD_X}
+      y={textY}
+      fontSize={m.FONT}
+      fontWeight={isWinner ? 600 : 400}
+    >
+      <tspan className="bracket-text-muted">{team.seed}.</tspan>
+      <tspan dx={6}>{truncate(team.team_name, nameLimit(m))}</tspan>
+    </text>
+  )
   return (
     <g transform={`translate(0,${yOffset})`}>
-      <text
-        className="bracket-text"
-        x={m.TEXT_PAD_X}
-        y={textY}
-        fontSize={m.FONT}
-        fontWeight={isWinner ? 600 : 400}
-      >
-        <tspan className="bracket-text-muted">{team.seed}.</tspan>
-        <tspan dx={6}>{truncate(team.team_name, nameLimit(m))}</tspan>
-      </text>
+      {/* An SVG <a>: the name opens the team's Team Hub. Its click stops here
+       * so the match box around it doesn't open the box score as well. */}
+      {href ? (
+        <Link to={href} className="bracket-team-link" onClick={(e) => e.stopPropagation()}>
+          <title>{team.team_name}: Team Hub</title>
+          {name}
+        </Link>
+      ) : (
+        name
+      )}
       <text
         className="bracket-text"
         x={m.BOX_W - m.TEXT_PAD_X}
@@ -477,6 +497,11 @@ export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
   const isMobile = useIsMobile()
   const metrics = isMobile ? COMPACT_METRICS : DESKTOP_METRICS
   const teamsById = new Map(data.teams.map((t) => [t.team_id, t]))
+  const ownerOf = useTeamOwners(data.league_id, [data.year])
+  const teamHref = (teamId: number) => {
+    const owner = ownerOf(data.year, teamId)
+    return owner ? teamHubHref(owner, { year: data.year }) : undefined
+  }
   const weeks = data.playoff_weeks
   if (weeks.length === 0) {
     return <p className="subtitle">No playoff data for this season.</p>
@@ -517,40 +542,44 @@ export function PlayoffBracket({ data }: { data: SeasonPlayoffs }) {
 
   return (
     <MetricsContext.Provider value={metrics}>
-      <div className="playoffs">
-        <BracketSection title="Championship" root={championship} onMatchClick={onMatchClick} />
-        <StandalonePlacementGame
-          title="3rd-place game"
-          match={thirdPlace}
-          teamsById={teamsById}
-          onMatchClick={onMatchClick}
-        />
-        <BracketSection
-          title="Consolation (5th place)"
-          root={fifthBracket}
-          onMatchClick={onMatchClick}
-        />
-        <StandalonePlacementGame
-          title="7th-place game"
-          match={seventhPlace}
-          teamsById={teamsById}
-          onMatchClick={onMatchClick}
-        />
+      <TeamHrefContext.Provider value={teamHref}>
+        <div className="playoffs">
+          <BracketSection title="Championship" root={championship} onMatchClick={onMatchClick} />
+          <StandalonePlacementGame
+            title="3rd-place game"
+            match={thirdPlace}
+            teamsById={teamsById}
+            onMatchClick={onMatchClick}
+          />
+          <BracketSection
+            title="Consolation (5th place)"
+            root={fifthBracket}
+            onMatchClick={onMatchClick}
+          />
+          <StandalonePlacementGame
+            title="7th-place game"
+            match={seventhPlace}
+            teamsById={teamsById}
+            onMatchClick={onMatchClick}
+          />
 
-        <section className="standings-section">
-          <h3>Final Standings</h3>
-          <ol className="standings-list">
-            {standings.map((t) => (
-              <li key={t.team_id}>
-                <span className="rank">{t.final_standing}.</span>
-                <span className="team">{t.team_name}</span>
-                <span className="owner">— {t.owner_name}</span>
-                <span className="seed-tag">seed {t.seed}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      </div>
+          <section className="standings-section">
+            <h3>Final Standings</h3>
+            <ol className="standings-list">
+              {standings.map((t) => (
+                <li key={t.team_id}>
+                  <span className="rank">{t.final_standing}.</span>
+                  <TeamLink ownerId={ownerOf(data.year, t.team_id)} year={data.year} className="team">
+                    {t.team_name}
+                  </TeamLink>
+                  <span className="owner">— {t.owner_name}</span>
+                  <span className="seed-tag">seed {t.seed}</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </div>
+      </TeamHrefContext.Provider>
     </MetricsContext.Provider>
   )
 }

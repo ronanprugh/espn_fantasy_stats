@@ -6,6 +6,7 @@ import {
 } from '../api'
 import { COLORS, ComparisonChart } from '../components/ComparisonChart'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
+import { TeamLink } from '../components/TeamLink'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
@@ -225,7 +226,9 @@ export function ComparePage() {
                         className="avg-row"
                         style={{ borderLeftColor: COLORS[i % COLORS.length] }}
                       >
-                        <div className="avg-team">{o.current_team_name}</div>
+                        <div className="avg-team">
+                          <TeamLink ownerId={o.owner_id}>{o.current_team_name}</TeamLink>
+                        </div>
                         <div className="avg-value">{avg != null ? avg.toFixed(2) : '—'}</div>
                       </div>
                     )

@@ -10,6 +10,8 @@ import { PrBadge } from '../components/PrBadge'
 import { usePowerRankings } from '../hooks/usePowerRankings'
 import { rankLookup, type RankLookup } from '../lib/powerRankings'
 import { RoundBadge } from '../components/RoundBadge'
+import { TeamLink } from '../components/TeamLink'
+import { useTeamOwners } from '../hooks/useTeamOwners'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
@@ -34,6 +36,7 @@ export function ScoreboardPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const pr = usePowerRankings(leagueId)
+  const ownerOf = useTeamOwners(leagueId, year === '' ? [] : [year])
   const look = useMemo(() => (pr.hasData ? rankLookup(pr.data) : undefined), [pr.data, pr.hasData])
 
   useEffect(() => {
@@ -142,6 +145,8 @@ export function ScoreboardPage() {
                 key={i}
                 matchup={m}
                 rank={look ? (teamId) => look(year as number, m.week, teamId) : undefined}
+                owner={(teamId) => ownerOf(year as number, teamId)}
+                year={year as number}
                 href={boxScoreHref(m)}
                 disabled={
                   !boxScoresAvailable || m.is_bye || m.round_label === 'consolation' || isUnplayed(m)
@@ -178,13 +183,23 @@ function ScoreboardCard({
   href,
   disabled,
   rank,
+  owner,
+  year,
 }: {
   matchup: ScoreboardMatchup
   href: string
   disabled: boolean
   /** Each team's power rank going into the week, when the league has them. */
   rank?: (teamId: number) => ReturnType<RankLookup>
+  /** Each team's owner, for the Team Hub links. */
+  owner: (teamId: number) => string | undefined
+  year: number
 }) {
+  const name = (teamId: number, teamName: string) => (
+    <TeamLink ownerId={owner(teamId)} year={year}>
+      {teamName}
+    </TeamLink>
+  )
   const badge = (teamId: number) => {
     const r = rank?.(teamId)
     return r ? <PrBadge rank={r.entry.rank} assumed={r.assumed} sourceWeek={r.sourceWeek} /> : null
@@ -197,7 +212,7 @@ function ScoreboardCard({
         </div>
         <div className="card-row">
           <div className="team">
-            <div className="team-name">{matchup.team_a_name}</div>
+            <div className="team-name">{name(matchup.team_a_id, matchup.team_a_name)}</div>
             <div className="team-owner">{matchup.team_a_owner}</div>
           </div>
           <div className="score">{matchup.team_a_score.toFixed(1)}</div>
@@ -218,7 +233,7 @@ function ScoreboardCard({
       <div className={`card-row ${aWon ? 'winner' : ''}`}>
         <div className="team">
           <div className="team-name">
-            {badge(matchup.team_a_id)} {matchup.team_a_name}
+            {badge(matchup.team_a_id)} {name(matchup.team_a_id, matchup.team_a_name)}
           </div>
           <div className="team-owner">{matchup.team_a_owner}</div>
         </div>
@@ -227,7 +242,7 @@ function ScoreboardCard({
       <div className={`card-row ${bWon ? 'winner' : ''}`}>
         <div className="team">
           <div className="team-name">
-            {badge(matchup.team_b_id)} {matchup.team_b_name}
+            {badge(matchup.team_b_id)} {name(matchup.team_b_id, matchup.team_b_name)}
           </div>
           <div className="team-owner">{matchup.team_b_owner}</div>
         </div>
@@ -236,13 +251,21 @@ function ScoreboardCard({
     </>
   )
 
-  // A real link when clickable: keyboard focus, screen readers, and
-  // open-in-new-tab all work, which an onClick on a div gave none of.
+  // The box score is a real link (keyboard focus, screen readers and
+  // open-in-new-tab all work) laid over the whole card. It can't wrap the card,
+  // because the team names inside are links too and links can't nest; they sit
+  // above the cover instead (see .card-cover in styles.css).
   return disabled ? (
     <div className="scoreboard-card disabled">{content}</div>
   ) : (
-    <Link to={href} className="scoreboard-card clickable" title="View box score">
+    <div className="scoreboard-card clickable">
+      <Link
+        to={href}
+        className="card-cover"
+        title="View box score"
+        aria-label={`Box score: ${matchup.team_a_name} vs ${matchup.team_b_name}`}
+      />
       {content}
-    </Link>
+    </div>
   )
 }

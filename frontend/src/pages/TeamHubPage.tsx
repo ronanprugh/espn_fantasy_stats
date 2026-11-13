@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   fetchOwnerHistory,
@@ -13,6 +13,8 @@ import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { RoundBadge } from '../components/RoundBadge'
 import { TeamPowerRankings } from '../components/TeamPowerRankings'
 import { YourTeamPrompt } from '../components/YourTeamPrompt'
+import { H2HLink } from '../components/TeamLink'
+import { useTeamOwners } from '../hooks/useTeamOwners'
 import { useLeague } from '../contexts/LeagueContext'
 import { Loading } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
@@ -67,6 +69,26 @@ export function TeamHubPage() {
     : undefined
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Opponents arrive as per-season team ids; Head to Head links need their
+  // owners, from every season the schedule, last matchup and records mention.
+  const recordYears = hub
+    ? [hub.records.highest_score, hub.records.lowest_score, hub.records.biggest_win_margin, hub.records.biggest_loss_margin]
+        .filter((r): r is RecordEntry => !!r)
+        .map((r) => r.year)
+    : []
+  const ownerOf = useTeamOwners(
+    selectedLeague?.espn_league_id,
+    hub ? [hub.selected_year, ...(hub.last_matchup ? [hub.last_matchup.year] : []), ...recordYears] : [],
+  )
+  /** An opponent's name, linking to Head to Head against them. */
+  const opponent = (year: number, teamId: number | null, name: ReactNode) =>
+    hub ? (
+      <H2HLink ownerId={hub.owner_id} opponentId={ownerOf(year, teamId)} title="Head to Head">
+        {name}
+      </H2HLink>
+    ) : (
+      name
+    )
 
   useEffect(() => {
     if (!selectedLeague) return
@@ -251,6 +273,7 @@ export function TeamHubPage() {
                   <h3>Last Matchup — {hub.selected_year}</h3>
                   <LastMatchupCard
                     hub={hub}
+                    opponent={opponent}
                     onClick={() => {
                       if (hub.last_matchup!.year < 2019) return
                       navigate(
@@ -263,6 +286,7 @@ export function TeamHubPage() {
 
               <RecordsSection
                 records={hub.records}
+                opponent={opponent}
                 onRecordClick={(r) => {
                   if (r.year < 2019) return
                   navigate(`/box_score/${r.year}/${r.week}/${r.own_team_id}/${r.opp_team_id}`)
@@ -293,6 +317,7 @@ export function TeamHubPage() {
               <ScheduleTable
                 schedule={hub.schedule}
                 year={hub.selected_year}
+                opponent={opponent}
                 onGameClick={(g) => {
                   if (g.is_bye || hub.selected_year < 2019 || g.opp_team_id == null) return
                   navigate(
@@ -341,15 +366,25 @@ function TrophyCabinet({ accolades }: { accolades: TeamHub['accolades'] }) {
   )
 }
 
+type Opponent = (year: number, teamId: number | null, name: ReactNode) => ReactNode
+
 function RecordsSection({
   records,
+  opponent,
   onRecordClick,
 }: {
   records: TeamHub['records']
+  opponent: Opponent
   onRecordClick: (r: RecordEntry) => void
 }) {
   const fmtCtx = (r: RecordEntry | null) =>
-    r ? `${r.year} · Wk ${r.week} · vs ${r.opponent}` : '—'
+    r ? (
+      <>
+        {r.year} · Wk {r.week} · vs {opponent(r.year, r.opp_team_id, r.opponent)}
+      </>
+    ) : (
+      '—'
+    )
   const fmtVal = (r: RecordEntry | null, sign = '') =>
     r ? `${sign}${r.value.toFixed(1)}` : '—'
   const clickable = (r: RecordEntry | null) => !!r && r.year >= 2019
@@ -407,7 +442,7 @@ function RecordCard({
 }: {
   label: string
   value: string
-  sub?: string
+  sub?: ReactNode
   accent?: 'pos' | 'neg'
   onClick?: () => void
 }) {
@@ -424,7 +459,7 @@ function RecordCard({
   )
 }
 
-function LastMatchupCard({ hub, onClick }: { hub: TeamHub; onClick: () => void }) {
+function LastMatchupCard({ hub, opponent, onClick }: { hub: TeamHub; opponent: Opponent; onClick: () => void }) {
   const m = hub.last_matchup!
   const ownWon = m.result === 'W'
   const oppWon = m.result === 'L'
@@ -450,7 +485,7 @@ function LastMatchupCard({ hub, onClick }: { hub: TeamHub; onClick: () => void }
       </div>
       <div className={`card-row ${oppWon ? 'winner' : ''}`}>
         <div className="team">
-          <div className="team-name">{m.opp_team_name}</div>
+          <div className="team-name">{opponent(m.year, m.opp_team_id, m.opp_team_name)}</div>
           <div className="team-owner">{m.opp_owner_name}</div>
         </div>
         <div className="score">{m.opp_score.toFixed(1)}</div>
@@ -506,10 +541,12 @@ function RosterTable({ roster }: { roster: TeamHubPlayer[] }) {
 function ScheduleTable({
   schedule,
   year,
+  opponent,
   onGameClick,
 }: {
   schedule: TeamHubGame[]
   year: number
+  opponent: Opponent
   onGameClick: (g: TeamHubGame) => void
 }) {
   const boxScoresAvailable = year >= 2019
@@ -546,7 +583,7 @@ function ScheduleTable({
                   <span className="bye-cell">BYE</span>
                 ) : (
                   <>
-                    <div>{g.opp_team_name}</div>
+                    <div>{opponent(year, g.opp_team_id, g.opp_team_name)}</div>
                     <div className="opp-owner">{g.opp_owner_name}</div>
                   </>
                 )}

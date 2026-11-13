@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { TeamLink } from './TeamLink'
 import type { CloseGameRecord, CloseGames, SeasonTeams, Team } from '../api'
 import {
   computeSeasonStats,
@@ -325,9 +326,9 @@ export function SeasonHistoryTable({
               >
                 {!singleSeason && <td className="num">{year}</td>}
                 <td>
-                  <span className="truncate" title={ownerName(t) || undefined}>
-                    {ownerName(t) || '—'}
-                  </span>
+                  <TeamLink ownerId={t.owners[0]?.id} year={year} className="truncate">
+                    <span title={ownerName(t) || undefined}>{ownerName(t) || '—'}</span>
+                  </TeamLink>
                 </td>
                 <td className="num">{t.points_for.toFixed(1)}</td>
                 <td className={`num ${s ? (s.ptsVsAvg >= 0 ? 'pos' : 'neg') : ''}`}>
@@ -366,9 +367,9 @@ export function SeasonHistoryTable({
                 {powerRankings && <td className="num">{r.pr?.preseasonRank ?? '—'}</td>}
                 {powerRankings && <td className="num">{r.pr?.weeks ? r.pr.weeksAt1 : '—'}</td>}
                 <td>
-                  <span className="truncate" title={t.team_name}>
-                    {t.team_name}
-                  </span>
+                  <TeamLink ownerId={t.owners[0]?.id} year={year} className="truncate">
+                    <span title={t.team_name}>{t.team_name}</span>
+                  </TeamLink>
                 </td>
               </tr>
             )
