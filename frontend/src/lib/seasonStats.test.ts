@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SeasonTeams, Team } from '../api'
-import { computeSeasonStats, formatRate, formatRecord, gamesPlayed, isInProgress } from './seasonStats'
+import { computeSeasonStats, formatDashRecord, formatRate, formatRecord, gamesPlayed, isInProgress } from './seasonStats'
 
 function team(team_id: number, scores: number[], wins: number, losses: number, ties = 0): Team {
   return {
@@ -145,5 +145,16 @@ describe('formatting', () => {
   it('omits the tie column unless there are ties', () => {
     expect(formatRecord(10, 4, 0)).toBe('10-4')
     expect(formatRecord(10, 3, 1)).toBe('10-3-1')
+  })
+})
+
+describe('formatDashRecord', () => {
+  it('joins wins and losses with an en dash', () => {
+    expect(formatDashRecord(7, 3)).toBe('7–3')
+    expect(formatDashRecord(7, 3, 0)).toBe('7–3')
+  })
+
+  it('adds ties only when there are any', () => {
+    expect(formatDashRecord(7, 3, 1)).toBe('7–3–1')
   })
 })

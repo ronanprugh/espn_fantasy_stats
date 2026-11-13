@@ -131,3 +131,9 @@ export function formatRate(x: number): string {
 export function formatRecord(w: number, l: number, t: number): string {
   return t ? `${w}-${l}-${t}` : `${w}-${l}`
 }
+
+/** A record for a Record or Playoffs column, with en dashes: `7–3`, or
+ * `7–3–1` with a tie. */
+export function formatDashRecord(w: number, l: number, t = 0): string {
+  return t ? `${w}–${l}–${t}` : `${w}–${l}`
+}

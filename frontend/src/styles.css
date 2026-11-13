@@ -1676,12 +1676,10 @@ table.teams td.neg {
   color: var(--danger);
 }
 
-/* Every Season keeps every row to a single line. Most cells are short numbers
- * and only need nowrap; owner and team names can run long, so they also cut
- * off with an ellipsis past ~20ch (about 27 characters of proportional text).
- * The truncation sits on an inner block rather than the td because browsers
- * ignore max-width on cells in an auto-layout table. The full text is in the
- * span's title. */
+/* Season tables keep every cell to one line. Names can run long, so the team
+ * cell's name cuts off with an ellipsis (.team-cell-name, below), on an inner
+ * block because browsers ignore max-width on cells in an auto-layout table.
+ * The full name is in its title. */
 table.season-history td {
   white-space: nowrap;
 }
@@ -1784,7 +1782,10 @@ table.season-history tr.your-team td {
 
 .teams-wrap.sticky .sticky-2 {
   left: var(--sticky-1-w);
-  /* The edge the numbers scroll under. */
+}
+
+/* The last pinned column: the edge the numbers scroll under. */
+.teams-wrap.sticky .sticky-edge {
   box-shadow: inset -1px 0 0 var(--border);
 }
 
@@ -1792,13 +1793,23 @@ table.season-history tr.your-team td {
   background: var(--bg-page);
 }
 
+.teams-wrap.sticky tr.current-season td.sticky-col {
+  background: linear-gradient(var(--accent-tint), var(--accent-tint)), var(--bg-page);
+}
+
+/* After the in-progress rule, so a row that is both reads as yours. */
 .teams-wrap.sticky tr.your-team td.sticky-col {
   background: linear-gradient(var(--accent-softer), var(--accent-softer)), var(--bg-page);
 }
 
-/* Keep your team's leading accent bar on the pinned first cell. */
+/* Keep your team's leading accent bar on the pinned first cell, alongside the
+ * pinned edge when the first cell is also the last pinned one (All Time). */
 .teams-wrap.sticky tr.your-team td.sticky-1 {
   box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.teams-wrap.sticky tr.your-team td.sticky-1.sticky-edge {
+  box-shadow: inset 3px 0 0 var(--accent), inset -1px 0 0 var(--border);
 }
 
 /* Standings' Team cell: the team name, with its owner beneath. */
@@ -1820,6 +1831,22 @@ table.teams td.team-cell {
   color: var(--text-muted);
 }
 
+/* All Time's line under the owner: their latest team name, one line, cut off
+ * like the name above it. The "+2" (other names, listed on hover) stays. */
+.team-cell-sub {
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-cell-more {
+  color: var(--text-faint);
+}
+
+table.all-time td {
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .teams-wrap.sticky {
     /* The page scrolls on a phone; leave room for the fixed tab bar. */
@@ -1839,6 +1866,12 @@ table.teams td.team-cell {
   gap: 4px 16px;
 }
 
+.season-toggles {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
 .season-toggle {
   display: inline-flex;
   align-items: center;
@@ -1850,14 +1883,6 @@ table.teams td.team-cell {
 
 .season-toggle input {
   accent-color: var(--accent);
-}
-
-table.season-history .truncate {
-  display: block;
-  max-width: 20ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Team and opponent names that link to Team Hub or Head to Head (TeamLink).
