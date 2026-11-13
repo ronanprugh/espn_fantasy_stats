@@ -10,6 +10,8 @@ import { PrBadge } from '../components/PrBadge'
 import { usePowerRankings } from '../hooks/usePowerRankings'
 import { rankLookup, type RankLookup } from '../lib/powerRankings'
 import { RoundBadge } from '../components/RoundBadge'
+import { SeasonPicker } from '../components/SeasonPicker'
+import { WeekStepper } from '../components/WeekStepper'
 import { TeamLink } from '../components/TeamLink'
 import { useTeamOwners } from '../hooks/useTeamOwners'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
@@ -74,7 +76,6 @@ export function ScoreboardPage() {
 
   if (!leagueId) return <NoLeagueSelected />
 
-  const yearsDesc = [...years].reverse()
   const weeks = seasonData?.weeks ?? []
   // Each playoff week's championship-bracket round, so the week list says
   // which weeks are the playoffs. Consolation games don't name the week.
@@ -106,37 +107,22 @@ export function ScoreboardPage() {
 
       {error && <ErrorMessage message={error} />}
 
+      <SeasonPicker
+        years={years}
+        value={year === '' ? null : year}
+        onChange={(y) => update({ year: String(y), week: null })}
+      />
+
       <div className="compare-controls">
         <div className="control">
-          <label htmlFor="sb-year">Year</label>
-          <select
-            id="sb-year"
-            value={year}
-            onChange={(e) => update({ year: e.target.value || null, week: null })}
-          >
-            {yearsDesc.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="control">
           <label htmlFor="sb-week">Week</label>
-          <select
+          <WeekStepper
             id="sb-week"
-            value={week}
-            onChange={(e) => update({ week: e.target.value || null })}
-            disabled={!weeks.length}
-          >
-            {weeks.map((w) => (
-              <option key={w} value={w}>
-                Week {w}
-                {roundOfWeek.has(w) && ` · ${ROUND_NAME[roundOfWeek.get(w)!]}`}
-              </option>
-            ))}
-          </select>
+            weeks={weeks}
+            value={week === '' ? null : week}
+            onChange={(w) => update({ week: String(w) })}
+            labelOf={(w) => `Week ${w}${roundOfWeek.has(w) ? ` · ${ROUND_NAME[roundOfWeek.get(w)!]}` : ''}`}
+          />
         </div>
       </div>
 

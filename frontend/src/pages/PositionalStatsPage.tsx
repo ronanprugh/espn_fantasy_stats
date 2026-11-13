@@ -8,6 +8,7 @@ import {
 } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { SortableTh, type SortDir } from '../components/SortableTh'
+import { SeasonPicker } from '../components/SeasonPicker'
 import { TeamLink } from '../components/TeamLink'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import { useLeagueYears } from '../hooks/useLeagueYears'
@@ -177,7 +178,6 @@ export function PositionalStatsPage() {
     }
   }
 
-  const eligibleYearsDesc = [...eligibleYears].reverse()
 
   return (
     <div className="page">
@@ -185,23 +185,12 @@ export function PositionalStatsPage() {
         <h2>Positional Stats</h2>
       </header>
 
-      <nav className="years">
-        <button
-          onClick={() => setYearMode('all')}
-          className={yearMode === 'all' ? 'active' : ''}
-        >
-          All Time
-        </button>
-        {eligibleYearsDesc.map((y) => (
-          <button
-            key={y}
-            onClick={() => setYearMode(y)}
-            className={yearMode === y ? 'active' : ''}
-          >
-            {y}
-          </button>
-        ))}
-      </nav>
+      <SeasonPicker
+        years={eligibleYears}
+        value={yearMode}
+        onChange={setYearMode}
+        leading={[{ value: 'all' as const, label: 'All Time' }]}
+      />
 
       <nav className="hub-tabs">
         {POSITIONS.map((p) => (

@@ -18,6 +18,7 @@ import { useLeague } from '../contexts/LeagueContext'
 import { usePowerRankings } from '../hooks/usePowerRankings'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
 import { teamHubHref } from '../lib/links'
+import { SeasonPicker } from '../components/SeasonPicker'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import {
   authorOwnerId,
@@ -104,17 +105,11 @@ export function PowerRankingsPage() {
           </nav>
 
           {(view === 'week' || view === 'season') && (
-            <nav className="years" aria-label="Season">
-              {[...years].reverse().map((y) => (
-                <button
-                  key={y}
-                  className={y === season.season ? 'active' : ''}
-                  onClick={() => update({ year: String(y), week: null })}
-                >
-                  {y}
-                </button>
-              ))}
-            </nav>
+            <SeasonPicker
+              years={years}
+              value={season.season}
+              onChange={(y) => update({ year: String(y), week: null })}
+            />
           )}
 
           {(view === 'season' || view === 'alltime') && (

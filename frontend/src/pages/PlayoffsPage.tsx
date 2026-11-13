@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchPlayoffs, type SeasonPlayoffs } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
 import { PlayoffBracket } from '../components/PlayoffBracket'
+import { SeasonPicker } from '../components/SeasonPicker'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
 import { Loading } from '../components/Loading'
@@ -56,7 +57,6 @@ export function PlayoffsPage() {
 
   if (!leagueId) return <NoLeagueSelected />
 
-  const yearsDesc = [...years].reverse()
   const pick = (y: number) => {
     setFellBackFrom(null)
     update({ year: String(y) })
@@ -72,13 +72,7 @@ export function PlayoffsPage() {
           </span>
         )}
       </header>
-      <nav className="years">
-        {yearsDesc.map((y) => (
-          <button key={y} onClick={() => pick(y)} className={y === year ? 'active' : ''}>
-            {y}
-          </button>
-        ))}
-      </nav>
+      <SeasonPicker years={years} value={year} onChange={pick} />
       {error && <ErrorMessage message={error} />}
       {loading && <Loading />}
       {fellBackFrom !== null && urlYear === null && data?.year === year && !loading && (

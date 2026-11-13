@@ -1997,6 +1997,50 @@ table.teams th.num,
   max-width: 100%;
 }
 
+/* WeekStepper: ‹ Week 10 › */
+.week-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.compare-controls .week-stepper select {
+  min-width: 0;
+}
+
+.week-step {
+  min-width: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.week-step:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.week-step:disabled {
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.week-step:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .week-step {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 .selected-pills {
   display: flex;
   flex-wrap: wrap;
