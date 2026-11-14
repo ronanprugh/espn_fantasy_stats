@@ -8,6 +8,7 @@ import {
   formatTrendValue,
   leagueAverageByYear,
   rankAxis,
+  seasonAverage,
 } from './trends'
 
 function season(year: number, wins: number, extra: Partial<OwnerSeason> = {}): OwnerSeason {
@@ -89,5 +90,16 @@ describe('formatTrendValue', () => {
   it('keeps whole numbers whole', () => {
     expect(formatTrendValue(3)).toBe('3')
     expect(formatTrendValue(3.456)).toBe('3.46')
+  })
+})
+
+describe('seasonAverage', () => {
+  it('leaves out the excluded season', () => {
+    expect(seasonAverage(A.seasons, 'wins', 2024)).toBe(9)
+    expect(seasonAverage(A.seasons, 'wins', null)).toBe(7)
+  })
+
+  it('is null with nothing left to average', () => {
+    expect(seasonAverage(C.seasons, 'wins', 2023)).toBeNull()
   })
 })

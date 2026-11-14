@@ -12,14 +12,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
-
-def is_unplayed(m: dict) -> bool:
-    """A scheduled game that hasn't happened: no winner and no points.
-
-    ESPN lists the whole season's schedule, so a live season's future weeks
-    are in the matchups; counted, they would read as ties.
-    """
-    return m.get("winner_id") is None and not m.get("team_a_score") and not m.get("team_b_score")
+from .season_state import is_unplayed
 
 
 def _owner_name(owner: dict) -> str:

@@ -2,6 +2,7 @@ from datetime import datetime, time as clock_time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from espn_api.football import League
+from .season_state import season_over
 
 EASTERN = ZoneInfo("America/New_York")
 
@@ -161,6 +162,9 @@ def aggregate_by_owner(seasons: list[dict]) -> list[dict]:
     """
     agg: dict[str, dict] = {}
     for season in seasons:
+        # Average finish counts finished seasons only; a season in progress
+        # has standings, not finishes.
+        finished = season_over(season)
         for team in season["teams"]:
             if not team["owners"]:
                 continue
@@ -195,9 +199,8 @@ def aggregate_by_owner(seasons: list[dict]) -> list[dict]:
             row["playoff_losses"] += team["playoff_losses"]
             row["points_for"] += team["points_for"]
             row["points_against"] += team["points_against"]
-            finish = team["final_standing"] or team["standing"]
-            if finish:
-                row["_finishes"].append(finish)
+            if finished and team["final_standing"]:
+                row["_finishes"].append(team["final_standing"])
 
     result = []
     for row in agg.values():

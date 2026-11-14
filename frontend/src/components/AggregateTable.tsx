@@ -31,7 +31,8 @@ const valueOf = (
     case 'owner':
       return o.owner_name
     case 'avg_finish':
-      return o.avg_finish
+      // 0 means no finished season yet: sorts last, like other blanks.
+      return o.avg_finish || null
     case 'seasons_played':
       return o.seasons_played
     case 'record':
@@ -120,7 +121,7 @@ export function AggregateTable({
         <thead>
           <tr>
             {th('owner', 'Owner', 'The owner, with their most recent team name. Hover the team for every name they have used.', PINNED)}
-            {th('avg_finish', 'Avg Finish', 'Average final place across seasons played; lower is better. A season in progress counts its current standing.')}
+            {th('avg_finish', 'Avg Finish', 'Average final place across finished seasons; lower is better. A season in progress has standings, not finishes, so it isn\'t counted.')}
             {th('seasons_played', 'Sns', 'Seasons played.')}
             {th('record', 'Record', 'Regular-season wins–losses across all seasons, with ties last when there are any.')}
             {th('playoffs', 'Playoffs', 'Championship-bracket wins–losses across all seasons. Consolation games are not counted, and a season has at most one loss, since a loss ends the run.')}
@@ -147,7 +148,7 @@ export function AggregateTable({
                   </span>
                 )}
               </td>
-              <td className="num">{o.avg_finish.toFixed(2)}</td>
+              <td className="num">{o.avg_finish ? o.avg_finish.toFixed(2) : '—'}</td>
               <td className="num">{o.seasons_played}</td>
               <td className="num">{formatDashRecord(o.wins, o.losses, o.ties)}</td>
               <td className="num">{formatDashRecord(o.playoff_wins, o.playoff_losses)}</td>
