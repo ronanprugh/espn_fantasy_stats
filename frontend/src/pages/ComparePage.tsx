@@ -14,15 +14,7 @@ import { useUrlState } from '../hooks/useUrlState'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { usePowerRankings } from '../hooks/usePowerRankings'
 import { ownerSeasonStats } from '../lib/powerRankings'
-import { currentYear } from '../lib/trends'
-
-function average(seasons: OwnerSeason[], key: keyof OwnerSeason): number | null {
-  const values = seasons
-    .map((s) => s[key])
-    .filter((v): v is number => typeof v === 'number')
-  if (values.length === 0) return null
-  return values.reduce((a, b) => a + b, 0) / values.length
-}
+import { currentYear, seasonAverage } from '../lib/trends'
 
 type StatOption = {
   key: keyof OwnerSeason
@@ -30,6 +22,10 @@ type StatOption = {
   /** A place, 1 best: drawn on a 1…N axis, with no league average. */
   rank?: boolean
   yAutoScale?: boolean  // true = don't force zero baseline
+  /** Already a per-game (or per-week) figure, so a season in progress is a
+   * fair sample and counts in the averages panel. Totals and places aren't:
+   * a half season's wins, or a mid-season standing, would drag the average. */
+  perGame?: true
 }
 
 const STAT_OPTIONS: StatOption[] = [
@@ -39,17 +35,18 @@ const STAT_OPTIONS: StatOption[] = [
   { key: 'losses', label: 'Losses' },
   { key: 'points_for', label: 'Points For (total)', yAutoScale: true },
   { key: 'points_against', label: 'Points Against (total)', yAutoScale: true },
-  { key: 'avg_points_for', label: 'Avg Points For', yAutoScale: true },
-  { key: 'avg_points_against', label: 'Avg Points Against', yAutoScale: true },
-  { key: 'avg_plus_minus', label: 'Avg +/−', yAutoScale: true },
+  { key: 'avg_points_for', label: 'Avg Points For', yAutoScale: true, perGame: true },
+  { key: 'avg_points_against', label: 'Avg Points Against', yAutoScale: true, perGame: true },
+  { key: 'avg_plus_minus', label: 'Avg +/−', yAutoScale: true, perGame: true },
   { key: 'playoff_wins', label: 'Playoff Wins' },
   { key: 'playoff_losses', label: 'Playoff Losses' },
 ]
 
 /** Offered only when the league has power rankings. */
 const PR_STAT_OPTIONS: StatOption[] = [
-  { key: 'pr_avg', label: 'Power Rank', rank: true, yAutoScale: true },
-  { key: 'pr_preseason', label: 'Preseason Power Rank', rank: true, yAutoScale: true },
+  { key: 'pr_avg', label: 'Power Rank', rank: true, yAutoScale: true, perGame: true },
+  // Set before the season starts, so the current season's is already final.
+  { key: 'pr_preseason', label: 'Preseason Power Rank', rank: true, yAutoScale: true, perGame: true },
   { key: 'pr_final', label: 'Final Power Rank', rank: true, yAutoScale: true },
   { key: 'pr_weeks_at_1', label: 'Weeks at #1 (Power Rank)' },
 ]
@@ -238,8 +235,11 @@ export function ComparePage() {
                 />
                 <aside className="chart-averages">
                   <h4>Avg {stat.label}</h4>
+                  {current !== null && !stat.perGame && (
+                    <p className="chart-averages-note">Finished seasons only</p>
+                  )}
                   {selectedOwners.map((o, i) => {
-                    const avg = average(o.seasons, stat.key)
+                    const avg = seasonAverage(o.seasons, stat.key, stat.perGame ? null : current)
                     return (
                       <div
                         key={o.owner_id}

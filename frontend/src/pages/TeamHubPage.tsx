@@ -261,7 +261,11 @@ export function TeamHubPage() {
                * for the season (all-time beneath), plus one listing each
                * scoring format when the owner has played more than one. */}
               <section className="hub-summary">
-                <StatCard label="Average Finish" value={hub.avg_finish.toFixed(2)} sub="all-time" />
+                <StatCard
+                  label="Average Finish"
+                  value={hub.avg_finish ? hub.avg_finish.toFixed(2) : '—'}
+                  sub={hub.avg_finish ? 'finished seasons' : 'no finished season yet'}
+                />
                 <StatCard
                   label={`Avg PF / Game (${hub.selected_year})`}
                   value={hub.selected_avg_pf.toFixed(2)}

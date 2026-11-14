@@ -2,11 +2,7 @@
 
 from collections.abc import Iterable
 
-
-def season_over(season: dict) -> bool:
-    """A season's playoffs are done once ESPN gives every team a final
-    standing; the same rule as the frontend's isInProgress."""
-    return all(t["final_standing"] for t in season["teams"])
+from .season_state import season_over
 
 
 def accolades(seasons: Iterable[tuple[int, dict, dict]]) -> dict:

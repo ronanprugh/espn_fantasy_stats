@@ -110,3 +110,19 @@ export function buildTrendData(
 export function formatTrendValue(v: number): string {
   return Number.isInteger(v) ? String(v) : v.toFixed(2)
 }
+
+/** The mean of a stat over an owner's seasons, for the averages beside the
+ * chart, leaving out `excludeYear` (the season in progress, for totals and
+ * places, which aren't settled until it ends). Null with nothing to average. */
+export function seasonAverage(
+  seasons: OwnerSeason[],
+  key: keyof OwnerSeason,
+  excludeYear: number | null,
+): number | null {
+  const values = seasons
+    .filter((s) => s.year !== excludeYear)
+    .map((s) => statValue(s, key))
+    .filter((v): v is number => v !== null)
+  if (values.length === 0) return null
+  return values.reduce((a, b) => a + b, 0) / values.length
+}

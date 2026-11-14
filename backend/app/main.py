@@ -10,6 +10,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import cache
 from . import power_rankings as pr
 from .accolades import accolades as count_accolades
+from .season_state import season_over
+from .team_hub import career_records, team_schedule
 from .rivalries import is_unplayed, rivalry_summary
 from .auth import current_user, hash_password, login, logout, require_admin, verify_password
 from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
@@ -797,10 +799,11 @@ def team_hub(
     latest_td = seasons_by_year[available_years[-1]]
 
     # All-time aggregates (over every season the owner played).
+    # Finished seasons only: a season in progress has a standing, not a finish.
     finishes = [
-        (td["final_standing"] or td["standing"])
-        for td in seasons_by_year.values()
-        if (td["final_standing"] or td["standing"])
+        td["final_standing"]
+        for y, td in seasons_by_year.items()
+        if season_over(payload_by_year[y]) and td["final_standing"]
     ]
     avg_finish = sum(finishes) / len(finishes) if finishes else 0.0
     total_pf = sum(td["points_for"] for td in seasons_by_year.values())
@@ -847,170 +850,24 @@ def team_hub(
         (y, td, payload_by_year[y]) for y, td in seasons_by_year.items()
     )
 
-    # Career records: scan every season's scoreboard for this owner's team.
-    # Tuples: (value, year, week, opp_name, own_team_id, opp_team_id)
-    best_score: tuple[float, int, int, str, int, int] | None = None
-    worst_score: tuple[float, int, int, str, int, int] | None = None
-    biggest_win: tuple[float, int, int, str, int, int] | None = None
-    biggest_loss: tuple[float, int, int, str, int, int] | None = None
-    all_results: list[tuple[int, int, str]] = []  # (year, week, W/L/T)
-
-    for y in sorted(seasons_by_year.keys()):
-        td_y = seasons_by_year[y]
-        team_id_y = td_y["team_id"]
+    # Career records over every season's decided games (app/team_hub.py).
+    record_seasons = []
+    for y in sorted(seasons_by_year):
         try:
-            sb_y = _get_season_scoreboard(
-                ctx.espn_league_id, y, ctx.espn_s2, ctx.swid, refresh
-            )
+            sb_y = _get_season_scoreboard(ctx.espn_league_id, y, ctx.espn_s2, ctx.swid, refresh)
         except Exception:
             continue
-        for mm in sb_y["matchups"]:
-            if mm["is_bye"]:
-                continue
-            if mm.get("round_label") == "consolation":
-                continue
-            if mm["team_a_id"] != team_id_y and mm["team_b_id"] != team_id_y:
-                continue
-            if mm["team_a_id"] == team_id_y:
-                own_sc = mm["team_a_score"]
-                opp_sc = mm["team_b_score"]
-                opp_nm = mm["team_b_name"]
-                opp_id = mm["team_b_id"]
-            else:
-                own_sc = mm["team_b_score"]
-                opp_sc = mm["team_a_score"]
-                opp_nm = mm["team_a_name"]
-                opp_id = mm["team_a_id"]
-            if best_score is None or own_sc > best_score[0]:
-                best_score = (own_sc, y, mm["week"], opp_nm, team_id_y, opp_id)
-            if worst_score is None or own_sc < worst_score[0]:
-                worst_score = (own_sc, y, mm["week"], opp_nm, team_id_y, opp_id)
-            margin = own_sc - opp_sc
-            if margin > 0 and (biggest_win is None or margin > biggest_win[0]):
-                biggest_win = (margin, y, mm["week"], opp_nm, team_id_y, opp_id)
-            elif margin < 0:
-                deficit = -margin
-                if biggest_loss is None or deficit > biggest_loss[0]:
-                    biggest_loss = (deficit, y, mm["week"], opp_nm, team_id_y, opp_id)
-            if mm["winner_id"] == team_id_y:
-                all_results.append((y, mm["week"], "W"))
-            elif mm["winner_id"] is None:
-                all_results.append((y, mm["week"], "T"))
-            else:
-                all_results.append((y, mm["week"], "L"))
+        record_seasons.append((y, seasons_by_year[y]["team_id"], sb_y["matchups"]))
+    records = career_records(record_seasons)
 
-    # Streaks: walk chronologically.
-    all_results.sort(key=lambda r: (r[0], r[1]))
-    longest_win_streak = longest_loss_streak = cur_w = cur_l = 0
-    for _, _, r in all_results:
-        if r == "W":
-            cur_w += 1
-            cur_l = 0
-            longest_win_streak = max(longest_win_streak, cur_w)
-        elif r == "L":
-            cur_l += 1
-            cur_w = 0
-            longest_loss_streak = max(longest_loss_streak, cur_l)
-        else:
-            cur_w = cur_l = 0
-
-    def _fmt(t):
-        return (
-            None
-            if t is None
-            else {
-                "value": round(t[0], 2),
-                "year": t[1],
-                "week": t[2],
-                "opponent": t[3],
-                "own_team_id": t[4],
-                "opp_team_id": t[5],
-            }
-        )
-
-    records = {
-        "highest_score": _fmt(best_score),
-        "lowest_score": _fmt(worst_score),
-        "biggest_win_margin": _fmt(biggest_win),
-        "biggest_loss_margin": _fmt(biggest_loss),
-        "longest_win_streak": longest_win_streak,
-        "longest_loss_streak": longest_loss_streak,
-    }
-
-    # Schedule: every game (and bye) for the team that year, in week order.
-    # Also derive last_matchup from this same loop (most recent non-bye game).
-    schedule: list[dict] = []
-    last_matchup: dict | None = None
+    # Schedule: every game (and bye) for the team that year, in week order,
+    # and the latest game with points on the board for the Last Matchup card.
     try:
         sb = _get_season_scoreboard(
             ctx.espn_league_id, selected_year, ctx.espn_s2, ctx.swid, refresh
         )
-        team_id = selected_td["team_id"]
-        my_games = [
-            m
-            for m in sb["matchups"]
-            if m["team_a_id"] == team_id or m["team_b_id"] == team_id
-        ]
-        my_games.sort(key=lambda x: x["week"])
-
-        for m in my_games:
-            if m["is_bye"]:
-                schedule.append({
-                    "week": m["week"],
-                    "round_label": m.get("round_label", "regular"),
-                    "is_playoff": m["is_playoff"],
-                    "is_bye": True,
-                    "own_team_id": team_id,
-                    "own_team_name": m["team_a_name"],
-                    "own_score": m["team_a_score"],
-                    "opp_team_id": None,
-                    "opp_team_name": "",
-                    "opp_owner_name": "",
-                    "opp_score": 0.0,
-                    "result": "BYE",
-                })
-                continue
-
-            if m["team_a_id"] == team_id:
-                own_id, own_name, own_score = (
-                    m["team_a_id"], m["team_a_name"], m["team_a_score"],
-                )
-                opp_id, opp_name, opp_owner, opp_score = (
-                    m["team_b_id"], m["team_b_name"], m["team_b_owner"], m["team_b_score"],
-                )
-            else:
-                own_id, own_name, own_score = (
-                    m["team_b_id"], m["team_b_name"], m["team_b_score"],
-                )
-                opp_id, opp_name, opp_owner, opp_score = (
-                    m["team_a_id"], m["team_a_name"], m["team_a_owner"], m["team_a_score"],
-                )
-
-            if m["winner_id"] == own_id:
-                result = "W"
-            elif m["winner_id"] == opp_id:
-                result = "L"
-            elif m["winner_id"] is None and own_score == opp_score:
-                result = "T"
-            else:
-                result = "U"
-
-            game = {
-                "week": m["week"],
-                "round_label": m.get("round_label", "regular"),
-                "is_playoff": m["is_playoff"],
-                "is_bye": False,
-                "own_team_id": own_id,
-                "own_team_name": own_name,
-                "own_score": own_score,
-                "opp_team_id": opp_id,
-                "opp_team_name": opp_name,
-                "opp_owner_name": opp_owner,
-                "opp_score": opp_score,
-                "result": result,
-            }
-            schedule.append(game)
-            last_matchup = {"year": selected_year, **game}
+        schedule, latest_game = team_schedule(sb["matchups"], selected_td["team_id"])
+        last_matchup = {"year": selected_year, **latest_game} if latest_game else None
     except Exception:
         schedule = []
         last_matchup = None

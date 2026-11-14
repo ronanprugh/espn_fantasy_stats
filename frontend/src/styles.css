@@ -2242,6 +2242,12 @@ table.teams th.num,
   padding: 12px;
 }
 
+.chart-averages-note {
+  margin: -6px 0 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .chart-averages h4 {
   margin: 0 0 10px;
   font-size: 13px;
@@ -2313,6 +2319,10 @@ table.teams th.num,
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 8px;
     padding: 10px;
+  }
+
+  .chart-averages-note {
+    grid-column: 1 / -1;
   }
 
   .chart-averages h4 {
