@@ -4372,3 +4372,222 @@ button.cov:focus-visible, .pr-week-pill:focus-visible, .bump-legend-item:focus-v
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ------------------------------------------------------------------ *
+ * Box Score as a scoreboard: the header's two totals face each other in
+ * the middle, and the lineups are one sheet mirrored about the slot
+ * column (the phone layout, now on desktop too as .wide).
+ * ------------------------------------------------------------------ */
+.box-matchup-header.bs-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+.bs-board-team {
+  min-width: 0;
+}
+
+.bs-board-team.right {
+  text-align: right;
+}
+
+.bs-board-team .bs-team-name {
+  font-size: 18px;
+}
+
+.bs-board-scores {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.bs-board-score {
+  text-align: center;
+  min-width: 5.5ch;
+}
+
+.box-matchup-header.bs-board .bs-score {
+  margin-top: 0;
+  font-size: 36px;
+  line-height: 1.1;
+}
+
+.bs-board-score.winner .bs-score {
+  color: var(--success);
+}
+
+.bs-board-score.loser .bs-score {
+  color: var(--text-muted);
+}
+
+.box-matchup-header.bs-board .bs-vs {
+  font-size: 24px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.bs-m-total {
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+}
+
+.bs-m-total .bs-m-player {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.bs-m-total .bs-m-slot {
+  background: none;
+}
+
+.bs-m-legend-team {
+  grid-column: 1;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-m-legend-team.right {
+  grid-column: 7;
+  text-align: right;
+}
+
+/* Desktop size of the mirrored sheet. */
+.bs-mobile.wide {
+  padding: 6px 16px 12px;
+}
+
+.bs-mobile.wide .bs-m-legend,
+.bs-mobile.wide .bs-m-row {
+  grid-template-columns: minmax(0, 1fr) 56px 68px 72px 68px 56px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.bs-mobile.wide .bs-m-legend {
+  padding: 10px 4px;
+  font-size: 10px;
+  align-items: end;
+}
+
+.bs-mobile.wide .bs-m-row {
+  padding: 7px 4px;
+  min-height: 44px;
+}
+
+.bs-mobile.wide .bs-m-name {
+  font-size: 14px;
+}
+
+.bs-mobile.wide .bs-m-meta {
+  font-size: 11px;
+}
+
+.bs-mobile.wide .bs-m-pts {
+  font-size: 16px;
+}
+
+.bs-mobile.wide .bs-m-proj {
+  font-size: 12px;
+}
+
+.bs-mobile.wide .bs-m-slot {
+  font-size: 11px;
+  padding: 4px 0;
+}
+
+.bs-mobile.wide .bs-m-divider {
+  margin: 6px -16px;
+  padding: 5px 20px;
+}
+
+@media (max-width: 900px) {
+  .box-matchup-header.bs-board {
+    align-items: center;
+    gap: 6px;
+  }
+
+  .bs-board-team .bs-team-name {
+    font-size: 13px;
+  }
+
+  .box-matchup-header.bs-board .bs-score {
+    font-size: 22px;
+    padding-top: 0;
+  }
+
+  .bs-board-scores {
+    gap: 6px;
+  }
+
+  .box-matchup-header.bs-board .bs-vs {
+    font-size: 16px;
+  }
+
+  .bs-board-score {
+    min-width: 0;
+  }
+}
+
+/* On a phone the two names share the top line and the scores sit centred
+ * beneath them, so neither has to squeeze into a third of the width. */
+@media (max-width: 600px) {
+  .box-matchup-header.bs-board {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "home away"
+      "scores scores";
+    row-gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .bs-board-team {
+    grid-area: home;
+  }
+
+  .bs-board-team.right {
+    grid-area: away;
+  }
+
+  .bs-board-scores {
+    grid-area: scores;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .bs-board-score {
+    min-width: 5ch;
+  }
+
+  .box-matchup-header.bs-board .bs-score {
+    font-size: 28px;
+  }
+
+  .box-matchup-header.bs-board .bs-vs {
+    font-size: 20px;
+    line-height: 1.4;
+  }
+
+  .bs-m-total .bs-m-pts {
+    font-size: 12px;
+  }
+
+  .bs-m-total .bs-m-proj {
+    font-size: 9px;
+  }
+}
+
+/* The dash sits level with the middle of the scores, not their baseline. */
+.box-matchup-header.bs-board .bs-board-scores .bs-vs {
+  line-height: 1;
+  margin-top: 0.3em;
+  align-self: flex-start;
+}

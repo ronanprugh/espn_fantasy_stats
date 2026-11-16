@@ -147,8 +147,8 @@ function MatchupBody({ matchup, owner, year }: { matchup: BoxScoreMatchup; owner
   return (
     <>
       <MatchupHeader matchup={matchup} owner={owner} year={year} />
-      {isMobile && home && away ? (
-        <MobileLineups home={home} away={away} />
+      {home && away ? (
+        <MirroredLineups home={home} away={away} wide={!isMobile} />
       ) : (
         <div className="box-score-grid">
           {home && <TeamLineup team={home} ahead={ahead} />}
@@ -213,28 +213,44 @@ function slotWinners(home: BoxScoreTeam | null, away: BoxScoreTeam | null): Set<
   return won
 }
 
-function MobileLineups({ home, away }: { home: BoxScoreTeam; away: BoxScoreTeam }) {
+/* Both lineups in one sheet, mirrored about the slot column like a
+ * scoreboard: each slot's two scores face each other in the middle. `wide`
+ * is the desktop size, with full player names and a starters total. */
+function MirroredLineups({ home, away, wide }: { home: BoxScoreTeam; away: BoxScoreTeam; wide: boolean }) {
   const { starters, bench } = pairLineups(home, away)
+  const homeWon = home.total_points > away.total_points
+  const awayWon = away.total_points > home.total_points
 
   return (
-    <section className="bs-mobile">
+    <section className={`bs-mobile${wide ? ' wide' : ''}`}>
       <div className="bs-m-legend">
+        {wide && <span className="bs-m-legend-team">{home.team_name}</span>}
         <span className="bs-m-legend-side">Proj · Pts</span>
         <span className="bs-m-legend-slot">Slot</span>
         <span className="bs-m-legend-side right">Pts · Proj</span>
+        {wide && <span className="bs-m-legend-team right">{away.team_name}</span>}
       </div>
       {starters.map((r, i) => (
-        <MobileLineupRow key={`s${i}`} row={r} />
+        <MobileLineupRow key={`s${i}`} row={r} wide={wide} />
       ))}
+      <div className="bs-m-row bs-m-total">
+        <div className="bs-m-player">Total</div>
+        <div className="bs-m-proj">{home.projected_points > 0 ? home.projected_points.toFixed(1) : ''}</div>
+        <div className={`bs-m-pts${homeWon ? ' ahead' : ''}`}>{home.total_points.toFixed(1)}</div>
+        <div className="bs-m-slot" />
+        <div className={`bs-m-pts${awayWon ? ' ahead' : ''}`}>{away.total_points.toFixed(1)}</div>
+        <div className="bs-m-proj">{away.projected_points > 0 ? away.projected_points.toFixed(1) : ''}</div>
+        <div className="bs-m-player right">Total</div>
+      </div>
       {bench.length > 0 && <div className="bs-m-divider">Bench</div>}
       {bench.map((r, i) => (
-        <MobileLineupRow key={`b${i}`} row={r} bench />
+        <MobileLineupRow key={`b${i}`} row={r} bench wide={wide} />
       ))}
     </section>
   )
 }
 
-function MobileLineupRow({ row, bench = false }: { row: PairedRow; bench?: boolean }) {
+function MobileLineupRow({ row, bench = false, wide = false }: { row: PairedRow; bench?: boolean; wide?: boolean }) {
   const { home, away } = row
   // The higher score is the only thing worth colouring here; the reader is
   // scanning for who won each slot.
@@ -243,7 +259,7 @@ function MobileLineupRow({ row, bench = false }: { row: PairedRow; bench?: boole
 
   return (
     <div className={`bs-m-row${bench ? ' bench' : ''}`}>
-      <PlayerCell player={home} side="left" />
+      <PlayerCell player={home} side="left" full={wide} />
       <div className="bs-m-proj">{home ? home.projected_points.toFixed(1) : ''}</div>
       <div className={`bs-m-pts${homeAhead ? ' ahead' : ''}`}>
         {home ? home.points.toFixed(1) : ''}
@@ -253,7 +269,7 @@ function MobileLineupRow({ row, bench = false }: { row: PairedRow; bench?: boole
         {away ? away.points.toFixed(1) : ''}
       </div>
       <div className="bs-m-proj">{away ? away.projected_points.toFixed(1) : ''}</div>
-      <PlayerCell player={away} side="right" />
+      <PlayerCell player={away} side="right" full={wide} />
     </div>
   )
 }
@@ -269,12 +285,12 @@ function shortName(name: string): string {
   return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
 }
 
-function PlayerCell({ player, side }: { player: BoxPlayer | null; side: 'left' | 'right' }) {
+function PlayerCell({ player, side, full = false }: { player: BoxPlayer | null; side: 'left' | 'right'; full?: boolean }) {
   if (!player) return <div className={`bs-m-player ${side} empty`}>—</div>
   const meta = [player.position, player.pro_team].filter(Boolean).join(' · ')
   return (
     <div className={`bs-m-player ${side}`}>
-      <div className="bs-m-name">{player.name ? shortName(player.name) : '—'}</div>
+      <div className="bs-m-name">{player.name ? (full ? player.name : shortName(player.name)) : '—'}</div>
       {meta && <div className="bs-m-meta">{meta}</div>}
     </div>
   )
@@ -303,24 +319,30 @@ function MatchupHeader({ matchup, owner, year }: { matchup: BoxScoreMatchup; own
   }
   const homeWon = h.total_points > a.total_points
   const awayWon = a.total_points > h.total_points
+  const proj = (t: BoxScoreTeam) =>
+    t.projected_points > 0 ? <div className="bs-projected">Proj {t.projected_points.toFixed(2)}</div> : null
+  // Scoreboard-style: the two totals face each other in the middle, each
+  // team's name on its own side.
   return (
-    <section className="box-matchup-header">
-      <div className={`bs-side ${homeWon ? 'winner' : ''}`}>
+    <section className="box-matchup-header bs-board">
+      <div className="bs-board-team">
         <div className="bs-team-name">{name(h)}</div>
         <div className="bs-team-owner">{h.owner_name}</div>
-        <div className="bs-score">{h.total_points.toFixed(2)}</div>
-        {h.projected_points > 0 && (
-          <div className="bs-projected">Proj: {h.projected_points.toFixed(2)}</div>
-        )}
       </div>
-      <div className="bs-vs">vs</div>
-      <div className={`bs-side ${awayWon ? 'winner' : ''}`}>
+      <div className="bs-board-scores">
+        <div className={`bs-board-score${homeWon ? ' winner' : awayWon ? ' loser' : ''}`}>
+          <div className="bs-score">{h.total_points.toFixed(2)}</div>
+          {proj(h)}
+        </div>
+        <div className="bs-vs" aria-hidden="true">–</div>
+        <div className={`bs-board-score${awayWon ? ' winner' : homeWon ? ' loser' : ''}`}>
+          <div className="bs-score">{a.total_points.toFixed(2)}</div>
+          {proj(a)}
+        </div>
+      </div>
+      <div className="bs-board-team right">
         <div className="bs-team-name">{name(a)}</div>
         <div className="bs-team-owner">{a.owner_name}</div>
-        <div className="bs-score">{a.total_points.toFixed(2)}</div>
-        {a.projected_points > 0 && (
-          <div className="bs-projected">Proj: {a.projected_points.toFixed(2)}</div>
-        )}
       </div>
     </section>
   )
