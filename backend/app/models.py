@@ -25,6 +25,9 @@ class User(Base):
     invite_codes: Mapped[list["InviteCode"]] = relationship(
         back_populates="created_by_user", cascade="all, delete-orphan"
     )
+    api_tokens: Mapped[list["ApiToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class League(Base):
@@ -60,6 +63,30 @@ class InviteCode(Base):
     created_at: Mapped[dt.datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     created_by_user: Mapped["User"] = relationship(back_populates="invite_codes")
+
+
+class ApiToken(Base):
+    """A personal API token: read-only access to the owner's data without a
+    browser session, for scripts and assistants.
+
+    Only a SHA-256 of the token is stored. Tokens are 256 random bits, so a
+    fast hash is enough (no salt or bcrypt needed), and it lets a request's
+    token be looked up directly. `prefix` is the token's first characters,
+    kept so the Account page can tell tokens apart.
+    """
+    __tablename__ = "api_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    prefix: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(server_default=func.now(), nullable=False)
+    last_used_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="api_tokens")
 
 
 class Cache(Base):

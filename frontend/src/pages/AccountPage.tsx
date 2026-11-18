@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { changePassword, generateInvite } from '../api'
 import { useAuth } from '../contexts/AuthContext'
+import { ApiTokens } from '../components/ApiTokens'
 
 export function AccountPage() {
   const { user } = useAuth()
@@ -109,6 +110,8 @@ export function AccountPage() {
           </button>
         </div>
       </form>
+
+      <ApiTokens />
 
       {user?.is_admin && (
         <div className="league-form" style={{ marginTop: 32 }}>

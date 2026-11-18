@@ -97,6 +97,32 @@ export async function generateInvite(
   })
 }
 
+export type ApiToken = {
+  id: number
+  name: string
+  /** The token's first characters, to tell tokens apart. */
+  prefix: string
+  created_at: string
+  last_used_at: string | null
+}
+
+export async function fetchApiTokens(): Promise<ApiToken[]> {
+  return jsonFetch<ApiToken[]>('/api/me/tokens')
+}
+
+/** The full token is in the response once, and never again. */
+export async function createApiToken(name: string): Promise<ApiToken & { token: string }> {
+  return jsonFetch('/api/me/tokens', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function revokeApiToken(id: number): Promise<void> {
+  await jsonFetch(`/api/me/tokens/${id}`, { method: 'DELETE' })
+}
+
 export async function changePassword(
   current_password: string,
   new_password: string,
