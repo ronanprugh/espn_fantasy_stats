@@ -13,7 +13,17 @@ from .accolades import accolades as count_accolades
 from .season_state import season_over
 from .team_hub import career_records, team_schedule
 from .rivalries import is_unplayed, rivalry_summary
-from .auth import current_user, hash_password, login, logout, require_admin, verify_password
+from .auth import (
+    current_user,
+    hash_api_token,
+    hash_password,
+    login,
+    logout,
+    new_api_token,
+    require_admin,
+    session_user,
+    verify_password,
+)
 from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
 from .crypto import decrypt, encrypt
 import datetime as dt
@@ -38,11 +48,14 @@ from .espn_client import (
     serialize_scoreboard,
     serialize_teams,
 )
-from .models import InviteCode, PowerRankingPost
+from .models import ApiToken, InviteCode, PowerRankingPost
 from .models import League as LeagueModel
 from .models import User
 from .schemas import (
+    ApiTokenCreated,
+    ApiTokenInfo,
     ChangePasswordRequest,
+    CreateApiTokenRequest,
     CreateLeagueRequest,
     GenerateInviteRequest,
     InviteCodeResponse,
@@ -155,6 +168,63 @@ def auth_signup(payload: SignupRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     return UserResponse(id=user.id, username=user.username, is_admin=user.is_admin)
+
+
+# Personal API tokens: read-only access for scripts and assistants (see
+# auth.current_user). Managed from a signed-in session only.
+MAX_API_TOKENS = 10
+
+
+@app.get("/api/me/tokens", response_model=list[ApiTokenInfo])
+def list_api_tokens(user: User = Depends(session_user), db: Session = Depends(get_db)):
+    return (
+        db.query(ApiToken)
+        .filter(ApiToken.user_id == user.id)
+        .order_by(ApiToken.created_at.desc(), ApiToken.id.desc())
+        .all()
+    )
+
+
+@app.post("/api/me/tokens", response_model=ApiTokenCreated, status_code=201)
+def create_api_token(
+    payload: CreateApiTokenRequest,
+    user: User = Depends(session_user),
+    db: Session = Depends(get_db),
+):
+    count = db.query(ApiToken).filter(ApiToken.user_id == user.id).count()
+    if count >= MAX_API_TOKENS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"You can have {MAX_API_TOKENS} tokens at most; revoke one first.",
+        )
+    token = new_api_token()
+    row = ApiToken(
+        user_id=user.id,
+        name=payload.name.strip() or "API token",
+        token_hash=hash_api_token(token),
+        prefix=token[:10],
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return ApiTokenCreated(
+        id=row.id,
+        name=row.name,
+        prefix=row.prefix,
+        created_at=row.created_at,
+        last_used_at=row.last_used_at,
+        token=token,
+    )
+
+
+@app.delete("/api/me/tokens/{token_id}")
+def revoke_api_token(token_id: int, user: User = Depends(session_user), db: Session = Depends(get_db)):
+    row = db.get(ApiToken, token_id)
+    if row is None or row.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Token not found")
+    db.delete(row)
+    db.commit()
+    return {"ok": True}
 
 
 @app.post("/api/auth/change_password")

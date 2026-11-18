@@ -1,3 +1,4 @@
+import datetime as dt
 from pydantic import BaseModel, Field
 from typing import List
 
@@ -10,6 +11,24 @@ class LoginRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(min_length=8)
+
+
+class CreateApiTokenRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+
+
+class ApiTokenInfo(BaseModel):
+    id: int
+    name: str
+    # The token's first characters, to tell tokens apart; never the token.
+    prefix: str
+    created_at: dt.datetime
+    last_used_at: dt.datetime | None
+
+
+class ApiTokenCreated(ApiTokenInfo):
+    # Shown once, at creation. Only its hash is stored.
+    token: str
 
 
 class UserResponse(BaseModel):
