@@ -8,13 +8,28 @@ EASTERN = ZoneInfo("America/New_York")
 
 # Weekly points, in Eastern time, at which data for the season in progress goes
 # stale and is re-fetched from ESPN on its next request. (weekday, time), with
-# Monday as 0. Midnight Tuesday catches Monday night's results; 9am catches
-# them again once ESPN has finished processing the week. This is a stats app,
-# not live scoring, so nothing needs refreshing between those points. Finished
-# seasons never change and are kept indefinitely.
+# Monday as 0. Nothing runs on a schedule: a point only marks cached data as
+# old, so the first request after it re-fetches, and a point nobody visits
+# after costs nothing. Finished seasons never change and are kept indefinitely.
+#
+# - Midnight every day: the end of Thursday, Sunday and Monday night games
+#   (they finish around 11:30pm), plus the day's waivers, trades and injury
+#   news.
+# - Sunday 4:30pm and 8:15pm: after the early and late afternoon windows. The
+#   4:30 point also follows a London morning game.
+# - Monday 1am: a Monday doubleheader can run past midnight.
+# - Tuesday 9am: ESPN has finished processing the week and applied the
+#   weekend's stat corrections.
+#
+# This is a stats app, not live scoring: a game in progress shows its score
+# as of the last point.
+MONDAY, TUESDAY, SUNDAY = 0, 1, 6
 REFRESH_POINTS: tuple[tuple[int, clock_time], ...] = (
-    (1, clock_time(0, 0)),
-    (1, clock_time(9, 0)),
+    *((day, clock_time(0, 0)) for day in range(7)),
+    (SUNDAY, clock_time(16, 30)),
+    (SUNDAY, clock_time(20, 15)),
+    (MONDAY, clock_time(1, 0)),
+    (TUESDAY, clock_time(9, 0)),
 )
 
 # (League, UTC time it was fetched). A League object is a snapshot taken at

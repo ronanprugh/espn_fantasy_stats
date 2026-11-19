@@ -435,7 +435,8 @@ def get_user_league(
 
 def _fresh_since(year: int) -> dt.datetime | None:
     """Oldest acceptable fetch time for a season's cached data: the latest
-    weekly refresh point while it's being played, none once it's over."""
+    refresh point (see REFRESH_POINTS) while it's being played, none once
+    it's over."""
     return last_refresh_point() if is_live_season(year) else None
 
 
@@ -479,9 +480,8 @@ def _get_season_box_scores(
     In a live season only the two most recently completed weeks and later go
     stale. Earlier weeks are final, and refreshing them would turn every
     positional-stats rebuild into one ESPN fetch per week of the season. A
-    completed week stays refreshable through one more weekly refresh after it
-    ends, so ESPN's stat corrections, which land days after the games, are
-    picked up.
+    The two most recently completed weeks stay refreshable, so ESPN's stat
+    corrections, which land the Tuesday after the games, are picked up.
     """
     from .espn_client import serialize_box_scores as _ser  # local import for clarity
     # Before the cache lookup, so box scores cached under a future week's key
