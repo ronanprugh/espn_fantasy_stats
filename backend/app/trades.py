@@ -12,10 +12,11 @@ Where the data comes from (seasons from 2019 on):
   (espn_api's own Activity fetches each unknown player separately).
 - For past seasons the feed answers 404 ("This Communication Group does not
   exist"), the transactions view (`mTransactions2`): activity_from_transaction
-  reads its waiver claims, pickups and drops into the same dicts. It no longer
-  lists the players of trades that went through, only that they did
-  (trade_events), so trades_from_rosters rebuilds them from the weekly
-  rosters: a player who changes teams without being picked up was traded.
+  reads its waiver claims, pickups and drops into the same dicts. It lists
+  the players of a trade that went through only to a member who was in it;
+  to everyone it lists only that trades went through (trade_events). So
+  trades_from_rosters rebuilds every past trade from the weekly rosters: a
+  player who changes teams without being picked up was traded.
 
 The other functions derive one record per trade or move. Trades are credited
 with what each side's new players went on to score for it, from the week of
@@ -203,14 +204,18 @@ def activity_from_transaction(tx: dict, team_by_id, players: dict[int, dict]) ->
 
 def trade_events(transactions: Iterable[dict]) -> list[dict]:
     """When trades went through, from the transactions view: the accepting
-    (or upholding) team, the scoring period and the time.
+    (or upholding, or proposing) team, the scoring period and the time.
 
-    For past seasons that's all ESPN keeps of a trade there: the accepted
-    proposal, with its players, is gone (only cancelled ones are listed), so
-    the players come from the weekly rosters (trades_from_rosters)."""
+    For past seasons that's all ESPN reliably keeps of a trade there. The
+    accepted proposal, with its players, is listed only to a member who was
+    in the trade (to anyone else only cancelled proposals are), so the
+    players come from the weekly rosters (trades_from_rosters)."""
     events = []
     for tx in transactions:
-        if tx.get("type") not in ("TRADE_ACCEPT", "TRADE_UPHOLD"):
+        kind = tx.get("type")
+        if kind == "TRADE_PROPOSAL" and tx.get("status") != "EXECUTED":
+            continue
+        if kind not in ("TRADE_ACCEPT", "TRADE_UPHOLD", "TRADE_PROPOSAL"):
             continue
         if tx.get("status") not in (None, "EXECUTED") or tx.get("executionType", "EXECUTE") != "EXECUTE":
             continue
