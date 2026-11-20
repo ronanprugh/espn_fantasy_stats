@@ -9,7 +9,7 @@ const side = (id: number, owner: string, pts: number): TradeSide => ({
 const trade = (a: TradeSide, b: TradeSide): Trade => {
   const margin = Math.abs(a.started_points - b.started_points)
   return {
-    date: 0, week: 5, sides: [a, b], margin,
+    year: 2026, uid: `${a.team_id}-${b.team_id}`, date: 0, week: 5, sides: [a, b], margin,
     winner_team_id: margin === 0 ? null : a.started_points > b.started_points ? a.team_id : b.team_id,
   }
 }
@@ -67,7 +67,7 @@ describe('tradeDays', () => {
 })
 
 const move = (owner: string, kind: Move['kind'], iso: string, bid = 0): Move => ({
-  date: at(iso), week: 6, kind, team_id: 1, team_name: `Team ${owner}`, owner_id: owner, owner_name: owner,
+  year: 2026, date: at(iso), week: 6, kind, team_id: 1, team_name: `Team ${owner}`, owner_id: owner, owner_name: owner,
   added: kind === 'drop' ? [] : [{ player_id: 1, name: 'A', position: 'RB' }],
   dropped: [{ player_id: 2, name: 'B', position: 'WR' }], bid,
 })

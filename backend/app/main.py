@@ -12,10 +12,15 @@ from . import power_rankings as pr
 from .accolades import accolades as count_accolades
 from .season_state import season_over
 from .team_hub import career_records, team_schedule
+from . import trade_store
 from .trades import (
-    activity_key,
+    ACTIVITY_MESSAGE_TYPES,
+    activity_from_topic,
     moves_from_activity,
-    normalize_activity,
+    player_position,
+    team_fields,
+    topic_key,
+    topic_player_ids,
     trade_outcomes,
     trades_from_activity,
 )
@@ -34,6 +39,7 @@ from .auth import (
 from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
 from .crypto import decrypt, encrypt
 import datetime as dt
+import json
 import secrets
 from .database import get_db
 from .espn_client import (
@@ -83,6 +89,8 @@ from .schemas import (
     SeasonTeams,
     SeasonTrades,
     SeasonMoves,
+    LeagueTrades,
+    LeagueMoves,
     TeamHub,
     UpdateLeagueRequest,
     UserResponse,
@@ -525,42 +533,125 @@ def _get_season_box_scores(
 # run to several hundred.
 ACTIVITY_PAGE = 25
 ACTIVITY_MAX_PAGES = 200
+# Players looked up per player-card request.
+PLAYER_CARD_CHUNK = 100
+
+
+def _fetch_activity_topics(league) -> list[dict]:
+    """Every activity topic in the league season, newest first, read straight
+    from ESPN (the same request espn_api's recent_activity makes, without its
+    per-player lookups). Pages until ESPN returns nothing new: a short page
+    isn't taken as the end, since ESPN may cap a page below the size asked."""
+    topics: list[dict] = []
+    seen: set[str] = set()
+    offset = 0
+    for _ in range(ACTIVITY_MAX_PAGES):
+        filters = {
+            "topics": {
+                "filterType": {"value": ["ACTIVITY_TRANSACTIONS"]},
+                "limit": ACTIVITY_PAGE,
+                "limitPerMessageSet": {"value": 25},
+                "offset": offset,
+                "sortMessageDate": {"sortPriority": 1, "sortAsc": False},
+                "sortFor": {"sortPriority": 2, "sortAsc": False},
+                "filterIncludeMessageTypeIds": {"value": ACTIVITY_MESSAGE_TYPES},
+            }
+        }
+        data = league.espn_request.league_get(
+            extend="/communication/",
+            params={"view": "kona_league_communication"},
+            headers={"x-fantasy-filter": json.dumps(filters)},
+        )
+        batch = (data or {}).get("topics") or []
+        fresh = [t for t in batch if topic_key(t) not in seen]
+        if not fresh:
+            break
+        seen.update(topic_key(t) for t in fresh)
+        topics.extend(fresh)
+        offset += len(batch)
+    return topics
+
+
+def _player_directory(league, player_ids: set[int]) -> dict[int, dict]:
+    """Name and position for each player, in a request per hundred players
+    rather than espn_api's two per player. Falls back to the league's name map
+    (names only) for anyone the player cards miss."""
+    names = getattr(league, "player_map", {}) or {}
+    ids = sorted(player_ids)
+    out: dict[int, dict] = {}
+    for i in range(0, len(ids), PLAYER_CARD_CHUNK):
+        try:
+            data = league.espn_request.get_player_card(
+                ids[i:i + PLAYER_CARD_CHUNK], getattr(league, "finalScoringPeriod", None) or 18
+            )
+        except Exception:
+            data = {}
+        for entry in (data or {}).get("players") or []:
+            info = entry.get("player") or entry
+            pid = info.get("id", entry.get("id"))
+            if isinstance(pid, int):
+                out[pid] = {
+                    "name": info.get("fullName") or names.get(pid) or f"Player {pid}",
+                    "position": player_position(info),
+                }
+    for pid in ids:
+        if pid not in out and isinstance(names.get(pid), str):
+            out[pid] = {"name": names[pid], "position": ""}
+    return out
 
 
 def _get_season_activity(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> list[dict]:
     """Every transaction in the season (2019 on): trades, waiver claims,
-    free-agent pickups and drops, normalized (app/trades.py). One fetch serves
-    both the trades and the transactions endpoints."""
+    free-agent pickups and drops, as plain dicts (app/trades.py). Kept in the
+    cache like other ESPN data; one fetch serves trades and transactions."""
     if not refresh:
-        cached = cache.get(league_id, year, "activity_v1", fresh_since=_fresh_since(year))
+        cached = cache.get(league_id, year, "activity_v2", fresh_since=_fresh_since(year))
         if cached:
             return cached["activities"]
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
-    activities: list[dict] = []
-    seen: set = set()
-    offset = 0
-    # Page until ESPN returns nothing new. A short page isn't treated as the
-    # end, since ESPN may cap a page below the size asked for.
-    for _ in range(ACTIVITY_MAX_PAGES):
-        batch = [normalize_activity(a) for a in league.recent_activity(size=ACTIVITY_PAGE, offset=offset)]
-        fresh = [a for a in batch if activity_key(a) not in seen]
-        if not fresh:
-            break
-        for a in fresh:
-            seen.add(activity_key(a))
-        activities.extend(fresh)
-        offset += len(batch)
-    cache.put(league_id, year, "activity_v1", {"activities": activities})
+    topics = _fetch_activity_topics(league)
+    players = _player_directory(league, topic_player_ids(topics))
+    teams = {t.team_id: team_fields(t) for t in league.teams}
+    activities = [activity_from_topic(t, teams.get, players) for t in topics]
+    cache.put(league_id, year, "activity_v2", {"activities": activities})
     return activities
 
 
-def _get_season_trades(
-    league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
+def _season_trade_results(
+    db: Session, ctx: LeagueContext, year: int, refresh: bool = False
 ) -> list[dict]:
-    """The season's trades, oldest first."""
-    return trades_from_activity(_get_season_activity(league_id, year, espn_s2, swid, refresh), year)
+    """The season's trades with their results, from the stored calculation
+    (app/trade_store.py) when it's current, else calculated and stored."""
+    lid = ctx.espn_league_id
+    if not refresh and trade_store.is_current(db, lid, year):
+        return trade_store.load(db, lid, [year])
+    trades = trades_from_activity(
+        _get_season_activity(lid, year, ctx.espn_s2, ctx.swid, refresh), year
+    )
+    weeks = _get_season_scoreboard(lid, year, ctx.espn_s2, ctx.swid)["weeks"]
+    # Box scores from the first trade's week on: earlier weeks can't count.
+    box_by_week: dict[int, dict] = {}
+    first = min((t["week"] for t in trades), default=None)
+    for week in weeks:
+        if first is None or week < first:
+            continue
+        try:
+            box_by_week[week] = _get_season_box_scores(lid, year, week, ctx.espn_s2, ctx.swid)
+        except WeekNotPlayedError:
+            break
+        except Exception:
+            continue
+    # Final once the season is over: its results can't change after that.
+    final = season_over(_get_season_teams(lid, year, ctx.espn_s2, ctx.swid))
+    trade_store.save(db, lid, year, trade_outcomes(trades, box_by_week), final)
+    return trade_store.load(db, lid, [year])
+
+
+def _transaction_years(ctx: LeagueContext) -> list[int]:
+    years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
+    return [y for y in years if y >= 2019]
 
 
 def _compute_positional_stats_for_year(
@@ -732,46 +823,58 @@ def season_transactions(year: int, refresh: bool = False, ctx: LeagueContext = D
         activities = _get_season_activity(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
-    return {
-        "league_id": ctx.espn_league_id,
-        "year": year,
-        "supported": True,
-        "moves": moves_from_activity(activities, year),
-    }
+    moves = [{**m, "year": year} for m in moves_from_activity(activities, year)]
+    return {"league_id": ctx.espn_league_id, "year": year, "supported": True, "moves": moves}
+
+
+@app.get("/api/leagues/{league_id}/transactions", response_model=LeagueMoves)
+def all_transactions(ctx: LeagueContext = Depends(get_user_league)):
+    """Every season's waiver claims, pickups and drops (2019 on), in one
+    request for the All seasons view."""
+    try:
+        years = _transaction_years(ctx)
+        moves = []
+        for year in years:
+            activities = _get_season_activity(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid)
+            moves += [{**m, "year": year} for m in moves_from_activity(activities, year)]
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+    return {"league_id": ctx.espn_league_id, "years": years, "moves": moves}
 
 
 @app.get("/api/leagues/{league_id}/seasons/{year}/trades", response_model=SeasonTrades)
-def season_trades(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
+def season_trades(
+    year: int,
+    refresh: bool = False,
+    ctx: LeagueContext = Depends(get_user_league),
+    db: Session = Depends(get_db),
+):
     """Every trade in a season, with what each side's new players went on to
-    score for it (app/trades.py). ESPN only keeps trades from 2019 on."""
+    score for it (app/trades.py), from the stored results (app/trade_store.py).
+    ESPN only keeps trades from 2019 on."""
     if year < 2019:
         return {"league_id": ctx.espn_league_id, "year": year, "supported": False, "trades": []}
     try:
-        trades = _get_season_trades(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
-        weeks = _get_season_scoreboard(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid)["weeks"]
+        trades = _season_trade_results(db, ctx, year, refresh)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
-    # Box scores from the first trade's week on: they're cached, and earlier
-    # weeks can't count toward any trade.
-    box_by_week: dict[int, dict] = {}
-    first = min((t["week"] for t in trades), default=None)
-    for week in weeks:
-        if first is None or week < first:
-            continue
-        try:
-            box_by_week[week] = _get_season_box_scores(
-                ctx.espn_league_id, year, week, ctx.espn_s2, ctx.swid
-            )
-        except WeekNotPlayedError:
-            break
-        except Exception:
-            continue
-    return {
-        "league_id": ctx.espn_league_id,
-        "year": year,
-        "supported": True,
-        "trades": trade_outcomes(trades, box_by_week),
-    }
+    return {"league_id": ctx.espn_league_id, "year": year, "supported": True, "trades": trades}
+
+
+@app.get("/api/leagues/{league_id}/trades", response_model=LeagueTrades)
+def all_trades(ctx: LeagueContext = Depends(get_user_league), db: Session = Depends(get_db)):
+    """Every season's trades with their results (2019 on), in one request for
+    the All seasons view. Seasons whose results are stored come straight from
+    the database; any others are calculated first."""
+    try:
+        years = _transaction_years(ctx)
+        for year in years:
+            if not trade_store.is_current(db, ctx.espn_league_id, year):
+                _season_trade_results(db, ctx, year)
+        trades = trade_store.load(db, ctx.espn_league_id, years)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+    return {"league_id": ctx.espn_league_id, "years": years, "trades": trades}
 
 
 @app.get(

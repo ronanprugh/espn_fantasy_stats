@@ -59,6 +59,10 @@ class TradeSide(BaseModel):
 
 
 class Trade(BaseModel):
+    # The season the trade belongs to.
+    year: int
+    # ESPN's activity id.
+    uid: str
     # Milliseconds since the epoch, as ESPN reports it.
     date: int
     week: int
@@ -68,6 +72,7 @@ class Trade(BaseModel):
 
 
 class Move(BaseModel):
+    year: int
     date: int
     week: int
     # "waiver", "free_agent" or "drop"
@@ -87,6 +92,18 @@ class SeasonMoves(BaseModel):
     year: int
     supported: bool
     moves: List[Move]
+
+
+class LeagueMoves(BaseModel):
+    league_id: int
+    years: List[int]
+    moves: List[Move]
+
+
+class LeagueTrades(BaseModel):
+    league_id: int
+    years: List[int]
+    trades: List[Trade]
 
 
 class SeasonTrades(BaseModel):
