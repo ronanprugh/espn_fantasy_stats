@@ -146,6 +146,9 @@ export type SeasonTrades = {
   year: number
   /** ESPN keeps trades from 2019 on. */
   supported: boolean
+  /** ESPN returned no transactions at all for this season, though it was
+   * played: its trades are unknown, not zero. Older servers omit it. */
+  unavailable?: boolean
   trades: Trade[]
 }
 
@@ -170,6 +173,8 @@ export type SeasonMoves = {
   league_id: number
   year: number
   supported: boolean
+  /** As on SeasonTrades. */
+  unavailable?: boolean
   moves: Move[]
 }
 
@@ -183,12 +188,16 @@ export async function fetchTrades(leagueId: number, year: number): Promise<Seaso
 }
 
 /** Every season's trades (2019 on) in one request, for All seasons. */
-export async function fetchAllTrades(leagueId: number): Promise<{ league_id: number; years: number[]; trades: Trade[] }> {
+export async function fetchAllTrades(
+  leagueId: number,
+): Promise<{ league_id: number; years: number[]; unavailable_years?: number[]; trades: Trade[] }> {
   return jsonFetch(`/api/leagues/${leagueId}/trades`)
 }
 
 /** Every season's waiver claims, pickups and drops in one request. */
-export async function fetchAllMoves(leagueId: number): Promise<{ league_id: number; years: number[]; moves: Move[] }> {
+export async function fetchAllMoves(
+  leagueId: number,
+): Promise<{ league_id: number; years: number[]; unavailable_years?: number[]; moves: Move[] }> {
   return jsonFetch(`/api/leagues/${leagueId}/transactions`)
 }
 

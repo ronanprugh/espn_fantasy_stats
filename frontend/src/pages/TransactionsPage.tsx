@@ -46,8 +46,12 @@ const dateLabel = (ms: number) =>
 const dayLabel = (day: string) =>
   new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
+/** 2021 · 2021 and 2023 · 2020, 2021 and 2023 */
+const listYears = (ys: number[]) =>
+  ys.length < 2 ? String(ys[0] ?? '') : `${ys.slice(0, -1).join(', ')} and ${ys[ys.length - 1]}`
 
-type Loaded = { key: string; trades: Trade[]; moves: Move[] }
+/** `missing`: played seasons ESPN returned no transactions for. */
+type Loaded = { key: string; trades: Trade[]; moves: Move[]; missing: number[] }
 
 /**
  * The league's transactions, one kind at a time: trades (and who won them),
@@ -81,16 +85,12 @@ export function TransactionsPage() {
     setError(null)
     const load: Promise<Loaded> =
       source === 'trades'
-        ? (year === 'all' ? fetchAllTrades(leagueId) : fetchTrades(leagueId, year)).then((r) => ({
-            key,
-            trades: r.trades,
-            moves: [],
-          }))
-        : (year === 'all' ? fetchAllMoves(leagueId) : fetchMoves(leagueId, year)).then((r) => ({
-            key,
-            trades: [],
-            moves: r.moves,
-          }))
+        ? year === 'all'
+          ? fetchAllTrades(leagueId).then((r) => ({ key, trades: r.trades, moves: [], missing: r.unavailable_years ?? [] }))
+          : fetchTrades(leagueId, year).then((r) => ({ key, trades: r.trades, moves: [], missing: r.unavailable ? [year] : [] }))
+        : year === 'all'
+          ? fetchAllMoves(leagueId).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable_years ?? [] }))
+          : fetchMoves(leagueId, year).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable ? [year] : [] }))
     load
       .then((d) => !cancelled && setData(d))
       .catch((e: Error) => !cancelled && setError(e.message))
@@ -146,7 +146,14 @@ export function TransactionsPage() {
       {error && <ErrorMessage message={error} />}
       {loading && <ListSkeleton rows={4} />}
 
-      {shown && count === 0 && (
+      {shown && shown.missing.length > 0 && (
+        <p className="subtitle">
+          ESPN didn't return any transactions for {listYears(shown.missing)}, so{' '}
+          {shown.missing.length === 1 ? 'that season is' : 'those seasons are'} missing here rather than empty. This
+          page tries again later.
+        </p>
+      )}
+      {shown && count === 0 && shown.missing.length === 0 && (
         <p className="subtitle">
           No {kindInfo.noun}s in {scope}. ESPN keeps transactions from {FIRST_TRADE_YEAR} on.
         </p>
@@ -243,7 +250,7 @@ function TradesView({ trades, yourTeam, allSeasons }: { trades: Trade[]; yourTea
         {[...trades]
           .sort((a, b) => b.date - a.date)
           .map((t) => (
-            <TradeCard key={`${t.date}-${t.sides.map((s) => s.team_id).join('-')}`} trade={t} yourTeam={yourTeam} />
+            <TradeCard key={`${t.year}:${t.uid}`} trade={t} yourTeam={yourTeam} />
           ))}
       </section>
     </>

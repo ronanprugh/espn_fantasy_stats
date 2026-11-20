@@ -1,13 +1,23 @@
 """A league's transactions: trades and who won them, and the waiver claims,
 free-agent pickups and drops.
 
-ESPN keeps league activity from 2019 on. Each transaction is one "topic" of
-messages: a trade holds one message per player, from the sending team to the
-receiving one; a pickup holds an add (waiver or free agent) and usually a
-drop. activity_from_topic turns a raw topic into a plain dict (so it can be
-cached), with player names and positions from a directory fetched in one go
-(espn_api's own Activity fetches each unknown player separately, two requests
-apiece). The other functions derive one record per trade or move. Trades are credited
+Where the data comes from (seasons from 2019 on):
+
+- ESPN's activity feed ("communication"), where it's served: the season in
+  progress, and some past ones. Each transaction is one "topic" of messages:
+  a trade holds one message per player, from the sending team to the
+  receiving one; a pickup holds an add (waiver or free agent) and usually a
+  drop. activity_from_topic turns a raw topic into a plain dict (so it can be
+  cached), with player names and positions from a directory fetched in one go
+  (espn_api's own Activity fetches each unknown player separately).
+- For past seasons the feed answers 404 ("This Communication Group does not
+  exist"), the transactions view (`mTransactions2`): activity_from_transaction
+  reads its waiver claims, pickups and drops into the same dicts. It no longer
+  lists the players of trades that went through, only that they did
+  (trade_events), so trades_from_rosters rebuilds them from the weekly
+  rosters: a player who changes teams without being picked up was traded.
+
+The other functions derive one record per trade or move. Trades are credited
 with what each side's new players went on to score for it, from the week of
 the trade to the end of the season, read from the cached weekly box scores.
 
@@ -131,10 +141,175 @@ def activity_from_topic(topic: dict, team_by_id, players: dict[int, dict]) -> di
     return {"uid": topic_key(topic), "date": int(topic.get("date", 0)), "actions": actions}
 
 
-def trades_from_activity(activities: Iterable[dict], year: int) -> list[dict]:
-    """One record per trade, oldest first, from normalized activities."""
-    trades = []
+def transaction_player_ids(transactions: Iterable[dict]) -> set[int]:
+    return {
+        i["playerId"] for t in transactions for i in t.get("items") or [] if isinstance(i.get("playerId"), int)
+    }
+
+
+# mTransactions2 transaction types that move players on or off a roster.
+_PICKUP_TYPES = {"WAIVER", "FREEAGENT", "ROSTER"}
+
+
+def activity_from_transaction(tx: dict, team_by_id, players: dict[int, dict]) -> dict | None:
+    """An ESPN transaction (the `mTransactions2` view) as the same plain dict
+    activity_from_topic makes, or None for one that didn't happen (proposed,
+    vetoed, failed) or moved nobody.
+
+    This is the fallback for seasons ESPN's activity feed no longer serves:
+    the feed answers 404 for many past seasons, while the transactions view
+    keeps them. Only EXECUTED transactions count. Trades are TRADE items from
+    one team to another; pickups are ADD items (a WAIVER transaction's bid
+    is its winning bid) and DROP items.
+    """
+    if tx.get("status") != "EXECUTED":
+        return None
+    kind = tx.get("type") or ""
+
+    def player(pid) -> dict:
+        info = players.get(pid) if isinstance(pid, int) else None
+        if info:
+            return {"player_id": pid, "name": info["name"], "position": info.get("position", "")}
+        return {"player_id": pid if isinstance(pid, int) else -1, "name": f"Player {pid}", "position": ""}
+
+    actions = []
+    bid = tx.get("bidAmount") or 0
+    for item in tx.get("items") or []:
+        itype, pid = item.get("type"), item.get("playerId")
+        if kind.startswith("TRADE") and itype == "TRADE":
+            sender, receiver = team_by_id(item.get("fromTeamId")), team_by_id(item.get("toTeamId"))
+            p = player(pid)
+            if sender:
+                actions.append({"team": sender, "action": "TRADE_SENT", "player": p, "bid": 0})
+            if receiver:
+                actions.append({"team": receiver, "action": "TRADE_RECEIVED", "player": p, "bid": 0})
+        elif kind in _PICKUP_TYPES and itype == "ADD":
+            action = "WAIVER ADDED" if kind == "WAIVER" else "FA ADDED"
+            actions.append({
+                "team": team_by_id(item.get("toTeamId")),
+                "action": action,
+                "player": player(pid),
+                # The bid is the transaction's; credit it once.
+                "bid": int(bid) if action == "WAIVER ADDED" and isinstance(bid, (int, float)) else 0,
+            })
+            bid = 0
+        elif kind in _PICKUP_TYPES and itype == "DROP":
+            actions.append({"team": team_by_id(item.get("fromTeamId")), "action": "DROPPED", "player": player(pid), "bid": 0})
+    if not actions:
+        return None
+    date = tx.get("processDate") or tx.get("proposedDate") or 0
+    return {"uid": f"tx:{tx.get('id') or date}", "date": int(date), "actions": actions}
+
+
+def trade_events(transactions: Iterable[dict]) -> list[dict]:
+    """When trades went through, from the transactions view: the accepting
+    (or upholding) team, the scoring period and the time.
+
+    For past seasons that's all ESPN keeps of a trade there: the accepted
+    proposal, with its players, is gone (only cancelled ones are listed), so
+    the players come from the weekly rosters (trades_from_rosters)."""
+    events = []
+    for tx in transactions:
+        if tx.get("type") not in ("TRADE_ACCEPT", "TRADE_UPHOLD"):
+            continue
+        if tx.get("status") not in (None, "EXECUTED") or tx.get("executionType", "EXECUTE") != "EXECUTE":
+            continue
+        events.append({
+            "team_id": tx.get("teamId"),
+            "week": tx.get("scoringPeriodId"),
+            "date": int(tx.get("processDate") or tx.get("proposedDate") or 0),
+        })
+    return events
+
+
+def _week_start_ms(year: int, week: int) -> int:
+    """Noon Eastern on the Tuesday a fantasy week starts (see week_of)."""
+    day = kickoff(year) - timedelta(days=2) + timedelta(weeks=week - 1)
+    return int(datetime(day.year, day.month, day.day, 12, tzinfo=EASTERN).timestamp() * 1000)
+
+
+def trades_from_rosters(
+    box_by_week: dict[int, dict], activities: Iterable[dict], events: Iterable[dict], team_by_id, year: int
+) -> list[dict]:
+    """A past season's trades, rebuilt from its weekly rosters, in the shape
+    trades_from_activity gives.
+
+    A player who turns up on another team's roster without that team having
+    picked him up (a waiver claim or free-agent add since he was last seen)
+    was traded to it. Players moving between the same two teams in the same
+    week are one trade, credited from that week. Its time is the accepting
+    team's acceptance from `events` where there is one, else the start of the
+    week. The box scores carry the whole roster, bench and IR included.
+    """
+    adds: dict[int, list[tuple[int, int]]] = {}
     for act in activities:
+        week = week_of(act["date"], year)
+        for a in act["actions"]:
+            if a["action"] in MOVE_KINDS and a["team"]:
+                adds.setdefault(a["player"]["player_id"], []).append((week, a["team"]["team_id"]))
+
+    last: dict[int, tuple[int, int]] = {}
+    moved: dict[tuple[int, int, int], list[tuple[dict, int, int]]] = {}
+    for week in sorted(box_by_week):
+        for m in box_by_week[week].get("matchups", []):
+            for side in (m.get("home"), m.get("away")):
+                if not side:
+                    continue
+                team = side["team_id"]
+                for p in side.get("lineup", []):
+                    pid = p["player_id"]
+                    seen = last.get(pid)
+                    if seen and seen[1] != team:
+                        picked_up = any(seen[0] <= w <= week and to == team for w, to in adds.get(pid, []))
+                        if not picked_up:
+                            pair = tuple(sorted((seen[1], team)))
+                            player = {"player_id": pid, "name": p.get("name") or f"Player {pid}", "position": p.get("position", "")}
+                            moved.setdefault((week, *pair), []).append((player, seen[1], team))
+                    last[pid] = (week, team)
+
+    when = {}
+    for e in events:
+        key = (e["week"], e["team_id"])
+        when[key] = max(when.get(key, 0), e["date"])
+
+    trades = []
+    for (week, a, b), players in sorted(moved.items()):
+        teams = {tid: team_by_id(tid) for tid in (a, b)}
+        if not all(teams.values()):
+            continue
+        sides = {tid: {**teams[tid], "received": [], "sent": []} for tid in (a, b)}
+        for player, sender, receiver in players:
+            sides[sender]["sent"].append(player)
+            sides[receiver]["received"].append(player)
+        date = max(when.get((week, a), 0), when.get((week, b), 0)) or _week_start_ms(year, week)
+        trades.append({
+            "uid": f"roster:{year}:{week}:{a}-{b}",
+            "date": date,
+            "week": week,
+            "sides": sorted(sides.values(), key=lambda s: s["team_id"]),
+        })
+    trades.sort(key=lambda t: t["date"])
+    return trades
+
+
+# The same players changing hands between the same teams within this long is
+# one trade listed twice (a proposal and its acceptance, say), not two.
+_DUPLICATE_TRADE_MS = 7 * 24 * 60 * 60 * 1000
+
+
+def _trade_signature(sides: dict[int, dict]) -> tuple:
+    return tuple(sorted(
+        (tid, kind, p["player_id"]) for tid, s in sides.items() for kind in ("received", "sent") for p in s[kind]
+    ))
+
+
+def trades_from_activity(activities: Iterable[dict], year: int) -> list[dict]:
+    """One record per trade, oldest first, from normalized activities.
+    A trade that appears twice (the same players between the same teams,
+    days apart at most) is kept once, at its first appearance."""
+    trades = []
+    seen: dict[tuple, int] = {}
+    for act in sorted(activities, key=lambda a: a["date"]):
         sides: dict[int, dict] = {}
         for a in act["actions"]:
             team = a["team"]
@@ -144,6 +319,10 @@ def trades_from_activity(activities: Iterable[dict], year: int) -> list[dict]:
             side["received" if a["action"] == "TRADE_RECEIVED" else "sent"].append(a["player"])
         if len(sides) < 2:
             continue
+        signature = _trade_signature(sides)
+        if signature in seen and act["date"] - seen[signature] <= _DUPLICATE_TRADE_MS:
+            continue
+        seen[signature] = act["date"]
         trades.append({
             "uid": act.get("uid") or str(act["date"]),
             "date": act["date"],
