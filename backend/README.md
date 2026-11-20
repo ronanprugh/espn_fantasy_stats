@@ -84,15 +84,16 @@ backend/
 ## Caching and freshness
 
 - The `cache` table is keyed on (ESPN league id, season, key), so every user
-  who adds a league shares one copy. Keys carry a version: `teams_v3`,
-  `matchups_v2`, `scoreboard_v2`, `playoffs_v1`, `positional_stats_v3`,
-- The `cache` table is keyed on (ESPN league id, season, key), so every user
   who adds a league shares one copy. The keys are constants in `app/cache.py`
   (`cache.TEAMS`, `cache.box_scores_key(week)`, …), each with a version.
   **Bump the version whenever a payload's shape changes**; old rows are then
   ignored, and `python -m app.admin prune-cache` (with `--dry-run` to look
   first) deletes them.
 - **Finished seasons** are cached indefinitely.
+- **Box scores** are kept for good only if the week was over when they were
+  fetched (`complete` in the payload); a copy fetched mid-week is fetched
+  again. ESPN answers a week it hasn't reached with the current week's games,
+  so a copy saved early would otherwise hold the wrong games for good.
 - **The live season** goes stale at fixed weekly *refresh points*
   (`espn_client.REFRESH_POINTS`, Eastern time): midnight daily, Sunday 4:30pm
   and 8:15pm, Monday 1am and Tuesday 9am. Nothing runs on a schedule. The
