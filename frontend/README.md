@@ -1,6 +1,6 @@
 # Frontend
 
-React 18 + TypeScript + Vite, with React Router and Recharts. Setup and running
+React 19 + TypeScript + Vite 8, with React Router and Recharts. Setup and running
 it locally are in the [root README](../README.md); this page is how the code
 fits together.
 
