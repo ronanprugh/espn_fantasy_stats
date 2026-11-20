@@ -4966,6 +4966,15 @@ button.cov:focus-visible, .pr-week-pill:focus-visible, .bump-legend-item:focus-v
   font-variant-numeric: tabular-nums;
 }
 
+/* "then traded to …" under a player's numbers: a line of its own that wraps. */
+.trade-onward {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
 /* The team column is the first here, not a narrow rank number. */
 .trade-records td:first-child,
 .trade-records th:first-child {
