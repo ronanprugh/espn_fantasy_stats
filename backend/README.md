@@ -131,6 +131,8 @@ backend/
 ```bash
 .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m pytest          # in-memory SQLite and ESPN fakes; no Postgres needed
+# The few tests that need Postgres (the cache's upsert) skip unless pointed at a migrated database:
+TEST_DATABASE_URL=postgresql+psycopg://fantasy:dev@localhost:5432/fantasy .venv/bin/python -m pytest tests/test_cache_postgres.py
 .venv/bin/ruff check .
 ```
 
