@@ -342,12 +342,8 @@ export function teamIn(season: PowerRankingSeason, teamId: number) {
   return season.teams.find((t) => t.team_id === teamId)
 }
 
-/** "1st", "2nd", "13th". */
-export function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return n + (s[(v - 20) % 10] || s[v] || s[0])
-}
+/** "1st", "2nd", "13th" (one definition, in teamHub). */
+export { ordinal } from './teamHub'
 
 /** Arrow text for a weekly move: "▲3", "▼2", "–". */
 export function formatChange(change: number | null): string {

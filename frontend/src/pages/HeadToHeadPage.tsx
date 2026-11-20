@@ -65,35 +65,41 @@ export function HeadToHeadPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLeague?.espn_league_id])
 
+  const leagueId = selectedLeague?.espn_league_id
   useEffect(() => {
-    if (!selectedLeague || !ownerA || !ownerB || ownerA === ownerB) {
+    if (!leagueId || !ownerA || !ownerB || ownerA === ownerB) {
       setData(null)
       return
     }
+    let cancelled = false
     setLoading(true)
     setError(null)
-    fetchHeadToHead(selectedLeague.espn_league_id, ownerA, ownerB)
-      .then(setData)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [selectedLeague?.espn_league_id, ownerA, ownerB])
+    fetchHeadToHead(leagueId, ownerA, ownerB)
+      .then((d) => !cancelled && setData(d))
+      .catch((e: Error) => !cancelled && setError(e.message))
+      .finally(() => !cancelled && setLoading(false))
+    // Switching opponents mid-load mustn't show the previous pair's record.
+    return () => {
+      cancelled = true
+    }
+  }, [leagueId, ownerA, ownerB])
 
   useEffect(() => {
-    if (!selectedLeague || !ownerA || ownerB) {
+    if (!leagueId || !ownerA || ownerB) {
       setSummary(null)
       return
     }
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetchHeadToHeadSummary(selectedLeague.espn_league_id, ownerA)
+    fetchHeadToHeadSummary(leagueId, ownerA)
       .then((s) => !cancelled && setSummary(s))
       .catch((e: Error) => !cancelled && setError(e.message))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
-  }, [selectedLeague?.espn_league_id, ownerA, ownerB])
+  }, [leagueId, ownerA, ownerB])
 
   if (!selectedLeague) return <NoLeagueSelected />
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 from collections.abc import Iterable
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .espn_client import last_refresh_point
@@ -33,7 +34,12 @@ def is_current(db: Session, league_id: int, season: int, now: dt.datetime | None
 
 
 def save(db: Session, league_id: int, season: int, trades: Iterable[dict], final: bool) -> None:
-    """Replace a season's stored results with `trades` (trade_outcomes output)."""
+    """Replace a season's stored results with `trades` (trade_outcomes output).
+
+    Two requests can calculate the same season at once (two people opening
+    it on a cold cache). Whichever commits second finds the other's rows and
+    backs off: both calculated the same thing.
+    """
     db.query(TradeRecord).filter(
         TradeRecord.espn_league_id == league_id, TradeRecord.season == season
     ).delete(synchronize_session=False)
@@ -83,7 +89,10 @@ def save(db: Session, league_id: int, season: int, trades: Iterable[dict], final
         db.add(TradeSync(espn_league_id=league_id, season=season, computed_at=now, final=final))
     else:
         sync.computed_at, sync.final = now, final
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
 
 
 def load(db: Session, league_id: int, seasons: Iterable[int]) -> list[dict]:

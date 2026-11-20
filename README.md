@@ -269,6 +269,7 @@ cd backend
 
 # Frontend
 cd frontend
+npm run lint           # ESLint: React hook rules
 npm test
 npm run build          # includes the TypeScript check
 ```

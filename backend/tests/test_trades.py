@@ -711,3 +711,16 @@ def test_past_season_trades_come_from_rosters_even_when_the_viewer_traded(db, mo
 def test_an_executed_proposal_dates_its_trade():
     own = {**TX_TRADE, "type": "TRADE_PROPOSAL", "status": "EXECUTED", "teamId": 1, "scoringPeriodId": 5}
     assert trade_events([own, TX_PROPOSAL]) == [{"team_id": 1, "week": 5, "date": TX_TRADE["processDate"]}]
+
+
+def test_a_season_saved_twice_at_once_keeps_one_copy(db):
+    from app import trade_store
+
+    results = trade_outcomes(trades_from_activity(acts(TRADE), 2026), WEEKS)
+    other = sessionmaker(bind=db.get_bind())()
+    # The other request has read "nothing stored yet" and added its rows...
+    trade_store.save(other, 1, 2026, results, final=True)
+    # ...while this one, which read the same, commits second.
+    db.add(TradeSync(espn_league_id=1, season=2026, computed_at=datetime(2026, 1, 1), final=True))
+    trade_store.save(db, 1, 2026, results, final=True)  # no IntegrityError
+    assert len(trade_store.load(db, 1, [2026])) == 1

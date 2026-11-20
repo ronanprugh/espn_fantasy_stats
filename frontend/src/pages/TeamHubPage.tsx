@@ -82,16 +82,18 @@ export function TeamHubPage() {
   const [error, setError] = useState<string | null>(null)
   // The selected season's teams, for the headline's standing and PF rank.
   const [seasonTeams, setSeasonTeams] = useState<SeasonTeams | null>(null)
+  const leagueId = selectedLeague?.espn_league_id
+  const hubYear = hub?.selected_year
   useEffect(() => {
-    if (!selectedLeague || !hub) return
+    if (!leagueId || hubYear === undefined) return
     let cancelled = false
-    fetchTeams(selectedLeague.espn_league_id, hub.selected_year)
+    fetchTeams(leagueId, hubYear)
       .then((s) => !cancelled && setSeasonTeams(s))
       .catch(() => !cancelled && setSeasonTeams(null))
     return () => {
       cancelled = true
     }
-  }, [selectedLeague?.espn_league_id, hub?.selected_year])
+  }, [leagueId, hubYear])
   const formats = hub
     ? (
         [
@@ -141,21 +143,22 @@ export function TeamHubPage() {
   }, [selectedLeague?.espn_league_id])
 
   useEffect(() => {
-    if (!selectedLeague || !ownerId) {
+    if (!leagueId || !ownerId) {
       setHub(null)
       return
     }
+    let cancelled = false
     setLoading(true)
     setError(null)
-    fetchTeamHub(
-      selectedLeague.espn_league_id,
-      ownerId,
-      selectedYear ?? undefined,
-    )
-      .then(setHub)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [selectedLeague?.espn_league_id, ownerId, selectedYear])
+    fetchTeamHub(leagueId, ownerId, selectedYear ?? undefined)
+      .then((h) => !cancelled && setHub(h))
+      .catch((e: Error) => !cancelled && setError(e.message))
+      .finally(() => !cancelled && setLoading(false))
+    // Switching teams mid-load mustn't show the previous team's hub.
+    return () => {
+      cancelled = true
+    }
+  }, [leagueId, ownerId, selectedYear])
 
   if (!selectedLeague) return <NoLeagueSelected />
 

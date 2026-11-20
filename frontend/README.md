@@ -6,6 +6,7 @@ fits together.
 
 ```bash
 npm run dev       # http://localhost:5173/espn-fantasy-stats/, proxying /api to localhost:8000
+npm run lint      # ESLint (React hook rules)
 npm test          # Vitest
 npm run build     # type check (tsc) + production build
 ```
