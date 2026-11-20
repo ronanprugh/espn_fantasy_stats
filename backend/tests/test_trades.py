@@ -15,6 +15,7 @@ from app.trades import (
     activity_from_transaction,
     trade_events,
     trades_from_rosters,
+    trades_that_went_through,
     fits_slot,
     kickoff,
     moves_from_activity,
@@ -407,7 +408,9 @@ def test_trades_endpoint_calculates_once_then_reads_stored_results(db, monkeypat
     assert len(league.espn_request.calls) == espn_calls and calls["box"] == box_calls  # nothing refetched
 
     old = client.get("/api/leagues/1/seasons/2018/trades").json()
-    assert old == {"league_id": 1, "year": 2018, "supported": False, "unavailable": False, "trades": []}
+    assert old == {
+        "league_id": 1, "year": 2018, "supported": False, "unavailable": False, "espn_trade_count": None, "trades": [],
+    }
 
 
 def test_all_seasons_endpoints(db, monkeypatch):
@@ -652,7 +655,10 @@ def test_past_season_trades_come_from_rosters_end_to_end(db, monkeypatch):
 
     from app import main
 
-    league = played_league(TxRequests([TX_ACCEPT, TX_RICO], cards=CARDS))
+    accept = {**TX_ACCEPT, "relatedTransactionId": "p1"}
+    uphold = {"id": "u", "type": "TRADE_UPHOLD", "status": "EXECUTED", "teamId": 1, "scoringPeriodId": 5,
+              "relatedTransactionId": "p1", "items": []}
+    league = played_league(TxRequests([accept, uphold, TX_RICO], cards=CARDS))
     wire(monkeypatch, league)
 
     def box_scores(lid, year, week, *a, **k):
@@ -671,6 +677,9 @@ def test_past_season_trades_come_from_rosters_end_to_end(db, monkeypatch):
     [t] = body["trades"]
     assert t["week"] == 5 and {s["team_name"] for s in t["sides"]} == {"Alpha", "Bravo"}
     assert db.get(TradeSync, (1, 2026)).final is True
+    # ESPN's own count rides along, for the page to compare.
+    assert body["espn_trade_count"] == 1
+    assert TestClient(main.app).get("/api/leagues/1/trades").json()["espn_trade_counts"] == {"2026": 1}
 
 
 def test_past_season_trades_come_from_rosters_even_when_the_viewer_traded(db, monkeypatch):
@@ -824,3 +833,17 @@ def test_a_draft_day_trade_shows_against_the_draft():
     assert received(t) == {1: [20], 2: [10]} and t["week"] == 1
     # The draft isn't a pickup.
     assert moves_from_activity([activity_from_transaction(draft, T3.get, PLAYERS)], 2026) == []
+
+
+
+def test_trades_that_went_through():
+    def t(kind, rel, status=None):
+        return {"type": kind, "status": status, "relatedTransactionId": rel}
+    txs = [
+        t("TRADE_ACCEPT", "a"), t("TRADE_UPHOLD", "a", "EXECUTED"),              # upheld
+        t("TRADE_ACCEPT", "b", "EXECUTED"),                                      # executed
+        t("TRADE_ACCEPT", "c"), t("TRADE_VETO", "c", "EXECUTED"),                # vetoed
+        t("TRADE_DECLINE", "d", "EXECUTED"),                                     # declined
+        t("TRADE_PROPOSAL", "e", "CANCELED"),
+    ]
+    assert trades_that_went_through(txs) == 2

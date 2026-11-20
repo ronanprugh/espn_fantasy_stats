@@ -33,7 +33,14 @@ def is_current(db: Session, league_id: int, season: int, now: dt.datetime | None
     return sync.computed_at >= _utc_naive(last_refresh_point(now))
 
 
-def save(db: Session, league_id: int, season: int, trades: Iterable[dict], final: bool) -> None:
+def save(
+    db: Session,
+    league_id: int,
+    season: int,
+    trades: Iterable[dict],
+    final: bool,
+    espn_trade_count: int | None = None,
+) -> None:
     """Replace a season's stored results with `trades` (trade_outcomes output).
 
     Two requests can calculate the same season at once (two people opening
@@ -86,13 +93,24 @@ def save(db: Session, league_id: int, season: int, trades: Iterable[dict], final
     sync = db.get(TradeSync, (league_id, season))
     now = _utc_naive(dt.datetime.now(dt.timezone.utc))
     if sync is None:
-        db.add(TradeSync(espn_league_id=league_id, season=season, computed_at=now, final=final))
+        db.add(TradeSync(
+            espn_league_id=league_id, season=season, computed_at=now, final=final,
+            espn_trade_count=espn_trade_count,
+        ))
     else:
-        sync.computed_at, sync.final = now, final
+        sync.computed_at, sync.final, sync.espn_trade_count = now, final, espn_trade_count
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
+
+
+def espn_trade_counts(db: Session, league_id: int, seasons: Iterable[int]) -> dict[int, int]:
+    """ESPN's trade count for each stored season that has one."""
+    rows = db.query(TradeSync).filter(
+        TradeSync.espn_league_id == league_id, TradeSync.season.in_(list(seasons))
+    )
+    return {r.season: r.espn_trade_count for r in rows if r.espn_trade_count is not None}
 
 
 def load(db: Session, league_id: int, seasons: Iterable[int]) -> list[dict]:

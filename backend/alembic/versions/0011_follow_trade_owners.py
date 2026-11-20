@@ -4,12 +4,15 @@ Past seasons' trades are now rebuilt by following each player's owner
 through the draft, pickups, drops and weekly rosters (0010's rebuild used
 the rosters alone, which put the wrong team on a trade when a player was
 picked up and traded in the same week). The activity cache key moved to
-activity_v4, so the old activity rows are deleted too.
+activity_v4, so the old activity rows are deleted too. trade_syncs gains
+espn_trade_count: ESPN's own count for a rebuilt season, which the page
+compares with how many trades it rebuilt.
 
 Revision ID: 0011_follow_trade_owners
 Revises: 0010_rebuild_past_trades
 Create Date: 2026-11-20
 """
+import sqlalchemy as sa
 from alembic import op
 
 
@@ -20,11 +23,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    op.add_column("trade_syncs", sa.Column("espn_trade_count", sa.Integer(), nullable=True))
     op.execute("DELETE FROM trade_syncs")
     op.execute("DELETE FROM trade_records")
     op.execute("DELETE FROM cache WHERE key LIKE 'activity_v%'")
 
 
 def downgrade() -> None:
-    # Nothing to restore: the rows are recalculated on demand.
-    pass
+    op.drop_column("trade_syncs", "espn_trade_count")

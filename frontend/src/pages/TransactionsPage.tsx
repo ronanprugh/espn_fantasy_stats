@@ -25,6 +25,8 @@ import {
   tradeDays,
   traderRecords,
   tradedOn,
+  tradeShortfall,
+  type Shortfall,
   type BusiestDay,
   type OwnerDay,
 } from '../lib/trades'
@@ -51,8 +53,9 @@ const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
 const listYears = (ys: number[]) =>
   ys.length < 2 ? String(ys[0] ?? '') : `${ys.slice(0, -1).join(', ')} and ${ys[ys.length - 1]}`
 
-/** `missing`: played seasons ESPN returned no transactions for. */
-type Loaded = { key: string; trades: Trade[]; moves: Move[]; missing: number[] }
+/** `missing`: played seasons ESPN returned no transactions for. `short`:
+ * seasons where ESPN counts more trades than could be rebuilt. */
+type Loaded = { key: string; trades: Trade[]; moves: Move[]; missing: number[]; short: Shortfall[] }
 
 /**
  * The league's transactions, one kind at a time: trades (and who won them),
@@ -87,11 +90,23 @@ export function TransactionsPage() {
     const load: Promise<Loaded> =
       source === 'trades'
         ? year === 'all'
-          ? fetchAllTrades(leagueId).then((r) => ({ key, trades: r.trades, moves: [], missing: r.unavailable_years ?? [] }))
-          : fetchTrades(leagueId, year).then((r) => ({ key, trades: r.trades, moves: [], missing: r.unavailable ? [year] : [] }))
+          ? fetchAllTrades(leagueId).then((r) => ({
+              key,
+              trades: r.trades,
+              moves: [],
+              missing: r.unavailable_years ?? [],
+              short: tradeShortfall(r.trades, r.espn_trade_counts ?? {}),
+            }))
+          : fetchTrades(leagueId, year).then((r) => ({
+              key,
+              trades: r.trades,
+              moves: [],
+              missing: r.unavailable ? [year] : [],
+              short: r.espn_trade_count != null ? tradeShortfall(r.trades, { [year]: r.espn_trade_count }) : [],
+            }))
         : year === 'all'
-          ? fetchAllMoves(leagueId).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable_years ?? [] }))
-          : fetchMoves(leagueId, year).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable ? [year] : [] }))
+          ? fetchAllMoves(leagueId).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable_years ?? [], short: [] }))
+          : fetchMoves(leagueId, year).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable ? [year] : [], short: [] }))
     load
       .then((d) => !cancelled && setData(d))
       .catch((e: Error) => !cancelled && setError(e.message))
@@ -152,6 +167,16 @@ export function TransactionsPage() {
           ESPN didn't return any transactions for {listYears(shown.missing)}, so{' '}
           {shown.missing.length === 1 ? 'that season is' : 'those seasons are'} missing here rather than empty. This
           page tries again later.
+        </p>
+      )}
+      {shown && kind === 'trades' && shown.short.length > 0 && (
+        <p className="subtitle">
+          ESPN records{' '}
+          {shown.short
+            .map((s) => `${plural(s.espn, 'trade')} in ${s.year} (${s.shown} shown)`)
+            .join(', ')}
+          . Earlier seasons' trades are rebuilt from weekly rosters, so two trades between the same two teams in the
+          same week appear as one.
         </p>
       )}
       {shown && count === 0 && shown.missing.length === 0 && (

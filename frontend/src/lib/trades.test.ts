@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Move, Trade, TradeSide } from '../api'
-import { biggestWin, easternDay, moveDays, moveRecords, tradeDays, traderRecords, tradedOn } from './trades'
+import { biggestWin, easternDay, moveDays, moveRecords, tradeDays, traderRecords, tradedOn, tradeShortfall } from './trades'
 
 const side = (id: number, owner: string, war: number, ppg: [number, number] | null = null): TradeSide => ({
   team_id: id, team_name: `Team ${id}`, owner_id: owner, owner_name: owner,
@@ -133,5 +133,14 @@ describe('tradedOn', () => {
     const first = withPlayers(trade(side(1, 'a', 0), side(2, 'b', 0)), 100, [[1, 2]])
     const laterSeason = { ...withPlayers(trade(side(2, 'b', 0), side(3, 'c', 0)), 200, [[2, 3]]), year: 2027, uid: 'x' }
     expect(tradedOn([first, laterSeason]).size).toBe(0)
+  })
+})
+
+describe('tradeShortfall', () => {
+  it('lists seasons where ESPN counts more trades than are shown', () => {
+    const t = (year: number): Trade => ({ ...trade(side(1, 'a', 1), side(2, 'b', 0)), year })
+    const trades = [t(2019), t(2019), t(2020)]
+    expect(tradeShortfall(trades, { '2020': 1, '2019': 3, '2021': 0 })).toEqual([{ year: 2019, espn: 3, shown: 2 }])
+    expect(tradeShortfall(trades, {})).toEqual([])
   })
 })

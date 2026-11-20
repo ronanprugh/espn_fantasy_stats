@@ -242,6 +242,28 @@ def trade_events(transactions: Iterable[dict]) -> list[dict]:
     return events
 
 
+def trades_that_went_through(transactions: Iterable[dict]) -> int:
+    """How many trades ESPN says went through: accepted, and executed or
+    upheld by at least as many votes as vetoed it. The rebuild can come up
+    short of it (two trades between the same teams in a week show as one),
+    and the page says so when it does."""
+    by_proposal: dict[str, list[dict]] = {}
+    for tx in transactions:
+        kind = tx.get("type") or ""
+        if kind.startswith("TRADE") and kind != "TRADE_PROPOSAL":
+            by_proposal.setdefault(str(tx.get("relatedTransactionId")), []).append(tx)
+    count = 0
+    for txs in by_proposal.values():
+        kinds = [t["type"] for t in txs]
+        if "TRADE_ACCEPT" not in kinds:
+            continue
+        upheld = kinds.count("TRADE_UPHOLD")
+        executed = any(t["type"] == "TRADE_ACCEPT" and t.get("status") == "EXECUTED" for t in txs)
+        if executed or (upheld and upheld >= kinds.count("TRADE_VETO")):
+            count += 1
+    return count
+
+
 def _week_start_ms(year: int, week: int) -> int:
     """Noon Eastern on the Tuesday a fantasy week starts (see week_of)."""
     day = kickoff(year) - timedelta(days=2) + timedelta(weeks=week - 1)

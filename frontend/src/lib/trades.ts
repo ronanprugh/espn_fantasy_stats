@@ -85,6 +85,20 @@ export function tradedOn(trades: readonly Trade[]): Map<string, string> {
   return out
 }
 
+export type Shortfall = { year: number; espn: number; shown: number }
+
+/**
+ * Seasons where ESPN counts more trades than are shown. Past seasons'
+ * trades are rebuilt from weekly rosters, where two trades between the same
+ * two teams in the same week can't be told apart and show as one.
+ */
+export function tradeShortfall(trades: readonly Trade[], espnCounts: Record<string, number>): Shortfall[] {
+  return Object.entries(espnCounts)
+    .map(([year, espn]) => ({ year: Number(year), espn, shown: trades.filter((t) => t.year === Number(year)).length }))
+    .filter((s) => s.espn > s.shown)
+    .sort((a, b) => a.year - b.year)
+}
+
 /** A moment's calendar day in Eastern time, where the league's day turns. */
 export function easternDay(ms: number): string {
   return new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
