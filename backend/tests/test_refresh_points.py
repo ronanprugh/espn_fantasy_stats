@@ -56,3 +56,26 @@ def test_accepts_utc_input():
 def test_daylight_saving_switch_keeps_wall_clock_times():
     # 1 Nov 2026 is the autumn switch. Sunday 4:30pm is still 4:30pm Eastern.
     assert last_refresh_point(et(2026, 11, 1, 17, 0)) == et(2026, 11, 1, 16, 30)
+
+
+def test_discovered_seasons_are_rediscovered_after_a_refresh_point(monkeypatch):
+    from datetime import datetime, timezone
+    from types import SimpleNamespace as NS
+
+    from app import espn_client
+
+    seasons = {"previous": [2024]}
+
+    def league(league_id, year, espn_s2=None, swid=None):
+        return NS(previousSeasons=list(seasons["previous"]), teams=[NS(wins=1, losses=0, ties=0)])
+
+    monkeypatch.setattr(espn_client, "get_league", league)
+    monkeypatch.setattr(espn_client, "_years_cache", {})
+    point = {"at": datetime(2026, 11, 20, 5, tzinfo=timezone.utc)}
+    monkeypatch.setattr(espn_client, "last_refresh_point", lambda now=None: point["at"])
+
+    first = espn_client.discover_years(5)
+    seasons["previous"] = [2024, 2025]  # ESPN now lists another season
+    assert espn_client.discover_years(5) == first  # same refresh window: cached
+    point["at"] = datetime(2099, 1, 1, tzinfo=timezone.utc)  # a refresh point has passed
+    assert 2025 in espn_client.discover_years(5)

@@ -56,7 +56,10 @@ REFRESH_POINTS: tuple[tuple[int, clock_time], ...] = (
 # points as the DB cache — otherwise an expired DB row is just rebuilt from the
 # same stale snapshot, for as long as the process lives.
 _leagues: dict[tuple[int, int], tuple[League, datetime]] = {}
-_years_cache: dict[int, list[int]] = {}
+# league id -> (its seasons, UTC time they were discovered). Rediscovered
+# after each refresh point, so a season ESPN starts serving shows up without
+# a restart.
+_years_cache: dict[int, tuple[list[int], datetime]] = {}
 
 
 # How long any ESPN request may take: (connect, read) seconds. espn_api
@@ -209,12 +212,12 @@ def discover_years(
     probed year only if it has real game data (some seasons exist on
     ESPN before any games are played).
 
-    Cached for the life of the process, so a season that starts while the
-    server is up appears after its next restart (Render's free instance
-    restarts at least daily, when it sleeps).
+    Cached until the next refresh point (REFRESH_POINTS), like live-season
+    data, so a season ESPN starts serving appears within a day.
     """
-    if league_id in _years_cache:
-        return _years_cache[league_id]
+    hit = _years_cache.get(league_id)
+    if hit is not None and hit[1] >= last_refresh_point():
+        return hit[0]
 
     current = datetime.now().year
     last_err: Exception | None = None
@@ -232,7 +235,7 @@ def discover_years(
 
         if years:
             result = sorted(years)
-            _years_cache[league_id] = result
+            _years_cache[league_id] = (result, datetime.now(timezone.utc))
             return result
 
     raise ESPNUnavailable(
