@@ -51,6 +51,31 @@ def _norm_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", s)
 
 
+# The image formats a post may carry, by their opening bytes. The type is
+# always taken from the bytes, never from the file's say-so: the image is
+# served from the app's own origin, so anything else (an HTML page labelled
+# as an image, say) must never get through.
+_IMAGE_SIGNATURES = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
+def image_type(data: bytes | None) -> str | None:
+    """The image's MIME type from its contents (PNG, JPEG, GIF or WebP), or
+    None for anything else."""
+    if not data:
+        return None
+    for signature, mime in _IMAGE_SIGNATURES:
+        if data.startswith(signature):
+            return mime
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 def team_name_index(seasons_teams: dict[int, list[dict]]) -> dict[int, dict[str, int]]:
     """season -> normalised name -> team_id.
 
@@ -123,6 +148,8 @@ def store_import(
                 image = base64.b64decode(p["image_base64"], validate=True)
             except (binascii.Error, ValueError):
                 raise ImportError_(f"Post {i + 1}'s image isn't valid base64.")
+            if image_type(image) is None:
+                raise ImportError_(f"Post {i + 1}'s image isn't a PNG, JPEG, GIF or WebP image.")
         title = (p.get("title") or "").strip() or f"Week {week} Power Rankings"
         row = PowerRankingPost(
             espn_league_id=espn_league_id,
@@ -136,7 +163,7 @@ def store_import(
             body=p.get("text") or "",
             note=p.get("note") or None,
             image=image,
-            image_mime=(p.get("image_mime") or None) if image else None,
+            image_mime=image_type(image),
         )
         valid_ids = {t["team_id"] for t in seasons_teams[season]}
         seen: set[int] = set()

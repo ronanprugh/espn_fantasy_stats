@@ -18,6 +18,7 @@ from 2019 on.
 from datetime import datetime, time as clock_time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+import requests
 from espn_api.football import League
 from .season_state import season_over
 
@@ -55,6 +56,45 @@ REFRESH_POINTS: tuple[tuple[int, clock_time], ...] = (
 # same stale snapshot, for as long as the process lives.
 _leagues: dict[tuple[int, int], tuple[League, datetime]] = {}
 _years_cache: dict[int, list[int]] = {}
+
+
+ESPN_GAMES = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl"
+# The earliest season probed when checking access: a league that hasn't been
+# renewed lately only answers for the seasons it played.
+FIRST_PROBE_SEASON = 2015
+
+
+class LeagueAccess:
+    OK = "ok"
+    DENIED = "denied"        # private, and these cookies can't read it
+    NOT_FOUND = "not_found"  # no such league in recent seasons
+
+
+def check_league_access(league_id: int, espn_s2: str | None, swid: str | None) -> str:
+    """Whether ESPN lets these cookies (or none, for a public league) read the
+    league. Asked of ESPN directly, never of the caches, which are shared by
+    league id: that's what this check guards.
+
+    Tries the season endpoint and the league-history endpoint, newest season
+    first, back to FIRST_PROBE_SEASON. ESPN refusing access ends the search:
+    the league exists and is private. Raises requests.RequestException, or
+    RuntimeError for an ESPN server error, when the answer can't be had;
+    callers mustn't take that as access.
+    """
+    cookies = {"espn_s2": espn_s2, "SWID": swid} if espn_s2 and swid else None
+    for year in range(current_season_year(), FIRST_PROBE_SEASON - 1, -1):
+        for url, params in (
+            (f"{ESPN_GAMES}/seasons/{year}/segments/0/leagues/{league_id}", {"view": "mSettings"}),
+            (f"{ESPN_GAMES}/leagueHistory/{league_id}", {"seasonId": year, "view": "mSettings"}),
+        ):
+            r = requests.get(url, params=params, cookies=cookies, timeout=20)
+            if r.status_code == 200 and r.json():
+                return LeagueAccess.OK
+            if r.status_code in (401, 403):
+                return LeagueAccess.DENIED
+            if r.status_code >= 500:
+                raise RuntimeError(f"ESPN returned HTTP {r.status_code}")
+    return LeagueAccess.NOT_FOUND
 
 
 class WeekNotPlayedError(ValueError):

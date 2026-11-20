@@ -58,6 +58,10 @@ class League(Base):
     espn_s2_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     swid_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     favorite_owner_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # When ESPN confirmed these cookies (or none, for a public league) can
+    # read the league. ESPN data is cached and shared by league id, so a row
+    # is only used once this is set (main.get_user_league).
+    access_verified_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="leagues")
