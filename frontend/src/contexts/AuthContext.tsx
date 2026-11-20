@@ -1,3 +1,8 @@
+/**
+ * The signed-in user, for the whole app (`useAuth`). Checks the session once
+ * on load, and signs the user out when any request comes back 401 (an expired
+ * session, announced by api.ts's SESSION_EXPIRED_EVENT).
+ */
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   SESSION_EXPIRED_EVENT,

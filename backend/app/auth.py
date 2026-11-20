@@ -1,3 +1,19 @@
+"""Authentication: password hashing, cookie sessions and personal API tokens.
+
+Two ways in:
+
+- A browser session: `login` stores the user id in Starlette's signed session
+  cookie (SessionMiddleware in main.py, signed with SECRET_KEY).
+- A personal API token, sent as `Authorization: Bearer efs_...`. Tokens are
+  read-only: they're accepted on GET/HEAD/OPTIONS and refused (403) on
+  anything that changes data.
+
+Endpoints pick a dependency: `current_user` (session or token),
+`session_user` (session only, for managing tokens), `optional_user`, or
+`require_admin`. A 401 always means "no valid credentials"; wrong input
+from a signed-in user is a 400, because the frontend signs the user out on 401.
+"""
+
 import datetime as dt
 import hashlib
 import secrets
@@ -18,10 +34,12 @@ _READ_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
 def hash_password(plain: str) -> str:
+    """bcrypt hash with a fresh salt. Also used for invite codes."""
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
+    """Check a password against its bcrypt hash; False for a malformed hash."""
     try:
         return bcrypt.checkpw(plain.encode(), hashed.encode())
     except (ValueError, TypeError):
@@ -29,18 +47,23 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def login(request: Request, user: User) -> None:
+    """Start a session for `user` (sets the signed session cookie)."""
     request.session["user_id"] = user.id
 
 
 def logout(request: Request) -> None:
+    """End the session (clears the session cookie's contents)."""
     request.session.clear()
 
 
 def new_api_token() -> str:
+    """A new random API token. Shown to the user once; only its hash is kept."""
     return TOKEN_PREFIX + secrets.token_urlsafe(32)
 
 
 def hash_api_token(token: str) -> str:
+    """SHA-256 hex digest, the form tokens are stored and looked up in (see
+    models.ApiToken for why a fast hash is enough)."""
     return hashlib.sha256(token.encode()).hexdigest()
 
 

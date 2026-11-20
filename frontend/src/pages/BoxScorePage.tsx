@@ -1,3 +1,8 @@
+/**
+ * Box Score: both lineups of one game, slot by slot, at
+ * /box_score/:year/:week/:teamA/:teamB (2019 on). The back link returns to the
+ * page it was opened from (useFromHere), or that week's Scoreboard.
+ */
 import { Fragment, useEffect, useState, type MouseEvent } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {

@@ -1,3 +1,11 @@
+/**
+ * The backend API client: one typed function per endpoint, and the response
+ * types, which mirror backend/app/schemas.py by hand (change both together).
+ *
+ * Every request goes through jsonFetch: it adds BASE_PATH, sends the session
+ * cookie, turns errors into readable messages (RETRYABLE_ERRORS marks the ones
+ * worth retrying) and announces an expired session (SESSION_EXPIRED_EVENT).
+ */
 import { BASE_PATH } from './base'
 
 // All fetches use credentials:'include' so the session cookie is sent.

@@ -1,3 +1,9 @@
+/**
+ * Power Rankings: the league's posted rankings, imported from a file. Weekly
+ * (each week's ranks and write-ups), Season (bump chart and per-team stats),
+ * All-Time (records across seasons) and Archive (every post, search, import).
+ * Weeks with no posted rankings borrow the nearest week's and are marked.
+ */
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {

@@ -1,3 +1,20 @@
+"""Everything that talks to ESPN, through the `espn_api` library.
+
+- When live-season data goes stale: REFRESH_POINTS and `last_refresh_point`.
+- Fetching: `get_league` (a per-process cache of espn_api League objects) and
+  `discover_years` (which seasons a league has played).
+- Serialising League objects into plain dicts that can be cached as JSON and
+  returned by the API: `serialize_teams`, `serialize_all_matchups`,
+  `serialize_scoreboard`, `serialize_box_scores`, `serialize_playoffs`,
+  `serialize_roster`.
+- Aggregations over those dicts: `aggregate_by_owner`, `build_owner_history`,
+  `close_game_records`, `compute_positional_week_points`.
+
+ESPN team ids are per season (a slot can change hands), so anything spanning
+seasons groups by owner id instead. Box scores and league activity exist only
+from 2019 on.
+"""
+
 from datetime import datetime, time as clock_time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -60,6 +77,8 @@ def current_season_year(now: datetime | None = None) -> int:
 
 
 def is_live_season(year: int) -> bool:
+    """Whether `year` is the season in progress (or the most recent one), whose
+    data can still change and so goes stale at each refresh point."""
     return year >= current_season_year()
 
 
@@ -86,6 +105,12 @@ def get_league(
     espn_s2: str | None = None,
     swid: str | None = None,
 ) -> League:
+    """The espn_api League for a season, cached per process.
+
+    Constructing a League makes several ESPN requests, so it is reused until
+    the season's data goes stale: never for a finished season, at the next
+    refresh point for the live one. Pass the cookies for a private league.
+    """
     key = (league_id, year)
     hit = _leagues.get(key)
     if hit is not None:
@@ -109,6 +134,10 @@ def discover_years(
     season, reads `previousSeasons` from that fetch, and includes the
     probed year only if it has real game data (some seasons exist on
     ESPN before any games are played).
+
+    Cached for the life of the process, so a season that starts while the
+    server is up appears after its next restart (Render's free instance
+    restarts at least daily, when it sleeps).
     """
     if league_id in _years_cache:
         return _years_cache[league_id]
@@ -707,6 +736,12 @@ def serialize_playoffs(league: League) -> dict:
 
 
 def serialize_teams(league: League) -> list[dict]:
+    """Every team in the season with its owners, record, playoff record,
+    points, standing and weekly scores: the `teams` list of SeasonTeams.
+
+    `scores` runs through playoff weeks too, with 0.0 for weeks not yet
+    played, so callers slice it to games actually played.
+    """
     reg_count = league.settings.reg_season_count
     playoff_count = league.settings.playoff_team_count
 

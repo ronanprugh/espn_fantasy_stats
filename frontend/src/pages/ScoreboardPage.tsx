@@ -1,3 +1,8 @@
+/**
+ * Scoreboard: a week's matchups as score cards, with Top and Low score
+ * badges and power ranks. Step or swipe through weeks; each card opens its box
+ * score. `?year=&week=`.
+ */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {

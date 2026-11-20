@@ -1,3 +1,7 @@
+/**
+ * What a league page shows with no league selected: how to add one for a new
+ * member, or where to pick one for everyone else.
+ */
 import { Link } from 'react-router-dom'
 import { useLeague } from '../contexts/LeagueContext'
 

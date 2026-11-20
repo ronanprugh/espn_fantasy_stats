@@ -1,3 +1,14 @@
+"""Postgres-backed cache for ESPN payloads (the `cache` table).
+
+Rows are keyed on (ESPN league id, season, key), not on the user, so everyone
+who has added a league shares one copy of its data. Keys carry a version
+suffix (`teams_v3`, `box_scores_v1_w5`): bump it whenever the shape of a
+payload changes, and old rows are simply never read again.
+
+Freshness is decided by the caller through `fresh_since` (see
+`espn_client.last_refresh_point`); finished seasons are cached indefinitely.
+"""
+
 import datetime as dt
 from typing import Any
 
@@ -28,6 +39,8 @@ def get(
 
 
 def put(league_id: int, year: int, key: str, payload: Any) -> None:
+    """Store `payload` (anything JSON-serialisable), replacing any earlier row
+    and stamping it as fetched now."""
     stmt = insert(Cache).values(
         league_id=league_id, year=year, key=key, payload=payload
     )
@@ -44,6 +57,7 @@ def put(league_id: int, year: int, key: str, payload: Any) -> None:
 
 
 def invalidate(league_id: int, year: int, key: str | None = None) -> None:
+    """Delete one cached payload, or every payload for the season without `key`."""
     with SessionLocal() as db:
         q = db.query(Cache).filter(Cache.league_id == league_id, Cache.year == year)
         if key:

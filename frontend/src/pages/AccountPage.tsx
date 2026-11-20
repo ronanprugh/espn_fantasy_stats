@@ -1,3 +1,7 @@
+/**
+ * Account: change your password, manage personal API tokens and, for
+ * admins, generate invite codes for new users.
+ */
 import { useState } from 'react'
 import { changePassword, generateInvite } from '../api'
 import { useAuth } from '../contexts/AuthContext'

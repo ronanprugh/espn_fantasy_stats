@@ -1,3 +1,10 @@
+/**
+ * Entry point: mounts the app under BASE_PATH with its providers (theme,
+ * auth, the selected league) and declares every route. Routes inside `<App />`
+ * need a signed-in user; /login and /signup don't. A new page needs a route
+ * here and a destination in components/navDestinations.ts
+ * (navDestinations.test.ts checks the two agree).
+ */
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'

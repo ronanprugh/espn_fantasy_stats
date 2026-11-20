@@ -1,3 +1,11 @@
+"""Runtime configuration, read from the environment (and `backend/.env`
+through python-dotenv) once at import.
+
+SECRET_KEY and ENCRYPTION_KEY are required: importing this module without
+them raises, so a misconfigured deploy fails at start-up rather than on the
+first request. Every variable is described in `backend/.env.example`.
+"""
+
 import os
 
 from dotenv import load_dotenv
