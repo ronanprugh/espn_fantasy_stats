@@ -43,3 +43,7 @@ services:
         value: "true"
       - key: COOKIE_SAME_SITE
         value: lax
+      # Optional: error reports to Sentry (backend/app/reporting.py). Unset
+      # means off.
+      - key: SENTRY_DSN
+        sync: false

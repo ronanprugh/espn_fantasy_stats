@@ -80,3 +80,8 @@ Vercel builds this directory on every push to `main`. The app is served under
 the Render backend and every other path to `index.html`. The base path is set
 in three places that must agree: `src/base.ts`, `vite.config.ts` and
 `vercel.json`.
+
+Error reporting is off unless the build has `VITE_SENTRY_DSN` (a Vercel
+environment variable, read at build time). With it, `lib/reporting.ts`
+loads a small Sentry chunk and reports uncaught errors, scrubbed of cookies,
+headers, the user and anything named like a credential.

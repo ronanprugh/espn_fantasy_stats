@@ -29,6 +29,7 @@ certifi==2026.10.23
     #   httpcore
     #   httpx
     #   requests
+    #   sentry-sdk
 cffi==2.1.1
     # via
     #   -c requirements.txt
@@ -139,6 +140,10 @@ requests==2.34.2
     #   espn-api
 ruff==0.17.6
     # via -r requirements-dev.in
+sentry-sdk==2.75.0
+    # via
+    #   -c requirements.txt
+    #   -r requirements.in
 sqlalchemy==2.1.9
     # via
     #   -c requirements.txt
@@ -171,6 +176,7 @@ urllib3==2.8.0
     #   -c requirements.txt
     #   espn-api
     #   requests
+    #   sentry-sdk
 uvicorn==0.54.0
     # via
     #   -c requirements.txt

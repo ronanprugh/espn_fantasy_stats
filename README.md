@@ -277,6 +277,19 @@ npm run build          # includes the TypeScript check
 `.github/workflows/ci.yml` runs all of these on every pull request and push to `main`.
 Dependabot (`.github/dependabot.yml`) opens weekly dependency update PRs.
 
+## Error reporting (optional)
+
+Both halves can report errors to [Sentry](https://sentry.io) (free tier is plenty), and
+do nothing until given a DSN:
+
+- **Backend:** set `SENTRY_DSN` on Render. Our bugs and unhandled exceptions are
+  reported; ESPN being down isn't.
+- **Frontend:** set `VITE_SENTRY_DSN` on Vercel (it's read at build time, so redeploy).
+  The SDK is only downloaded when it's set.
+
+Reports never carry cookies, Authorization headers, request bodies, IPs or the ESPN
+cookies; see `backend/app/reporting.py` and `frontend/src/lib/reporting.ts`.
+
 ---
 
 ## Troubleshooting
