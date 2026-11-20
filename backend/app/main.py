@@ -601,7 +601,7 @@ def _get_season_teams(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> dict:
     if not refresh:
-        cached = cache.get(league_id, year, "teams_v3", fresh_since=_fresh_since(year))
+        cached = cache.get(league_id, year, cache.TEAMS, fresh_since=_fresh_since(year))
         if cached:
             return cached
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
@@ -611,7 +611,7 @@ def _get_season_teams(
         "scoring_type": get_scoring_type(league),
         "teams": serialize_teams(league),
     }
-    cache.put(league_id, year, "teams_v3", payload)
+    cache.put(league_id, year, cache.TEAMS, payload)
     return payload
 
 
@@ -619,12 +619,12 @@ def _get_season_matchups(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> list[dict]:
     if not refresh:
-        cached = cache.get(league_id, year, "matchups_v2", fresh_since=_fresh_since(year))
+        cached = cache.get(league_id, year, cache.MATCHUPS, fresh_since=_fresh_since(year))
         if cached:
             return cached["matchups"]
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
     matchups = serialize_all_matchups(league)
-    cache.put(league_id, year, "matchups_v2", {"matchups": matchups})
+    cache.put(league_id, year, cache.MATCHUPS, {"matchups": matchups})
     return matchups
 
 
@@ -648,7 +648,7 @@ def _get_season_box_scores(
     # are never served. They're replaced once that week is actually played.
     if is_live_season(year) and week > get_league(league_id, year, espn_s2, swid).current_week:
         raise WeekNotPlayedError(f"Week {week} of {year} hasn't been played yet.")
-    cache_key = f"box_scores_v1_w{week}"
+    cache_key = cache.box_scores_key(week)
     fresh_since = None
     if is_live_season(year):
         teams = _get_season_teams(league_id, year, espn_s2, swid)["teams"]
@@ -780,7 +780,7 @@ def _player_directory(league, player_ids: set[int]) -> dict[int, dict]:
     return out
 
 
-ACTIVITY_KEY = "activity_v4"
+ACTIVITY_KEY = cache.ACTIVITY
 
 
 def _load_season_activity(
@@ -933,11 +933,11 @@ def _compute_positional_stats_for_year(
         raise ValueError("Positional stats require 2019 or later")
 
     if not refresh:
-        cached = cache.get(league_id, year, "positional_stats_v3", fresh_since=_fresh_since(year))
+        cached = cache.get(league_id, year, cache.POSITIONAL_STATS, fresh_since=_fresh_since(year))
         if cached and cached.get("missing_weeks"):
             # Built without a week ESPN wouldn't serve: good only until the
             # next refresh point, then tried again.
-            cached = cache.get(league_id, year, "positional_stats_v3", fresh_since=last_refresh_point())
+            cached = cache.get(league_id, year, cache.POSITIONAL_STATS, fresh_since=last_refresh_point())
         if cached:
             return cached
 
@@ -1027,7 +1027,7 @@ def _compute_positional_stats_for_year(
         "positions": positions,
         "missing_weeks": missing_weeks,
     }
-    cache.put(league_id, year, "positional_stats_v3", payload)
+    cache.put(league_id, year, cache.POSITIONAL_STATS, payload)
     return payload
 
 
@@ -1035,13 +1035,13 @@ def _get_season_scoreboard(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> dict:
     if not refresh:
-        cached = cache.get(league_id, year, "scoreboard_v2", fresh_since=_fresh_since(year))
+        cached = cache.get(league_id, year, cache.SCOREBOARD, fresh_since=_fresh_since(year))
         if cached:
             return cached
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
     data = serialize_scoreboard(league, year)
     payload = {"league_id": league_id, **data}
-    cache.put(league_id, year, "scoreboard_v2", payload)
+    cache.put(league_id, year, cache.SCOREBOARD, payload)
     return payload
 
 
@@ -1321,14 +1321,14 @@ def positional_stats_aggregate(
 def playoffs(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
     """A season's playoff teams and every playoff-week matchup, for the bracket."""
     if not refresh:
-        cached = cache.get(ctx.espn_league_id, year, "playoffs_v1", fresh_since=_fresh_since(year))
+        cached = cache.get(ctx.espn_league_id, year, cache.PLAYOFFS, fresh_since=_fresh_since(year))
         if cached:
             return cached
     try:
         league = get_league(ctx.espn_league_id, year, espn_s2=ctx.espn_s2, swid=ctx.swid)
         data = serialize_playoffs(league)
         payload = {"league_id": ctx.espn_league_id, "year": year, **data}
-        cache.put(ctx.espn_league_id, year, "playoffs_v1", payload)
+        cache.put(ctx.espn_league_id, year, cache.PLAYOFFS, payload)
         return payload
     except Exception as e:
         raise espn_failure(e, "loading ESPN data") from e

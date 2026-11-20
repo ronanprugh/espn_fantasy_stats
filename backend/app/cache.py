@@ -10,6 +10,8 @@ Freshness is decided by the caller through `fresh_since` (see
 """
 
 import datetime as dt
+import re
+from collections.abc import Iterable
 from typing import Any
 
 from sqlalchemy import func, select
@@ -17,6 +19,31 @@ from sqlalchemy.dialects.postgresql import insert
 
 from .database import SessionLocal
 from .models import Cache
+
+
+# Every key in use. Bump a key's version when its payload's shape changes;
+# the old rows are then unreachable, and `prune` deletes them.
+TEAMS = "teams_v3"
+MATCHUPS = "matchups_v2"
+SCOREBOARD = "scoreboard_v2"
+PLAYOFFS = "playoffs_v1"
+POSITIONAL_STATS = "positional_stats_v3"
+ACTIVITY = "activity_v4"
+_BOX_SCORES = "box_scores_v1"
+
+
+def box_scores_key(week: int) -> str:
+    """One week's box scores: a key per week."""
+    return f"{_BOX_SCORES}_w{week}"
+
+
+CURRENT_KEYS = frozenset({TEAMS, MATCHUPS, SCOREBOARD, PLAYOFFS, POSITIONAL_STATS, ACTIVITY})
+_CURRENT_PATTERN = re.compile(rf"^{_BOX_SCORES}_w\d+$")
+
+
+def is_current(key: str) -> bool:
+    """Whether a stored row's key is one the app still reads."""
+    return key in CURRENT_KEYS or bool(_CURRENT_PATTERN.match(key))
 
 
 def get(
@@ -64,3 +91,24 @@ def invalidate(league_id: int, year: int, key: str | None = None) -> None:
             q = q.filter(Cache.key == key)
         q.delete()
         db.commit()
+
+
+def retired_keys() -> dict[str, int]:
+    """Rows per key the app no longer reads (from a version bump)."""
+    with SessionLocal() as db:
+        counts = db.execute(select(Cache.key, func.count()).group_by(Cache.key)).all()
+    return {key: n for key, n in counts if not is_current(key)}
+
+
+def prune(keys: Iterable[str] | None = None) -> int:
+    """Delete rows under retired keys (all of them, or just `keys`, each of
+    which must be retired). Returns how many rows were deleted."""
+    targets = list(keys) if keys is not None else list(retired_keys())
+    if any(is_current(k) for k in targets):
+        raise ValueError("Refusing to delete rows under a key the app still reads")
+    if not targets:
+        return 0
+    with SessionLocal() as db:
+        n = db.query(Cache).filter(Cache.key.in_(targets)).delete(synchronize_session=False)
+        db.commit()
+    return n

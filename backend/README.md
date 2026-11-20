@@ -68,8 +68,12 @@ backend/
 - The `cache` table is keyed on (ESPN league id, season, key), so every user
   who adds a league shares one copy. Keys carry a version: `teams_v3`,
   `matchups_v2`, `scoreboard_v2`, `playoffs_v1`, `positional_stats_v3`,
-  `activity_v3`, `box_scores_v1_w{week}`. **Bump the version whenever a
-  payload's shape changes**; old rows are then ignored.
+- The `cache` table is keyed on (ESPN league id, season, key), so every user
+  who adds a league shares one copy. The keys are constants in `app/cache.py`
+  (`cache.TEAMS`, `cache.box_scores_key(week)`, …), each with a version.
+  **Bump the version whenever a payload's shape changes**; old rows are then
+  ignored, and `python -m app.admin prune-cache` (with `--dry-run` to look
+  first) deletes them.
 - **Finished seasons** are cached indefinitely.
 - **The live season** goes stale at fixed weekly *refresh points*
   (`espn_client.REFRESH_POINTS`, Eastern time): midnight daily, Sunday 4:30pm
@@ -159,6 +163,7 @@ Dependabot proposes upgrades as PRs, and CI is the gate. Be careful with
 .venv/bin/python -m app.admin add-league --username NAME --league-id ID --name "League" [--espn-s2 … --swid …]
 .venv/bin/python -m app.admin reset-password --username NAME
 .venv/bin/python -m app.admin list-users
+.venv/bin/python -m app.admin prune-cache [--dry-run]
 .venv/bin/python -m app.admin seed-from-env --username NAME [--name "League"]
 ```
 
