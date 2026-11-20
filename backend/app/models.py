@@ -1,7 +1,7 @@
 import datetime as dt
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, LargeBinary, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, Float, ForeignKey, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -87,6 +87,72 @@ class ApiToken(Base):
     last_used_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="api_tokens")
+
+
+class TradeRecord(Base):
+    """A trade's calculated result: which team won and by how much, from what
+    each side's new players scored for it (app/trades.py). The raw league
+    activity it comes from stays in Cache; this keeps the calculation, so the
+    Transactions page doesn't rebuild it from every week's box scores.
+
+    Keyed on the ESPN league id, like Cache, so everyone who has added the
+    league shares the rows.
+    """
+    __tablename__ = "trade_records"
+    __table_args__ = (UniqueConstraint("espn_league_id", "season", "uid", name="uq_trade_record"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    espn_league_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    season: Mapped[int] = mapped_column(nullable=False)
+    # ESPN's activity id for the trade.
+    uid: Mapped[str] = mapped_column(String(96), nullable=False)
+    # Milliseconds since the epoch, as ESPN reports it.
+    occurred_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    week: Mapped[int] = mapped_column(nullable=False)
+    winner_team_id: Mapped[int | None] = mapped_column(nullable=True)
+    margin: Mapped[float] = mapped_column(Float, nullable=False, server_default="0")
+
+    players: Mapped[list["TradeRecordPlayer"]] = relationship(
+        back_populates="trade", cascade="all, delete-orphan", order_by="TradeRecordPlayer.id"
+    )
+
+
+class TradeRecordPlayer(Base):
+    """One player in a trade, from one team's side, with what he scored for
+    the team that received him from the trade's week on."""
+    __tablename__ = "trade_record_players"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    trade_id: Mapped[int] = mapped_column(
+        ForeignKey("trade_records.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    team_id: Mapped[int] = mapped_column(nullable=False)
+    team_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    owner_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # "received" or "sent", from this team's side.
+    action: Mapped[str] = mapped_column(String(16), nullable=False)
+    player_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    player_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    position: Mapped[str] = mapped_column(String(16), nullable=False, server_default="")
+    # Received players only.
+    started_points: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bench_points: Mapped[float | None] = mapped_column(Float, nullable=True)
+    weeks_started: Mapped[int | None] = mapped_column(nullable=True)
+
+    trade: Mapped["TradeRecord"] = relationship(back_populates="players")
+
+
+class TradeSync(Base):
+    """When a league season's trade results were last calculated. Results
+    calculated after the season was over (`final`) are kept for good; a season
+    in progress is recalculated after each refresh point."""
+    __tablename__ = "trade_syncs"
+
+    espn_league_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    season: Mapped[int] = mapped_column(primary_key=True)
+    computed_at: Mapped[dt.datetime] = mapped_column(nullable=False)
+    final: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
 
 
 class Cache(Base):

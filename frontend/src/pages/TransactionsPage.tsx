@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { fetchMoves, fetchTrades, type Move, type MoveKind, type Trade, type TradeSide } from '../api'
+import {
+  fetchAllMoves,
+  fetchAllTrades,
+  fetchMoves,
+  fetchTrades,
+  type Move,
+  type MoveKind,
+  type Trade,
+  type TradeSide,
+} from '../api'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { ListSkeleton } from '../components/Loading'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'
@@ -56,27 +65,27 @@ export function TransactionsPage() {
   const [data, setData] = useState<Loaded | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const wanted = year === 'all' ? seasons : year === null ? [] : [year]
-  // Trades and moves come from different endpoints; fetch only what's shown.
+  // Trades and moves come from different endpoints; fetch only what's
+  // shown. All seasons is one request each: the server reads stored results.
   const source = kind === 'trades' ? 'trades' : 'moves'
-  const key = `${source}:${wanted.join(',')}`
+  const key = `${source}:${year}`
 
   useEffect(() => {
-    if (!leagueId || wanted.length === 0) return
+    if (!leagueId || year === null) return
     let cancelled = false
     setLoading(true)
     setError(null)
-    const load =
+    const load: Promise<Loaded> =
       source === 'trades'
-        ? Promise.all(wanted.map((y) => fetchTrades(leagueId, y))).then((rs) => ({
+        ? (year === 'all' ? fetchAllTrades(leagueId) : fetchTrades(leagueId, year)).then((r) => ({
             key,
-            trades: rs.flatMap((r) => r.trades),
+            trades: r.trades,
             moves: [],
           }))
-        : Promise.all(wanted.map((y) => fetchMoves(leagueId, y))).then((rs) => ({
+        : (year === 'all' ? fetchAllMoves(leagueId) : fetchMoves(leagueId, year)).then((r) => ({
             key,
             trades: [],
-            moves: rs.flatMap((r) => r.moves),
+            moves: r.moves,
           }))
     load
       .then((d) => !cancelled && setData(d))
@@ -85,7 +94,7 @@ export function TransactionsPage() {
     return () => {
       cancelled = true
     }
-    // `key` stands for source and the seasons wanted.
+    // `key` stands for the source and the season.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId, key])
 
@@ -237,7 +246,7 @@ function TradesView({ trades, yourTeam, allSeasons }: { trades: Trade[]; yourTea
 function TradeCard({ trade, yourTeam }: { trade: Trade; yourTeam: string | null }) {
   const winner = trade.sides.find((s) => s.team_id === trade.winner_team_id)
   const mine = trade.sides.some((s) => isYours(yourTeam, s.owner_id))
-  const year = new Date(trade.date).getFullYear()
+  const year = trade.year
   return (
     <article className={`trade-card${mine ? ' your-matchup' : ''}`}>
       <header className="trade-head">

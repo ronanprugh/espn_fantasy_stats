@@ -1,11 +1,13 @@
 """A league's transactions: trades and who won them, and the waiver claims,
 free-agent pickups and drops.
 
-ESPN keeps league activity from 2019 on. Each transaction is one "activity"
-of messages: a trade holds a TRADE_SENT and a TRADE_RECEIVED row per player;
-a pickup holds an add (WAIVER ADDED or FA ADDED) and usually a DROPPED. These
-functions first turn espn_api's Activity objects into plain dicts (so they
-can be cached), then derive one record per trade or move. Trades are credited
+ESPN keeps league activity from 2019 on. Each transaction is one "topic" of
+messages: a trade holds one message per player, from the sending team to the
+receiving one; a pickup holds an add (waiver or free agent) and usually a
+drop. activity_from_topic turns a raw topic into a plain dict (so it can be
+cached), with player names and positions from a directory fetched in one go
+(espn_api's own Activity fetches each unknown player separately, two requests
+apiece). The other functions derive one record per trade or move. Trades are credited
 with what each side's new players went on to score for it, from the week of
 the trade to the end of the season, read from the cached weekly box scores.
 
@@ -40,7 +42,8 @@ def week_of(timestamp_ms: int, year: int) -> int:
     return max(1, (when - week1_start).days // 7 + 1)
 
 
-def _team_fields(team) -> dict | None:
+def team_fields(team) -> dict | None:
+    """An espn_api Team as the fields a transaction keeps."""
     if team is None or not hasattr(team, "team_id"):
         return None
     owner = (getattr(team, "owners", None) or [{}])[0] or {}
@@ -52,34 +55,74 @@ def _team_fields(team) -> dict | None:
     }
 
 
-def _player_fields(player) -> dict:
-    if hasattr(player, "playerId"):
-        return {
-            "player_id": player.playerId,
-            "name": getattr(player, "name", "") or str(player.playerId),
-            "position": getattr(player, "position", "") or "",
-        }
-    # espn_api falls back to the bare id when it can't look the player up.
-    pid = player if isinstance(player, int) else -1
-    return {"player_id": pid, "name": f"Player {player}", "position": ""}
+# ESPN message types (espn_api's ACTIVITY_MAP).
+TRADE_MESSAGE = 244
+MOVE_MESSAGES = {178: "FA ADDED", 180: "WAIVER ADDED", 179: "DROPPED", 181: "DROPPED", 239: "DROPPED"}
+ACTIVITY_MESSAGE_TYPES = [178, 180, 179, 239, 181, 244]
+
+# ESPN's defaultPositionId, for a player whose eligible slots aren't given.
+_DEFAULT_POSITIONS = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "D/ST"}
 
 
-def normalize_activity(act) -> dict:
-    """An espn_api Activity as a plain, cacheable dict."""
+def player_position(info: dict) -> str:
+    """A player's main position from an ESPN player record, by espn_api's
+    rule: the first eligible slot that isn't a combination (RB/WR) or the
+    bench; else the default position."""
+    from espn_api.football.constant import POSITION_MAP
+
+    name = info.get("fullName", "")
+    for slot in info.get("eligibleSlots") or []:
+        pos = POSITION_MAP.get(slot, "")
+        if pos and ((slot != 25 and "/" not in pos) or "/" in name):
+            return pos
+    return _DEFAULT_POSITIONS.get(info.get("defaultPositionId"), "")
+
+
+def topic_key(topic: dict) -> str:
+    """ESPN's id for an activity topic, or failing that its date and messages."""
+    if topic.get("id"):
+        return str(topic["id"])
+    msgs = ",".join(f"{m.get('messageTypeId')}:{m.get('targetId')}" for m in topic.get("messages", []))
+    return f"{topic.get('date')}|{msgs}"
+
+
+def topic_player_ids(topics: Iterable[dict]) -> set[int]:
+    return {m["targetId"] for t in topics for m in t.get("messages", []) if isinstance(m.get("targetId"), int)}
+
+
+def activity_from_topic(topic: dict, team_by_id, players: dict[int, dict]) -> dict:
+    """A raw ESPN activity topic as a plain dict of actions.
+
+    `team_by_id(team_id)` gives a team's fields (team_fields) or None;
+    `players` maps player id to {"name", "position"}.
+    """
+    def player(pid) -> dict:
+        info = players.get(pid) if isinstance(pid, int) else None
+        if info:
+            return {"player_id": pid, "name": info["name"], "position": info.get("position", "")}
+        return {"player_id": pid if isinstance(pid, int) else -1, "name": f"Player {pid}", "position": ""}
+
     actions = []
-    for team, action, player, *rest in act.actions:
-        actions.append({
-            "team": _team_fields(team),
-            "action": action,
-            "player": _player_fields(player),
-            "bid": int(rest[0]) if rest and isinstance(rest[0], (int, float)) else 0,
-        })
-    return {"date": int(act.date), "actions": actions}
-
-
-def activity_key(act: dict) -> tuple:
-    """Identifies one activity, to spot ESPN repeating a page."""
-    return (act["date"], tuple((a["action"], a["player"]["player_id"]) for a in act["actions"]))
+    for msg in topic.get("messages", []):
+        mid = msg.get("messageTypeId")
+        if mid == TRADE_MESSAGE:
+            sender, receiver = team_by_id(msg.get("from")), team_by_id(msg.get("to"))
+            p = player(msg.get("targetId"))
+            if sender:
+                actions.append({"team": sender, "action": "TRADE_SENT", "player": p, "bid": 0})
+            if receiver:
+                actions.append({"team": receiver, "action": "TRADE_RECEIVED", "player": p, "bid": 0})
+        elif mid in MOVE_MESSAGES:
+            action = MOVE_MESSAGES[mid]
+            team = team_by_id(msg.get("for") if mid == 239 else msg.get("to"))
+            bid = msg.get("from", 0) if action == "WAIVER ADDED" else 0
+            actions.append({
+                "team": team,
+                "action": action,
+                "player": player(msg.get("targetId")),
+                "bid": int(bid) if isinstance(bid, (int, float)) else 0,
+            })
+    return {"uid": topic_key(topic), "date": int(topic.get("date", 0)), "actions": actions}
 
 
 def trades_from_activity(activities: Iterable[dict], year: int) -> list[dict]:
@@ -96,6 +139,7 @@ def trades_from_activity(activities: Iterable[dict], year: int) -> list[dict]:
         if len(sides) < 2:
             continue
         trades.append({
+            "uid": act.get("uid") or str(act["date"]),
             "date": act["date"],
             "week": week_of(act["date"], year),
             "sides": sorted(sides.values(), key=lambda s: s["team_id"]),

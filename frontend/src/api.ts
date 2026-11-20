@@ -119,6 +119,10 @@ export type TradeSide = {
 }
 
 export type Trade = {
+  /** The season it belongs to. */
+  year: number
+  /** ESPN's activity id. */
+  uid: string
   /** Milliseconds since the epoch. */
   date: number
   week: number
@@ -138,6 +142,7 @@ export type SeasonTrades = {
 export type MoveKind = 'waiver' | 'free_agent' | 'drop'
 
 export type Move = {
+  year: number
   date: number
   week: number
   kind: MoveKind
@@ -165,6 +170,16 @@ export async function fetchMoves(leagueId: number, year: number): Promise<Season
 
 export async function fetchTrades(leagueId: number, year: number): Promise<SeasonTrades> {
   return jsonFetch<SeasonTrades>(`/api/leagues/${leagueId}/seasons/${year}/trades`)
+}
+
+/** Every season's trades (2019 on) in one request, for All seasons. */
+export async function fetchAllTrades(leagueId: number): Promise<{ league_id: number; years: number[]; trades: Trade[] }> {
+  return jsonFetch(`/api/leagues/${leagueId}/trades`)
+}
+
+/** Every season's waiver claims, pickups and drops in one request. */
+export async function fetchAllMoves(leagueId: number): Promise<{ league_id: number; years: number[]; moves: Move[] }> {
+  return jsonFetch(`/api/leagues/${leagueId}/transactions`)
 }
 
 export type ApiToken = {
