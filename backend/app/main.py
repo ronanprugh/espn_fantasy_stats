@@ -36,12 +36,15 @@ from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
 from .deps import LeagueContext, get_user_league  # noqa: F401  (re-exported for tests)
 from .errors import ESPN_FAILURES, espn_failure, log  # noqa: F401  (re-exported)
 from .espn_client import ESPNUnavailable, WeekNotPlayedError  # noqa: F401  (re-exported)
+from .reporting import init_error_reporting
 from .routes import auth, leagues, power_rankings, seasons, teams, transactions
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+# Sentry, when SENTRY_DSN is set; credentials are scrubbed (app/reporting.py).
+init_error_reporting()
 
 app = FastAPI(title="espn_fantasy_stats")
 

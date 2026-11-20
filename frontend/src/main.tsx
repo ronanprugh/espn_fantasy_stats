@@ -16,6 +16,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { FrontPage } from './pages/FrontPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
+import { startErrorReporting } from './lib/reporting'
 import { TradesRedirect } from './pages/TradesRedirect'
 import './styles.css'
 
@@ -42,6 +43,9 @@ const PowerRankingsPage = lazyPage(() => import('./pages/PowerRankingsPage'), 'P
 const ScoreboardPage = lazyPage(() => import('./pages/ScoreboardPage'), 'ScoreboardPage')
 const StandingsPage = lazyPage(() => import('./pages/StandingsPage'), 'StandingsPage')
 const TeamHubPage = lazyPage(() => import('./pages/TeamHubPage'), 'TeamHubPage')
+
+// Sentry, when the build has VITE_SENTRY_DSN (lib/reporting.ts).
+void startErrorReporting()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

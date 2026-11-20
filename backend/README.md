@@ -20,6 +20,7 @@ backend/
 │   ├── deps.py            get_user_league: the league dependency
 │   ├── loaders.py         cached ESPN loaders (`loaders.<name>` from routes)
 │   ├── errors.py          espn_failure: how failures become responses
+│   ├── reporting.py       error reports to Sentry (SENTRY_DSN; off unset)
 │   ├── config.py          environment variables (see .env.example)
 │   ├── database.py        engine, SessionLocal, get_db dependency
 │   ├── models.py          ORM tables
@@ -71,6 +72,11 @@ backend/
    become a 502 (or a 403 when ESPN refuses the league's cookies), anything
    else is logged with its traceback and becomes a 500, and no response
    carries exception text. Set `LOG_LEVEL` to change logging (default INFO).
+   With `SENTRY_DSN` set, our bugs (each `log.error`) and unhandled
+   exceptions are also reported to Sentry; ESPN failures aren't. Reports
+   carry the URL, the traceback and a few plain headers, never cookies,
+   Authorization, IPs, request bodies or local variables, and fields named
+   like a credential are filtered (`app/reporting.py`).
 5. **Feature logic.** The pure modules (`team_hub`, `rivalries`,
    `power_rankings`, `trades`, …) turn those payloads into the response. They
    take dicts and return dicts, so tests need no ESPN and no database.
