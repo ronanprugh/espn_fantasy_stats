@@ -90,8 +90,9 @@ backend/
 - **Past seasons' transactions.** The activity feed (`/communication/`)
   answers 404 for past seasons, and espn_api passes that on as "no activity".
   For those seasons the app reads `mTransactions2`, which keeps waiver claims,
-  pickups and drops. It doesn't keep the players of accepted trades, so those
-  trades are rebuilt from the weekly rosters (`trades.trades_from_rosters`).
+  pickups and drops. It lists an accepted trade's players only to members who
+  were in that trade, so every past trade is rebuilt from the weekly rosters
+  (`trades.trades_from_rosters`), never taken from that list.
   `scripts/diagnose_transactions.py` prints what ESPN returns for each season
   of your league.
 

@@ -671,3 +671,43 @@ def test_past_season_trades_come_from_rosters_end_to_end(db, monkeypatch):
     [t] = body["trades"]
     assert t["week"] == 5 and {s["team_name"] for s in t["sides"]} == {"Alpha", "Bravo"}
     assert db.get(TradeSync, (1, 2026)).final is True
+
+
+def test_past_season_trades_come_from_rosters_even_when_the_viewer_traded(db, monkeypatch):
+    """The transactions view lists a past trade's players only to a member
+    who was in it. That trade mustn't stop everyone else's from being found."""
+    from fastapi.testclient import TestClient
+
+    from app import main
+
+    # The viewer's own trade (week 5), as ESPN lists it to them...
+    own = {**TX_TRADE, "type": "TRADE_PROPOSAL", "status": "EXECUTED", "scoringPeriodId": 5}
+    # ...and a later one they can only see in the rosters: Bravo sends JSN
+    # back for Rico in week 7.
+    weeks = {
+        **ROSTER_WEEKS,
+        7: roster_week({1: [(20, "QB"), (10, "WR")], 2: [(11, "RB"), (30, "RB")]}),
+    }
+    league = played_league(TxRequests([own, TX_ACCEPT, TX_RICO], cards=CARDS))
+    wire(monkeypatch, league)
+
+    def box_scores(lid, year, week, *a, **k):
+        if week > max(weeks):
+            raise main.WeekNotPlayedError("not yet")
+        return weeks.get(week, {"matchups": []})
+
+    monkeypatch.setattr(main, "_get_season_box_scores", box_scores)
+    monkeypatch.setattr(main, "_get_season_teams", lambda *a, **k: {"teams": [
+        {"team_id": tid, "team_name": t["team_name"], "final_standing": 1,
+         "owners": [{"id": t["owner_id"], "first_name": "O", "last_name": t["owner_id"]}]}
+        for tid, t in TEAMS.items()
+    ]})
+    trades = TestClient(main.app).get("/api/leagues/1/seasons/2026/trades").json()["trades"]
+    assert [t["week"] for t in trades] == [5, 7]
+    later = {s["team_id"]: [p["player_id"] for p in s["received"]] for s in trades[1]["sides"]}
+    assert later == {1: [10], 2: [30]}
+
+
+def test_an_executed_proposal_dates_its_trade():
+    own = {**TX_TRADE, "type": "TRADE_PROPOSAL", "status": "EXECUTED", "teamId": 1, "scoringPeriodId": 5}
+    assert trade_events([own, TX_PROPOSAL]) == [{"team_id": 1, "week": 5, "date": TX_TRADE["processDate"]}]

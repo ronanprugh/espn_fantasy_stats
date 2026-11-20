@@ -761,11 +761,13 @@ def _season_trade_results(
     if not refresh and trade_store.is_current(db, lid, year):
         return trade_store.load(db, lid, [year])
     activity = _load_season_activity(lid, year, ctx.espn_s2, ctx.swid, refresh)
-    trades = trades_from_activity(activity["activities"], year)
-    # From the transactions view, a trade's players are rebuilt from rosters.
-    # Not with nothing from it at all: without its pickups to tell them
-    # apart, every waiver claim would look like a trade.
-    from_rosters = not trades and activity.get("source") == "transactions" and not activity["unavailable"]
+    # From the transactions view, trades are rebuilt from the rosters, always:
+    # that view lists the players of a past trade only to a member who was
+    # in it, so the trades it does list are the viewer's own, not the
+    # league's. Not with nothing from it at all, though: without its pickups
+    # to tell them apart, every waiver claim would look like a trade.
+    from_rosters = activity.get("source") == "transactions" and not activity["unavailable"]
+    trades = [] if from_rosters else trades_from_activity(activity["activities"], year)
     season_teams = _get_season_teams(lid, year, ctx.espn_s2, ctx.swid)
     # Final once the season is over: its results can't change after that.
     # Not while ESPN's data for it was missing or partial, though: final
