@@ -54,7 +54,12 @@ backend/
    table. If it's missing or stale it fetches from ESPN through
    `espn_client`, serialises it to plain dicts, stores it and returns it.
    `?refresh=true` skips the cache.
-4. **Feature logic.** The pure modules (`team_hub`, `rivalries`,
+4. **Failures.** Wrap ESPN loading in `try`/`except Exception as e:
+   raise espn_failure(e, "what was being loaded") from e`. ESPN's own failures
+   become a 502 (or a 403 when ESPN refuses the league's cookies), anything
+   else is logged with its traceback and becomes a 500, and no response
+   carries exception text. Set `LOG_LEVEL` to change logging (default INFO).
+5. **Feature logic.** The pure modules (`team_hub`, `rivalries`,
    `power_rankings`, `trades`, …) turn those payloads into the response. They
    take dicts and return dicts, so tests need no ESPN and no database.
 

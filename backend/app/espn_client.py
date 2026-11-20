@@ -93,6 +93,11 @@ ESPN_GAMES = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl"
 FIRST_PROBE_SEASON = 2015
 
 
+class ESPNUnavailable(RuntimeError):
+    """ESPN didn't give an answer we can use: a server error, or no season
+    found for a league. Distinct from a bug on our side."""
+
+
 class LeagueAccess:
     OK = "ok"
     DENIED = "denied"        # private, and these cookies can't read it
@@ -107,7 +112,7 @@ def check_league_access(league_id: int, espn_s2: str | None, swid: str | None) -
     Tries the season endpoint and the league-history endpoint, newest season
     first, back to FIRST_PROBE_SEASON. ESPN refusing access ends the search:
     the league exists and is private. Raises requests.RequestException, or
-    RuntimeError for an ESPN server error, when the answer can't be had;
+    ESPNUnavailable for an ESPN server error, when the answer can't be had;
     callers mustn't take that as access.
     """
     cookies = {"espn_s2": espn_s2, "SWID": swid} if espn_s2 and swid else None
@@ -122,7 +127,7 @@ def check_league_access(league_id: int, espn_s2: str | None, swid: str | None) -
             if r.status_code in (401, 403):
                 return LeagueAccess.DENIED
             if r.status_code >= 500:
-                raise RuntimeError(f"ESPN returned HTTP {r.status_code}")
+                raise ESPNUnavailable(f"ESPN returned HTTP {r.status_code}")
     return LeagueAccess.NOT_FOUND
 
 
@@ -230,7 +235,7 @@ def discover_years(
             _years_cache[league_id] = result
             return result
 
-    raise RuntimeError(
+    raise ESPNUnavailable(
         f"Could not discover any seasons for league {league_id} in the last "
         f"{probe_window} years: {last_err}"
     )
