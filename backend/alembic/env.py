@@ -19,8 +19,12 @@ if config.config_file_name is not None:
 # backend/.env for local runs.
 import os  # noqa: E402
 
+from app.db_url import normalize_database_url  # noqa: E402
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL:
+if DATABASE_URL:
+    DATABASE_URL = normalize_database_url(DATABASE_URL)
+else:
     from app.config import DATABASE_URL  # noqa: E402
 from app.models import Base  # noqa: E402
 

@@ -10,14 +10,16 @@ import os
 
 from dotenv import load_dotenv
 
+from .db_url import normalize_database_url
+
 load_dotenv()
 
 # Database — Postgres connection string. Format:
 #   postgresql+psycopg://user:password@host:port/dbname
-DATABASE_URL = os.environ.get(
+DATABASE_URL = normalize_database_url(os.environ.get(
     "DATABASE_URL",
     "postgresql+psycopg://fantasy:dev@localhost:5432/fantasy",
-)
+))
 
 # Used to sign session cookies. Rotate to invalidate all sessions.
 SECRET_KEY = os.environ.get("SECRET_KEY")

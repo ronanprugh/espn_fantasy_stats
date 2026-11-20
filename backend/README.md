@@ -132,6 +132,25 @@ backend/
 
 CI (`.github/workflows/ci.yml`) runs both on every pull request.
 
+## Dependencies
+
+`requirements.in` lists the direct dependencies; `requirements.txt` is the
+pinned lock generated from it (for Python 3.11, what production runs), and
+it's what the Dockerfile, CI and the migrate workflow install. To add or
+upgrade a package, edit the `.in` file and regenerate:
+
+```bash
+uv pip compile requirements.in --python-version 3.11 -o requirements.txt
+uv pip compile requirements-dev.in --python-version 3.11 -o requirements-dev.txt
+```
+
+Dependabot proposes upgrades as PRs, and CI is the gate. Be careful with
+`espn-api`: the app relies on some of its internals (see `requirements.in`).
+
+`DATABASE_URL` may use `postgres://`, `postgresql://` or
+`postgresql+psycopg://`; the first two are normalised to psycopg 3
+(`app/db_url.py`), the only driver installed.
+
 ## Admin CLI
 
 ```bash
