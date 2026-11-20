@@ -24,6 +24,7 @@ import {
   moveRecords,
   tradeDays,
   traderRecords,
+  tradedOn,
   type BusiestDay,
   type OwnerDay,
 } from '../lib/trades'
@@ -198,6 +199,7 @@ function TradesView({ trades, yourTeam, allSeasons }: { trades: Trade[]; yourTea
   const records = traderRecords(trades)
   const biggest = biggestWin(trades)
   const days = tradeDays(trades)
+  const onward = tradedOn(trades)
   return (
     <>
       <p className="subtitle">
@@ -250,14 +252,14 @@ function TradesView({ trades, yourTeam, allSeasons }: { trades: Trade[]; yourTea
         {[...trades]
           .sort((a, b) => b.date - a.date)
           .map((t) => (
-            <TradeCard key={`${t.year}:${t.uid}`} trade={t} yourTeam={yourTeam} />
+            <TradeCard key={`${t.year}:${t.uid}`} trade={t} yourTeam={yourTeam} onward={onward} />
           ))}
       </section>
     </>
   )
 }
 
-function TradeCard({ trade, yourTeam }: { trade: Trade; yourTeam: string | null }) {
+function TradeCard({ trade, yourTeam, onward }: { trade: Trade; yourTeam: string | null; onward: Map<string, string> }) {
   const winner = trade.sides.find((s) => s.team_id === trade.winner_team_id)
   const mine = trade.sides.some((s) => isYours(yourTeam, s.owner_id))
   const year = trade.year
@@ -273,14 +275,31 @@ function TradeCard({ trade, yourTeam }: { trade: Trade; yourTeam: string | null 
       </header>
       <div className="trade-sides">
         {trade.sides.map((s) => (
-          <TradeSideView key={s.team_id} side={s} year={year} won={s.team_id === trade.winner_team_id} />
+          <TradeSideView
+            key={s.team_id}
+            side={s}
+            year={year}
+            won={s.team_id === trade.winner_team_id}
+            onwardOf={(playerId) => onward.get(`${trade.uid}:${s.team_id}:${playerId}`)}
+          />
         ))}
       </div>
     </article>
   )
 }
 
-function TradeSideView({ side, year, won }: { side: TradeSide; year: number; won: boolean }) {
+function TradeSideView({
+  side,
+  year,
+  won,
+  onwardOf,
+}: {
+  side: TradeSide
+  year: number
+  won: boolean
+  /** The team a received player was traded on to, if he was. */
+  onwardOf: (playerId: number) => string | undefined
+}) {
   return (
     <div className={`trade-side${won ? ' won' : ''}`}>
       <div className="trade-side-head">
@@ -300,17 +319,28 @@ function TradeSideView({ side, year, won }: { side: TradeSide; year: number; won
               {p.name}
               {p.position && <span className="trade-pos"> {p.position}</span>}
             </span>
-            <span className="trade-pts" title={`${fmt(p.bench_points)} more on the bench`}>
-              {fmtWar(p.war)}
-              <span className="trade-weeks">
-                {' '}
-                · {fmt(p.started_points)} pts · {p.weeks_started} wk
-              </span>
-            </span>
+            <TradePlayerStats player={p} onward={onwardOf(p.player_id)} />
           </li>
         ))}
       </ul>
     </div>
+  )
+}
+
+/** A received player's WAR and starts for his new team. One traded on before
+ * he played for it says where he went; one traded on later says so too. */
+function TradePlayerStats({ player: p, onward }: { player: TradeSide['received'][number]; onward?: string }) {
+  if (onward && p.weeks_started === 0 && p.bench_points === 0) {
+    return <span className="trade-pts trade-weeks">traded on to {onward}</span>
+  }
+  return (
+    <span className="trade-pts" title={`${fmt(p.bench_points)} more on the bench`}>
+      {fmtWar(p.war)}
+      <span className="trade-weeks">
+        {' '}
+        · {fmt(p.started_points)} pts · {p.weeks_started} wk{onward ? ` · then traded to ${onward}` : ''}
+      </span>
+    </span>
   )
 }
 

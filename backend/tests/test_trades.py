@@ -713,6 +713,7 @@ def test_an_executed_proposal_dates_its_trade():
     assert trade_events([own, TX_PROPOSAL]) == [{"team_id": 1, "week": 5, "date": TX_TRADE["processDate"]}]
 
 
+@pytest.mark.filterwarnings("ignore:New instance .* conflicts with persistent instance")
 def test_a_season_saved_twice_at_once_keeps_one_copy(db):
     from app import trade_store
 
@@ -724,3 +725,102 @@ def test_a_season_saved_twice_at_once_keeps_one_copy(db):
     db.add(TradeSync(espn_league_id=1, season=2026, computed_at=datetime(2026, 1, 1), final=True))
     trade_store.save(db, 1, 2026, results, final=True)  # no IntegrityError
     assert len(trade_store.load(db, 1, [2026])) == 1
+
+
+# --- Following owners: the cases found in a real league's 2019 season ---------
+
+T3 = {i: {"team_id": i, "team_name": n, "owner_id": f"o{i}", "owner_name": f"O {i}"}
+      for i, n in ((1, "Alpha"), (2, "Bravo"), (3, "Charlie"))}
+
+
+def tx(kind, item_type, pid, frm, to, period, day, status="EXECUTED"):
+    """`day` counts from 1 September 2026."""
+    return {"id": f"{kind}-{pid}-{period}-{day}", "type": kind, "status": status, "scoringPeriodId": period,
+            "processDate": ms(2026, 9, 1) + (day - 1) * 86_400_000,
+            "items": [{"type": item_type, "playerId": pid, "fromTeamId": frm, "toTeamId": to}]}
+
+
+def rebuilt(weeks, txs, known=()):
+    acts_ = [a for t in txs if (a := activity_from_transaction(t, T3.get, PLAYERS))]
+    return trades_from_rosters(weeks, acts_, trade_events(txs), T3.get, 2026, known)
+
+
+def received(trade):
+    return {s["team_id"]: sorted(p["player_id"] for p in s["received"]) for s in trade["sides"]}
+
+
+def test_picked_up_then_traded_in_the_same_week_names_the_right_sender():
+    # Gore: Alpha drops 10 in week 2, Bravo claims him in week 3 and trades
+    # him to Charlie that week for 20. The rosters alone say Alpha -> Charlie.
+    weeks = {
+        1: roster_week({1: [(10, "RB")], 3: [(20, "TE")]}),
+        2: roster_week({3: [(20, "TE")]}),
+        3: roster_week({2: [(20, "TE")], 3: [(10, "RB")]}),
+    }
+    txs = [tx("FREEAGENT", "DROP", 10, 1, 0, 2, 11), tx("WAIVER", "ADD", 10, 0, 2, 3, 16)]
+    [t] = rebuilt(weeks, txs)
+    assert received(t) == {2: [20], 3: [10]}
+
+
+def test_a_drop_the_same_week_as_someone_elses_pickup_is_not_a_trade():
+    # Maher: Alpha drops him on Tuesday of week 5, Bravo adds him on
+    # Thursday, and week 5's roster has him on Bravo.
+    weeks = {4: roster_week({1: [(30, "K")]}), 5: roster_week({2: [(30, "K")]})}
+    txs = [tx("ROSTER", "DROP", 30, 1, 0, 5, 30), tx("FREEAGENT", "ADD", 30, 0, 2, 5, 32)]
+    assert rebuilt(weeks, txs) == []
+
+
+def test_a_player_cut_straight_after_a_trade_still_counts():
+    # Bravo gets 10 for 20 and drops 10 before any roster shows him there.
+    weeks = {4: roster_week({1: [(10, "RB")], 2: [(20, "TE")]}), 5: roster_week({1: [(20, "TE")], 2: []})}
+    [t] = rebuilt(weeks, [tx("FREEAGENT", "DROP", 10, 2, 0, 5, 31)])
+    assert received(t) == {1: [20], 2: [10]}
+
+
+def test_a_player_traded_twice_in_a_week_goes_through_the_middle_team():
+    # Henry (10): Alpha trades him and 11 to Bravo for 20; Bravo trades him
+    # and 22 to Charlie for 30, the same week. The rosters show him go from
+    # Alpha straight to Charlie.
+    weeks = {
+        6: roster_week({1: [(10, "RB"), (11, "WR")], 2: [(20, "WR"), (22, "RB")], 3: [(30, "RB")]}),
+        7: roster_week({1: [(20, "WR")], 2: [(11, "WR"), (30, "RB")], 3: [(10, "RB"), (22, "RB")]}),
+    }
+    trades = rebuilt(weeks, [])
+    assert sorted((received(t) for t in trades), key=str) == sorted(
+        [{1: [20], 2: [10, 11]}, {2: [30], 3: [10, 22]}], key=str
+    )
+
+
+def test_an_ambiguous_double_trade_is_left_as_the_rosters_show_it():
+    # Two one-sided trades that fit two different stories: no guessing.
+    weeks = {
+        6: roster_week({1: [(10, "RB")], 2: [(20, "WR"), (21, "WR")], 3: [(30, "TE")]}),
+        7: roster_week({1: [(20, "WR")], 2: [(30, "TE")], 3: [(10, "RB"), (21, "WR")]}),
+    }
+    trades = rebuilt(weeks, [])
+    assert sorted((received(t) for t in trades), key=str) == sorted(
+        [{1: [20], 2: []}, {1: [], 3: [10]}, {2: [30], 3: [21]}], key=str
+    )
+
+
+def test_trades_espn_lists_in_full_stand_as_listed():
+    own = {**TX_TRADE, "type": "TRADE_PROPOSAL", "scoringPeriodId": 5}
+    known = trades_from_activity(tx_acts(own), 2026)
+    [t] = rebuilt(ROSTER_WEEKS, [own, TX_RICO], known)
+    assert t["uid"] == "tx:tx-trade"
+
+
+def test_an_add_from_another_team_is_a_trade_leg_not_a_pickup():
+    leg = tx("FREEAGENT", "ADD", 10, 1, 2, 5, 31)
+    assert activity_from_transaction(leg, T3.get, PLAYERS) is None
+
+
+def test_a_draft_day_trade_shows_against_the_draft():
+    draft = {"id": "draft", "type": "DRAFT", "status": "EXECUTED", "scoringPeriodId": 1, "processDate": ms(2026, 8, 20),
+             "items": [{"type": "DRAFT", "playerId": 10, "fromTeamId": 0, "toTeamId": 1},
+                       {"type": "DRAFT", "playerId": 20, "fromTeamId": 0, "toTeamId": 2}]}
+    weeks = {1: roster_week({1: [(20, "QB")], 2: [(10, "WR")]})}
+    [t] = rebuilt(weeks, [draft])
+    assert received(t) == {1: [20], 2: [10]} and t["week"] == 1
+    # The draft isn't a pickup.
+    assert moves_from_activity([activity_from_transaction(draft, T3.get, PLAYERS)], 2026) == []

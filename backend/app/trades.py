@@ -166,6 +166,15 @@ def activity_from_transaction(tx: dict, team_by_id, players: dict[int, dict]) ->
     if tx.get("status") != "EXECUTED":
         return None
     kind = tx.get("type") or ""
+    if kind == "DRAFT":
+        # Not a move to list, but who owned each player from the start: a
+        # draft-day trade shows only against the draft.
+        drafted = [
+            {"team": team_by_id(i.get("toTeamId")), "action": "DRAFTED", "player": {"player_id": i.get("playerId")}, "bid": 0}
+            for i in tx.get("items") or [] if i.get("type") == "DRAFT"
+        ]
+        date = tx.get("processDate") or tx.get("proposedDate") or 0
+        return {"uid": f"tx:{tx.get('id') or date}", "date": int(date), "actions": drafted, "period": 0} if drafted else None
 
     def player(pid) -> dict:
         info = players.get(pid) if isinstance(pid, int) else None
@@ -278,11 +287,13 @@ def trades_from_rosters(
     # (week, order, time, player id, what, team, player)
     timeline: list[tuple] = []
     for act in activities:
-        week = act.get("period") or week_of(act["date"], year)
+        week = act["period"] if "period" in act else week_of(act["date"], year)
         for a in act["actions"]:
             if not a["team"]:
                 continue
-            what = {"WAIVER ADDED": "add", "FA ADDED": "add", "DROPPED": "drop", "TRADE_RECEIVED": "add"}.get(a["action"])
+            what = {
+                "WAIVER ADDED": "add", "FA ADDED": "add", "DRAFTED": "add", "DROPPED": "drop", "TRADE_RECEIVED": "add",
+            }.get(a["action"])
             if what:
                 timeline.append((week, 0, act["date"], a["player"]["player_id"], what, a["team"]["team_id"], a["player"]))
     names: dict[int, dict] = {}
@@ -327,28 +338,37 @@ def trades_from_rosters(
 
     # A player traded twice in one week (A to B, then B to C) shows in the
     # weekly rosters only as A to C, a trade where A got nothing. ESPN trades
-    # are between two teams, so where A and C each traded with the same team
-    # that week, the player went through it: credit him to both of those
-    # trades instead.
+    # are between two teams, so where A and C each made a two-way trade with
+    # the same team B that week, the player went through B: credit him to
+    # both of those trades instead. Only then: with a one-sided trade on
+    # either side of B, the rosters fit more than one story, and the trade
+    # is left as the rosters show it rather than guessed at.
     def near(g: dict, h: dict) -> bool:
         return g["week"] - _TRADE_LEG_WEEKS <= h["week"] <= g["last"] + _TRADE_LEG_WEEKS
 
-    for g in list(groups):
-        receivers = {r for _, _, r in g["legs"]}
-        if len(receivers) != 1:
+    def one_sided(g: dict) -> bool:
+        return len({r for _, _, r in g["legs"]}) == 1
+
+    two_way = [h for h in groups if not one_sided(h)]
+    relays = []
+    for g in groups:
+        if not one_sided(g):
             continue
-        (to,) = receivers
+        (to,) = {r for _, _, r in g["legs"]}
         (frm,) = set(g["pair"]) - {to}
+
+        def bridge(x: int, y: int, g=g) -> dict | None:
+            found = [h for h in two_way if h["pair"] == tuple(sorted((x, y))) and near(g, h)]
+            return found[0] if len(found) == 1 else None
+
         via = [
-            b for b in {t for h in groups if h is not g and near(g, h) for t in h["pair"]} - {frm, to}
-            if any(h["pair"] == tuple(sorted((frm, b))) and near(g, h) for h in groups)
-            and any(h["pair"] == tuple(sorted((b, to))) and near(g, h) for h in groups)
+            (b, first, second)
+            for b in {t for h in two_way for t in h["pair"]} - {frm, to}
+            if (first := bridge(frm, b)) and (second := bridge(b, to))
         ]
-        if len(via) != 1:
-            continue
-        b = via[0]
-        first = next(h for h in groups if h["pair"] == tuple(sorted((frm, b))) and near(g, h))
-        second = next(h for h in groups if h["pair"] == tuple(sorted((b, to))) and near(g, h))
+        if len(via) == 1:
+            relays.append((g, frm, to, *via[0]))
+    for g, frm, to, b, first, second in relays:
         for player, _, _ in g["legs"]:
             first["legs"].append((player, frm, b))
             second["legs"].append((player, b, to))

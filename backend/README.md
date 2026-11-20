@@ -91,8 +91,14 @@ backend/
   answers 404 for past seasons, and espn_api passes that on as "no activity".
   For those seasons the app reads `mTransactions2`, which keeps waiver claims,
   pickups and drops. It lists an accepted trade's players only to members who
-  were in that trade, so every past trade is rebuilt from the weekly rosters
-  (`trades.trades_from_rosters`), never taken from that list.
+  were in that trade, so other past trades are rebuilt
+  (`trades.trades_from_rosters`): each player's owner is followed through the
+  draft, pickups, drops and weekly rosters, and a player who turns up with,
+  or is dropped by, a team other than his owner was traded to it.
+  Limits of the rebuild, since rosters are weekly: two trades between the same
+  two teams in the same week show as one, and a player traded twice in a week
+  is credited through the middle team only when that's unambiguous. The
+  middle team's line then says "traded on to …".
   `scripts/diagnose_transactions.py` prints what ESPN returns for each season
   of your league.
 
