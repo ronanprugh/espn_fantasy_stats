@@ -33,14 +33,15 @@ const ROUTER_PATHS = [
   '/team_hub',
   '/scoreboard',
   '/positional',
+  '/trades',
   '/power_rankings',
   '/leagues',
   '/account',
 ]
 
 describe('navigation destinations (FR U2-3)', () => {
-  it('exposes exactly ten main destinations', () => {
-    expect(NAV_DESTINATIONS).toHaveLength(10)
+  it('exposes exactly eleven main destinations', () => {
+    expect(NAV_DESTINATIONS).toHaveLength(11)
   })
 
   it('never lists the same path twice', () => {
@@ -83,7 +84,7 @@ describe('navigation destinations (FR U2-3)', () => {
     expect(byGroup).toEqual({
       'This Season': ['Standings', 'Scoreboard', 'Power Rankings'],
       Teams: ['Team Hub', 'Head to Head', 'Trends'],
-      History: ['All-Time', 'Playoffs', 'Positional Stats'],
+      History: ['All-Time', 'Playoffs', 'Positional Stats', 'Trades'],
     })
   })
 
@@ -98,7 +99,7 @@ describe('visibleDestinations', () => {
 
   it('hides Power Rankings from members of a league with no rankings', () => {
     expect(labels({ hasPowerRankings: false, isAdmin: false })).not.toContain('Power Rankings')
-    expect(labels({ hasPowerRankings: false, isAdmin: false })).toHaveLength(9)
+    expect(labels({ hasPowerRankings: false, isAdmin: false })).toHaveLength(10)
   })
 
   it('shows Power Rankings once the league has rankings', () => {

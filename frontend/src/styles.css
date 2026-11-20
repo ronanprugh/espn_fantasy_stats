@@ -4818,3 +4818,138 @@ button.cov:focus-visible, .pr-week-pill:focus-visible, .bump-legend-item:focus-v
 .skeleton-card .sb-middle .skeleton-sub {
   margin-top: 6px;
 }
+
+/* ------------------------------------------------------------------ *
+ * Trades (pages/TradesPage.tsx)
+ * ------------------------------------------------------------------ */
+.trade-summary {
+  margin: 12px 0 20px;
+  max-width: 640px;
+}
+
+.trade-records td.pos {
+  color: var(--success);
+}
+
+.trade-records td.neg {
+  color: var(--danger);
+}
+
+.trade-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  gap: 12px;
+}
+
+.trade-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px 14px;
+}
+
+.trade-card.your-matchup {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.trade-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.trade-verdict {
+  font-weight: 700;
+  color: var(--success);
+}
+
+.trade-verdict.even {
+  color: var(--text-muted);
+}
+
+.trade-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.trade-side {
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-subtle);
+}
+
+.trade-side.won {
+  background: var(--success-tint);
+}
+
+.trade-side-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.trade-side-total {
+  font-variant-numeric: tabular-nums;
+}
+
+.trade-side.won .trade-side-total {
+  color: var(--success);
+}
+
+.trade-got {
+  margin: 4px 0 2px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.trade-side ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.trade-side li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+
+.trade-player {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trade-pos,
+.trade-weeks {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.trade-pts {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The team column is the first here, not a narrow rank number. */
+.trade-records td:first-child,
+.trade-records th:first-child {
+  width: auto;
+  text-align: left;
+  color: inherit;
+}

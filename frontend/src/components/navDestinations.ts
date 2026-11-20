@@ -79,6 +79,7 @@ export const NAV_DESTINATIONS: readonly NavDestination[] = [
   { path: '/all_time', label: 'All-Time', group: 'History' },
   { path: '/playoffs', label: 'Playoffs', group: 'History' },
   { path: '/positional', label: 'Positional Stats', group: 'History' },
+  { path: '/trades', label: 'Trades', group: 'History' },
 ]
 
 export const NAV_GROUPS: readonly NavGroup[] = ['This Season', 'Teams', 'History']
