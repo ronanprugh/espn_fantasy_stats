@@ -38,8 +38,12 @@ src/
   Links between pages are built in `lib/links.ts`, so everyone agrees on the
   parameter names.
 - **Logic worth testing goes in `lib/`** as pure functions with a `.test.ts`
-  next to it. Vitest runs in Node with no DOM, so component tests aren't set
-  up (see `vitest.config.ts`).
+  next to it (run in Node). **Page behaviour** gets a `.test.tsx` next to the
+  page, rendered with Testing Library in jsdom (`vitest.config.ts` runs the two
+  as separate projects). Those tests mock the `api.ts` calls and the context
+  hooks a page uses, and render it in a `MemoryRouter`; see
+  `pages/TransactionsPage.test.tsx`. `src/test/setup.ts` cleans up between
+  tests and stands in for browser APIs jsdom lacks.
 - **Shared fetches are cached per visit** in module-level maps: league years
   (`useLeagueYears`), power rankings (`usePowerRankings`) and team owners
   (`useTeamOwners`). Several pages need the same payload.

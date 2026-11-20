@@ -18,6 +18,7 @@ import { TeamLink } from '../components/TeamLink'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { useUrlState } from '../hooks/useUrlState'
+import { loadSeasons } from '../lib/loadSeasons'
 import { TableSkeleton } from '../components/Loading'
 import { ErrorMessage } from '../components/ErrorMessage'
 
@@ -73,28 +74,54 @@ export function PositionalStatsPage() {
   const yearMode: YearMode | null =
     urlYear ?? (eligibleYears.length > 0 ? eligibleYears[eligibleYears.length - 1] : null)
 
+  // All Time loads each season first ([done, total] while it does), so the
+  // aggregate request that follows is answered from the server's cache: on a
+  // cold cache, one request doing every season's box scores could outlast
+  // the proxy's timeout.
+  const [progress, setProgress] = useState<[number, number] | null>(null)
+  const eligibleKey = eligibleYears.join(',')
   useEffect(() => {
     if (!leagueId || yearMode === null) return
+    // All Time needs the season list (a direct link can arrive before it):
+    // without it, the aggregate would be asked for cold, all at once.
+    if (yearMode === 'all' && eligibleYears.length === 0) return
+    let cancelled = false
     setLoading(true)
     setError(null)
+    setProgress(null)
+    const fail = (e: Error) => !cancelled && setError(e.message)
+    const done = () => !cancelled && setLoading(false)
     if (yearMode === 'all') {
-      fetchPositionalStatsAggregate(leagueId)
+      loadSeasons(
+        eligibleYears,
+        (y) => fetchPositionalStatsForYear(leagueId, y),
+        (n, total) => !cancelled && setProgress([n, total]),
+      )
+        .then(() => fetchPositionalStatsAggregate(leagueId))
         .then((d) => {
+          if (cancelled) return
           setAggData(d)
           setSeasonData(null)
         })
-        .catch((e: Error) => setError(e.message))
-        .finally(() => setLoading(false))
+        .catch(fail)
+        .finally(done)
     } else {
       fetchPositionalStatsForYear(leagueId, yearMode)
         .then((d) => {
+          if (cancelled) return
           setSeasonData(d)
           setAggData(null)
         })
-        .catch((e: Error) => setError(e.message))
-        .finally(() => setLoading(false))
+        .catch(fail)
+        .finally(done)
     }
-  }, [leagueId, yearMode])
+    // Switching season mid-load mustn't show the previous one's numbers.
+    return () => {
+      cancelled = true
+    }
+    // `eligibleKey` stands for `eligibleYears`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueId, yearMode, eligibleKey])
 
   if (!leagueId) return <NoLeagueSelected />
 
@@ -225,6 +252,11 @@ export function PositionalStatsPage() {
       </nav>
 
       {error && <ErrorMessage message={error} />}
+      {loading && progress && progress[1] > 1 && (
+        <p className="subtitle">
+          Loading season {Math.min(progress[0] + 1, progress[1])} of {progress[1]}…
+        </p>
+      )}
       {loading && <TableSkeleton rows={10} cols={7} />}
       {!loading && missingNote && <p className="subtitle">{missingNote}</p>}
 

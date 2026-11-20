@@ -204,27 +204,6 @@ export async function fetchTrades(leagueId: number, year: number): Promise<Seaso
   return jsonFetch<SeasonTrades>(`/api/leagues/${leagueId}/seasons/${year}/trades`)
 }
 
-/** Every season's trades (2019 on) in one request, for All seasons. */
-export async function fetchAllTrades(
-  leagueId: number,
-): Promise<{
-  league_id: number
-  years: number[]
-  unavailable_years?: number[]
-  /** As SeasonTrades.espn_trade_count, by season (JSON keys are strings). */
-  espn_trade_counts?: Record<string, number>
-  trades: Trade[]
-}> {
-  return jsonFetch(`/api/leagues/${leagueId}/trades`)
-}
-
-/** Every season's waiver claims, pickups and drops in one request. */
-export async function fetchAllMoves(
-  leagueId: number,
-): Promise<{ league_id: number; years: number[]; unavailable_years?: number[]; moves: Move[] }> {
-  return jsonFetch(`/api/leagues/${leagueId}/transactions`)
-}
-
 export type ApiToken = {
   id: number
   name: string
