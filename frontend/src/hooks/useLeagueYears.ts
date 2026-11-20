@@ -1,3 +1,6 @@
+/**
+ * The selected league's seasons, oldest first, with loading and error state.
+ */
 import { useEffect, useState } from 'react'
 import { fetchLeagueInfo, type LeagueInfo } from '../api'
 import { useLeague } from '../contexts/LeagueContext'

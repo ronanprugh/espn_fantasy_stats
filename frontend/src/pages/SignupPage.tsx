@@ -1,3 +1,7 @@
+/**
+ * Create an account with an invite code (from an admin's Account page), then
+ * sign in.
+ */
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { signup } from '../api'

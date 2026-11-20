@@ -1,7 +1,8 @@
 """Admin CLI for managing users and leagues.
 
 Usage (from backend/ with venv active):
-    python -m app.admin create-user --username ronan
+    python -m app.admin create-user --username ronan [--admin]
+    python -m app.admin set-admin --username ronan [--revoke]
     python -m app.admin add-league --username ronan --league-id 1375368 --name "Payton"
     python -m app.admin reset-password --username ronan
     python -m app.admin list-users
@@ -33,11 +34,12 @@ def create_user(args):
     with SessionLocal() as db:
         if db.query(User).filter(User.username == args.username).first():
             sys.exit(f"User '{args.username}' already exists")
-        user = User(username=args.username, password_hash=hash_password(password))
+        user = User(username=args.username, password_hash=hash_password(password), is_admin=args.admin)
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"Created user '{args.username}' (id={user.id})")
+        role = " as an admin" if user.is_admin else ""
+        print(f"Created user '{args.username}' (id={user.id}){role}")
 
 
 def add_league(args):
@@ -77,6 +79,18 @@ def reset_password(args):
         print(f"Updated password for '{args.username}'")
 
 
+def set_admin(args):
+    """Grant (or with --revoke, remove) admin: generating invite codes from
+    the Account page."""
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.username == args.username).first()
+        if not user:
+            sys.exit(f"User '{args.username}' not found")
+        user.is_admin = not args.revoke
+        db.commit()
+        print(f"'{args.username}' is {'now' if user.is_admin else 'no longer'} an admin")
+
+
 def list_users(_args):
     with SessionLocal() as db:
         users = db.query(User).order_by(User.id).all()
@@ -87,7 +101,8 @@ def list_users(_args):
             league_count = (
                 db.query(League).filter(League.user_id == u.id).count()
             )
-            print(f"  {u.id}\t{u.username}\t{league_count} leagues\t{u.created_at}")
+            admin = "\tadmin" if u.is_admin else ""
+            print(f"  {u.id}\t{u.username}\t{league_count} leagues\t{u.created_at}{admin}")
 
 
 def seed_from_env(args):
@@ -135,6 +150,7 @@ def main():
     cu = sub.add_parser("create-user")
     cu.add_argument("--username", required=True)
     cu.add_argument("--password", default=None, help="If omitted, prompted")
+    cu.add_argument("--admin", action="store_true", help="Can generate invite codes")
     cu.set_defaults(func=create_user)
 
     al = sub.add_parser("add-league")
@@ -149,6 +165,11 @@ def main():
     rp.add_argument("--username", required=True)
     rp.add_argument("--password", default=None, help="If omitted, prompted")
     rp.set_defaults(func=reset_password)
+
+    sa = sub.add_parser("set-admin")
+    sa.add_argument("--username", required=True)
+    sa.add_argument("--revoke", action="store_true", help="Remove admin instead")
+    sa.set_defaults(func=set_admin)
 
     lu = sub.add_parser("list-users")
     lu.set_defaults(func=list_users)

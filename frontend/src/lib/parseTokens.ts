@@ -1,3 +1,8 @@
+/**
+ * Test helper (Node only, it reads files): parses the colour tokens out of
+ * styles.css's light and dark theme blocks, for the contrast and token-name
+ * tests.
+ */
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'

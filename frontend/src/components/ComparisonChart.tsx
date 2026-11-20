@@ -1,3 +1,9 @@
+/**
+ * Trends' line chart: one stat per season for each chosen owner, with the
+ * league average for reference. Completed seasons are solid lines and the
+ * season in progress dashed (see lib/trends.ts); place stats run 1…N with
+ * first place at the top.
+ */
 import {
   CartesianGrid,
   Legend,

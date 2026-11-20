@@ -1,3 +1,8 @@
+/**
+ * The user's leagues and the one selected (`useLeague`). The selection is
+ * remembered in localStorage per browser; with none, the first league is
+ * selected. Every league page reads `selectedLeague.espn_league_id`.
+ */
 import {
   createContext,
   useCallback,

@@ -1,3 +1,17 @@
+"""SQLAlchemy ORM models: the database schema.
+
+Per-user tables: `users`, `leagues` (a user's link to an ESPN league, with
+encrypted cookies), `invite_codes` and `api_tokens`.
+
+Per-ESPN-league tables, shared by every user who added the league: `cache`
+(raw ESPN payloads), `power_ranking_posts`/`power_ranking_entries`, and the
+stored trade results `trade_records`, `trade_record_sides`,
+`trade_record_players` and `trade_syncs`.
+
+Changing a model needs an Alembic migration in `backend/alembic/versions/`
+(see backend/README.md).
+"""
+
 import datetime as dt
 from typing import Any
 

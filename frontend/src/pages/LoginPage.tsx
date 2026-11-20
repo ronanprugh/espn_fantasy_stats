@@ -1,3 +1,7 @@
+/**
+ * Sign in. Returns you to the page you were sent here from, and says so when
+ * you arrive from an expired session or a fresh sign-up.
+ */
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'

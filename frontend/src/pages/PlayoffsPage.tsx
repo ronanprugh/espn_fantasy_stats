@@ -1,3 +1,7 @@
+/**
+ * Playoff History: a season's bracket, championship and consolation, and its
+ * final standings. Opens on the latest season with a bracket.
+ */
 import { useEffect, useState } from 'react'
 import { fetchPlayoffs, type SeasonPlayoffs } from '../api'
 import { NoLeagueSelected } from '../components/NoLeagueSelected'

@@ -1,3 +1,7 @@
+/**
+ * A table header that sorts its column on click, with an arrow on the active
+ * one. The table owns the sort state.
+ */
 import type { ReactNode } from 'react'
 
 export type SortDir = 'asc' | 'desc'

@@ -1,3 +1,7 @@
+/**
+ * Light or dark theme (`useTheme`): the stored choice, else the system's.
+ * Applied as `data-theme` on <html>, which styles.css's tokens key off.
+ */
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 
 type Theme = 'light' | 'dark'

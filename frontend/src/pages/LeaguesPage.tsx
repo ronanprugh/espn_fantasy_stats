@@ -1,3 +1,8 @@
+/**
+ * Leagues: add an ESPN league (its id, and for a private league the espn_s2
+ * and SWID cookies), rename one, choose which team is yours, or remove it.
+ * (The API can also replace a league's cookies; this page doesn't offer it.)
+ */
 import { useEffect, useRef, useState } from 'react'
 import {
   createLeague,

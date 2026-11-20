@@ -1,3 +1,9 @@
+/**
+ * Head to Head. With one owner (`?a=`), their record against everyone
+ * (Rivalries); with two (`?a=&b=`), every meeting between them across all
+ * seasons, the totals side by side and the games, each a link to its box
+ * score.
+ */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {

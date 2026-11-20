@@ -28,3 +28,8 @@ temp.*
 
 # Private league data (group-chat exports, power rankings import files)
 power_rankings/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+*.tsbuildinfo

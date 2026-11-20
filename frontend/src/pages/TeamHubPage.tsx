@@ -1,3 +1,8 @@
+/**
+ * Team Hub: one owner's page (`?team=<owner id>`). Summary (record, standing,
+ * trophies and career records), the roster, the season's schedule and, when the
+ * league has them, power rankings. `?year=` picks the season, `?tab=` the tab.
+ */
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {

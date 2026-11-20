@@ -1,3 +1,8 @@
+/**
+ * Positional Stats: points each team scored from each lineup position, for a
+ * season or summed across every season since 2019 (box scores start then),
+ * regular season and playoffs. `?year=` (or `all`) and `?pos=`.
+ */
 import { useEffect, useMemo, useState } from 'react'
 import {
   fetchPositionalStatsAggregate,

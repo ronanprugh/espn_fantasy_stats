@@ -1,3 +1,10 @@
+"""Pydantic models for request bodies and responses: the API contract.
+
+Every endpoint in main.py declares one of these as its `response_model`, so
+FastAPI validates (and filters) what goes out. The frontend's types in
+`frontend/src/api.ts` mirror these by hand: change both together.
+"""
+
 import datetime as dt
 from pydantic import BaseModel, Field
 from typing import List
@@ -101,18 +108,24 @@ class SeasonMoves(BaseModel):
     league_id: int
     year: int
     supported: bool
+    # ESPN returned no transactions at all for a season that was played.
+    unavailable: bool = False
     moves: List[Move]
 
 
 class LeagueMoves(BaseModel):
     league_id: int
     years: List[int]
+    # Played seasons ESPN returned no transactions for.
+    unavailable_years: List[int] = []
     moves: List[Move]
 
 
 class LeagueTrades(BaseModel):
     league_id: int
     years: List[int]
+    # Played seasons ESPN returned no transactions for.
+    unavailable_years: List[int] = []
     trades: List[Trade]
 
 
@@ -121,6 +134,8 @@ class SeasonTrades(BaseModel):
     year: int
     # ESPN keeps trades from 2019 on.
     supported: bool
+    # ESPN returned no transactions at all for a season that was played.
+    unavailable: bool = False
     trades: List[Trade]
 
 

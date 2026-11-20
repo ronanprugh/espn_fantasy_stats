@@ -10,3 +10,4 @@ cryptography>=42.0
 itsdangerous>=2.1
 python-multipart>=0.0.9
 psycopg2-binary>=2.9
+requests>=2.31

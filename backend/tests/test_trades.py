@@ -12,6 +12,9 @@ from app.trades import (
     EASTERN,
     _score_if_kept,
     activity_from_topic,
+    activity_from_transaction,
+    trade_events,
+    trades_from_rosters,
     fits_slot,
     kickoff,
     moves_from_activity,
@@ -404,7 +407,7 @@ def test_trades_endpoint_calculates_once_then_reads_stored_results(db, monkeypat
     assert len(league.espn_request.calls) == espn_calls and calls["box"] == box_calls  # nothing refetched
 
     old = client.get("/api/leagues/1/seasons/2018/trades").json()
-    assert old == {"league_id": 1, "year": 2018, "supported": False, "trades": []}
+    assert old == {"league_id": 1, "year": 2018, "supported": False, "unavailable": False, "trades": []}
 
 
 def test_all_seasons_endpoints(db, monkeypatch):
@@ -438,3 +441,233 @@ def test_the_week_being_played_waits_until_it_is_over(db, monkeypatch):
 
     [t] = TestClient(main.app).get("/api/leagues/1/seasons/2026/trades").json()["trades"]
     assert {s["team_id"]: s["games"] for s in t["sides"]} == {1: 1, 2: 1}
+
+
+# --- Seasons the activity feed doesn't serve -------------------------------------
+
+# The same trade and moves as the transactions view reports them.
+TX_TRADE = {"id": "tx-trade", "type": "TRADE_ACCEPT", "status": "EXECUTED", "processDate": ms(2026, 10, 7), "items": [
+    {"type": "TRADE", "playerId": 10, "fromTeamId": 1, "toTeamId": 2},
+    {"type": "TRADE", "playerId": 11, "fromTeamId": 1, "toTeamId": 2},
+    {"type": "TRADE", "playerId": 20, "fromTeamId": 2, "toTeamId": 1},
+]}
+TX_PROPOSAL = {**TX_TRADE, "id": "tx-proposal", "type": "TRADE_PROPOSAL", "status": "CANCELED"}
+TX_WAIVER = {"id": "tx-waiver", "type": "WAIVER", "status": "EXECUTED", "bidAmount": 17, "processDate": ms(2026, 10, 14, 3),
+             "items": [{"type": "ADD", "playerId": 30, "fromTeamId": 0, "toTeamId": 1},
+                       {"type": "DROP", "playerId": 31, "fromTeamId": 1, "toTeamId": 0}]}
+TX_FAILED = {**TX_WAIVER, "id": "tx-failed", "status": "FAILED_PLAYERALREADYDROPPED"}
+TX_FA = {"id": "tx-fa", "type": "FREEAGENT", "status": "EXECUTED", "processDate": ms(2026, 10, 16),
+         "items": [{"type": "ADD", "playerId": 32, "fromTeamId": 0, "toTeamId": 2}]}
+TX_DROP = {"id": "tx-drop", "type": "FREEAGENT", "status": "EXECUTED", "processDate": ms(2026, 10, 17),
+           "items": [{"type": "DROP", "playerId": 33, "fromTeamId": 2, "toTeamId": 0}]}
+TX_LINEUP = {"id": "tx-lineup", "type": "ROSTER", "status": "EXECUTED", "processDate": ms(2026, 10, 18),
+             "items": [{"type": "LINEUP", "playerId": 20, "fromTeamId": 1, "toTeamId": 1}]}
+
+
+def tx_acts(*txs):
+    return [a for t in txs if (a := activity_from_transaction(t, TEAMS.get, PLAYERS))]
+
+
+def test_transactions_read_like_the_activity_feed():
+    activities = tx_acts(TX_TRADE, TX_PROPOSAL, TX_WAIVER, TX_FAILED, TX_FA, TX_DROP, TX_LINEUP)
+    assert len(activities) == 4  # the proposal, the failed claim and the lineup change aren't transactions
+    assert trades_from_activity(activities, 2026) == [
+        {**t, "uid": "tx:tx-trade"} for t in trades_from_activity(acts(TRADE), 2026)
+    ]
+    from_feed = [{k: v for k, v in m.items()} for m in moves_from_activity(acts(PICKUP, FA, DROP), 2026)]
+    assert moves_from_activity(activities, 2026) == from_feed
+
+
+def test_a_trade_listed_twice_counts_once():
+    again = {**TRADE, "id": "trade-1b", "date": TRADE["date"] + 60_000}
+    assert len(trades_from_activity(acts(TRADE, again), 2026)) == 1
+    # The same players sent back the other way is a new trade.
+    back = {"id": "trade-2", "date": TRADE["date"] + 86_400_000, "messages": [
+        {**m, "from": m["to"], "to": m["from"]} for m in TRADE["messages"]
+    ]}
+    assert len(trades_from_activity(acts(TRADE, back), 2026)) == 2
+
+
+class TxRequests(FakeRequests):
+    """The activity feed answers with nothing (ESPN's 404, as espn_api passes
+    it on); the transactions view has the season."""
+
+    def __init__(self, transactions, **kw):
+        super().__init__([], **kw)
+        self.transactions, self.tx_calls = transactions, []
+
+    def league_get(self, extend="", params=None, headers=None):
+        if params and params.get("view") == "mTransactions2":
+            self.tx_calls.append(params["scoringPeriodId"])
+            return {"transactions": self.transactions}  # every period: deduplicated by id
+        return super().league_get(extend, params, headers)
+
+
+def played_league(requests_):
+    league = fake_league([], cards=CARDS)
+    league.espn_request = requests_
+    league.finalScoringPeriod = 3
+    for t in league.teams:
+        t.wins, t.losses, t.ties = 5, 5, 0
+    return league
+
+
+def test_season_activity_falls_back_to_transactions(monkeypatch):
+    from app import main
+
+    league = played_league(TxRequests([TX_TRADE, TX_WAIVER, TX_FA], cards=CARDS))
+    monkeypatch.setattr(main.cache, "get", lambda *a, **k: None)
+    monkeypatch.setattr(main.cache, "put", lambda *a, **k: None)
+    monkeypatch.setattr(main, "get_league", lambda *a, **k: league)
+    activity = main._load_season_activity(1, 2024, None, None)
+    assert activity["unavailable"] is False
+    assert sorted(a["uid"] for a in activity["activities"]) == ["tx:tx-fa", "tx:tx-trade", "tx:tx-waiver"]
+    assert league.espn_request.tx_calls == [1, 2, 3]
+    [trade] = trades_from_activity(activity["activities"], 2024)
+    assert {s["team_id"] for s in trade["sides"]} == {1, 2}
+
+
+def test_a_season_espn_says_nothing_about_is_never_stored_as_final(db, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import main
+
+    league = played_league(TxRequests([], cards=CARDS))
+    stored = {}
+    wire(monkeypatch, league)
+    monkeypatch.setattr(main.cache, "put", lambda lid, year, key, payload: stored.setdefault(key, payload))
+    client = TestClient(main.app)
+
+    body = client.get("/api/leagues/1/seasons/2026/trades").json()
+    assert body["trades"] == [] and body["unavailable"] is True
+    assert stored[main.ACTIVITY_KEY]["activities"] == [] and stored[main.ACTIVITY_KEY]["unavailable"] is True
+    assert db.get(TradeSync, (1, 2026)).final is False
+    everything = client.get("/api/leagues/1/trades").json()
+    assert everything["unavailable_years"] == [2026]
+    assert client.get("/api/leagues/1/transactions").json()["unavailable_years"] == [2026]
+
+
+def test_unavailable_activity_is_retried_after_the_next_refresh_point(monkeypatch):
+    from app import main
+
+    calls = []
+
+    def get(lid, year, key, fresh_since=None):
+        calls.append(fresh_since)
+        return {"activities": [], "unavailable": True} if fresh_since is None else None
+
+    league = played_league(TxRequests([TX_FA], cards=CARDS))
+    monkeypatch.setattr(main.cache, "get", get)
+    monkeypatch.setattr(main.cache, "put", lambda *a, **k: None)
+    monkeypatch.setattr(main, "get_league", lambda *a, **k: league)
+    activity = main._load_season_activity(1, 2020, None, None)
+    assert calls[0] is None and calls[1] is not None  # the empty answer only counts until the refresh point
+    assert [a["uid"] for a in activity["activities"]] == ["tx:tx-fa"]
+
+
+def test_a_week_espn_wouldnt_serve_keeps_results_from_being_final(db, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import main
+
+    wire(monkeypatch, fake_league([TRADE], cards=CARDS))
+
+    def flaky(lid, year, week, *a, **k):
+        if week == 6:
+            raise RuntimeError("ESPN hiccup")
+        if week > 6:
+            raise main.WeekNotPlayedError("not yet")
+        return WEEKS.get(week, {"matchups": []})
+
+    monkeypatch.setattr(main, "_get_season_box_scores", flaky)
+    TestClient(main.app).get("/api/leagues/1/seasons/2026/trades")
+    assert db.get(TradeSync, (1, 2026)).final is False
+
+
+def test_history_endpoint_seasons_read_the_feed_from_the_season_endpoint(monkeypatch):
+    from app import main
+
+    seen = {}
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"topics": [TRADE]}
+
+    def get(url, **kw):
+        seen["url"] = url
+        return Response()
+
+    monkeypatch.setattr(main.requests, "get", get)
+    req = NS(LEAGUE_ENDPOINT="https://x/apis/v3/games/ffl/leagueHistory/77?seasonId=2021", year=2021, league_id=77, cookies={})
+    assert main._communication_page(NS(espn_request=req), {}) == {"topics": [TRADE]}
+    assert seen["url"] == "https://x/apis/v3/games/ffl/seasons/2021/segments/0/leagues/77/communication/"
+
+
+# --- Past seasons' trades, rebuilt from rosters --------------------------------------
+
+def roster_week(rosters):
+    """{team_id: [(player_id, position)]} -> a week's box scores, everyone on the bench."""
+    return box({tid: [(pid, pos, "BE", 0.0) for pid, pos in players] for tid, players in rosters.items()})
+
+
+# Weeks 4-6: Alpha sends JSN (10) and Kyren (11) for Dak (20) in week 5, and
+# picks up Rico (30) off waivers in week 6 after Bravo dropped him.
+ROSTER_WEEKS = {
+    4: roster_week({1: [(10, "WR"), (11, "RB")], 2: [(20, "QB"), (30, "RB")]}),
+    5: roster_week({1: [(20, "QB")], 2: [(10, "WR"), (11, "RB"), (30, "RB")]}),
+    6: roster_week({1: [(20, "QB"), (30, "RB")], 2: [(10, "WR"), (11, "RB")]}),
+}
+TX_ACCEPT = {"id": "a", "type": "TRADE_ACCEPT", "teamId": 2, "scoringPeriodId": 5, "proposedDate": ms(2026, 10, 7),
+             "executionType": "EXECUTE", "items": []}
+TX_DECLINE = {"id": "d", "type": "TRADE_DECLINE", "status": "EXECUTED", "teamId": 1, "scoringPeriodId": 4, "items": []}
+TX_RICO = {"id": "r", "type": "WAIVER", "status": "EXECUTED", "processDate": ms(2026, 10, 14), "bidAmount": 3,
+           "items": [{"type": "ADD", "playerId": 30, "fromTeamId": 0, "toTeamId": 1}]}
+
+
+def test_trade_events_are_trades_that_went_through():
+    assert trade_events([TX_ACCEPT, TX_DECLINE, TX_PROPOSAL]) == [{"team_id": 2, "week": 5, "date": ms(2026, 10, 7)}]
+
+
+def test_trades_rebuilt_from_rosters():
+    [t] = trades_from_rosters(ROSTER_WEEKS, tx_acts(TX_RICO), trade_events([TX_ACCEPT]), TEAMS.get, 2026)
+    assert t["week"] == 5 and t["date"] == ms(2026, 10, 7)  # the acceptance's time
+    by_team = {s["team_id"]: s for s in t["sides"]}
+    assert [p["player_id"] for p in by_team[1]["received"]] == [20]
+    assert sorted(p["player_id"] for p in by_team[2]["received"]) == [10, 11]
+    assert by_team[2]["owner_id"] == "o2" and by_team[1]["received"][0]["position"] == "QB"
+    # Rico's move was a waiver claim, not a trade; outcomes read it like any trade.
+    [outcome_] = trade_outcomes([t], WEEKS)
+    assert {s["team_id"] for s in outcome_["sides"]} == {1, 2}
+
+
+def test_a_rebuilt_trade_without_an_acceptance_dates_from_its_week():
+    [t] = trades_from_rosters(ROSTER_WEEKS, tx_acts(TX_RICO), [], TEAMS.get, 2026)
+    assert week_of(t["date"], 2026) == 5
+
+
+def test_past_season_trades_come_from_rosters_end_to_end(db, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import main
+
+    league = played_league(TxRequests([TX_ACCEPT, TX_RICO], cards=CARDS))
+    wire(monkeypatch, league)
+
+    def box_scores(lid, year, week, *a, **k):
+        if week > max(ROSTER_WEEKS):
+            raise main.WeekNotPlayedError("not yet")
+        return ROSTER_WEEKS.get(week, {"matchups": []})
+
+    monkeypatch.setattr(main, "_get_season_box_scores", box_scores)
+    monkeypatch.setattr(main, "_get_season_teams", lambda *a, **k: {"teams": [
+        {"team_id": tid, "team_name": t["team_name"], "final_standing": 1,
+         "owners": [{"id": t["owner_id"], "first_name": "O", "last_name": t["owner_id"]}]}
+        for tid, t in TEAMS.items()
+    ]})
+    body = TestClient(main.app).get("/api/leagues/1/seasons/2026/trades").json()
+    assert body["unavailable"] is False
+    [t] = body["trades"]
+    assert t["week"] == 5 and {s["team_name"] for s in t["sides"]} == {"Alpha", "Bravo"}
+    assert db.get(TradeSync, (1, 2026)).final is True

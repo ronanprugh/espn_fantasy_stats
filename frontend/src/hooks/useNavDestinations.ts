@@ -1,3 +1,8 @@
+/**
+ * The navigation for the signed-in user and selected league: what the sidebar
+ * lists, and how it splits into phone tabs and the More sheet (see
+ * components/navDestinations.ts).
+ */
 import { useMemo } from 'react'
 import {
   NAV_DESTINATIONS,

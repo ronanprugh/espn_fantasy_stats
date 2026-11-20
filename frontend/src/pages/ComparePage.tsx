@@ -1,3 +1,9 @@
+/**
+ * Trends: one stat across every season for the owners you pick, against the
+ * league average, with each owner's averages alongside. Power-rank stats join
+ * the list when the league has rankings. Selections live in the URL
+ * (`?teams=&stat=`).
+ */
 import { useEffect, useMemo, useState } from 'react'
 import {
   fetchOwnerHistory,

@@ -1,3 +1,7 @@
+/**
+ * A matchup's round as a small label: Playoff, Semifinal, Championship,
+ * Consolation (and Regular, unless hidden).
+ */
 import type { RoundLabel } from '../api'
 
 const TEXT: Record<RoundLabel, string> = {

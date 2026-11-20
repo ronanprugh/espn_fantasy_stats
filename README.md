@@ -16,18 +16,41 @@ Multi-user web app for analyzing ESPN Fantasy Football leagues across seasons.
 
 What's in it:
 
-- **This Week** — the front page: your team's record, standing, streak and game, this week's matchups,
-  the standings in brief and the latest power rankings (last season's champion in the offseason)
-- **Season Stats** — all-time aggregate + per-season standings tables, sortable columns
-- **Playoff History** — SVG bracket reconstruction with championship + consolation paths, click any match for box scores
-- **Scoreboard** — per-week matchup grid; click into the box score for any 2019+ game
-- **Team Hub** — per-team summary card, current roster, and last matchup (with tabs for Summary/Roster)
-- **Team Comparison** — year-over-year line chart for any selected stat across multiple owners
-- **Head to Head** — full record between any two owners across every season, plus the matchup list
-- **Power Rankings** — a league's posted power rankings, imported from a file: week-by-week rankings with every
-  write-up, a season bump chart, all-time records, and a searchable archive. Ranks also show up on Season Stats,
-  Team Hub, Team Comparison, Head to Head and the Scoreboard. Weeks with no posted rankings take the nearest
-  week's ranks and are always marked as assumed.
+- **This Week**: the front page. Your team's record, standing, streak and game, this week's matchups,
+  the standings in brief and the latest power rankings (last season's champion in the offseason).
+- **Standings / All-Time**: a season's standings, or every owner's career totals and every team-season
+  ranked, with sortable columns, close-game records and an advanced-stats toggle.
+- **Scoreboard**: a week's matchups as score cards with Top and Low score badges. Step or swipe through
+  weeks, and open the box score of any 2019+ game.
+- **Box Score**: both lineups slot by slot, mirrored about the slot on a phone.
+- **Playoff History**: SVG bracket reconstruction with championship and consolation paths. Click any match
+  for its box score.
+- **Team Hub**: one owner's summary (record, standing, trophies, career records), roster, schedule and
+  power rankings.
+- **Trends**: a year-over-year line chart of any stat for the owners you pick, against the league average.
+- **Head to Head**: one owner's record against everyone, or every meeting between two owners.
+- **Positional Stats**: points each team scored from each lineup position, by season or all-time (2019+).
+- **Transactions**: trades (decided by WAR, wins above replacement), waiver claims, free-agent pickups
+  and drops, by season or all-time, with records (2019+).
+- **Power Rankings**: a league's posted power rankings, imported from a file. Week-by-week rankings with
+  every write-up, a season bump chart, all-time records and a searchable archive. Ranks also show up on
+  Standings, Team Hub, Trends, Head to Head and the Scoreboard. Weeks with no posted rankings take the
+  nearest week's ranks and are always marked as assumed.
+- **API tokens**: read-only personal tokens (Account page) for scripts and assistants, sent as
+  `Authorization: Bearer efs_…`.
+
+## Repository layout
+
+```
+backend/     FastAPI app, Alembic migrations, tests       → backend/README.md
+frontend/    React + Vite app                              → frontend/README.md
+docs/specs/  design specs and their validation records
+.github/     CI, production migrations, Render keep-warm
+render.yaml  Render blueprint for the backend
+docker-compose.yml   local Postgres
+```
+
+With the backend running, interactive API docs are at http://localhost:8000/docs.
 
 ---
 
@@ -35,7 +58,7 @@ What's in it:
 
 - **Docker Desktop** (runs Postgres locally) — https://docker.com/products/docker-desktop
 - **Python 3.11+** (3.12 also fine)
-- **Node.js 18+** (`brew install node`)
+- **Node.js 20+** (22 recommended; `frontend/.nvmrc` pins it for nvm users: `brew install node`)
 
 ---
 
@@ -92,8 +115,8 @@ accounts can also be created directly via the admin CLI:
 **Option A — from scratch:**
 
 ```bash
-.venv/bin/python -m app.admin create-user --username ronan
-# prompted for password
+.venv/bin/python -m app.admin create-user --username ronan --admin
+# prompted for password; --admin lets this user generate invite codes
 .venv/bin/python -m app.admin add-league \
   --username ronan \
   --league-id 1375368 \
@@ -172,6 +195,12 @@ List all users and how many leagues each has:
 .venv/bin/python -m app.admin list-users
 ```
 
+Make someone an admin (able to generate invite codes), or take it away:
+
+```bash
+.venv/bin/python -m app.admin set-admin --username <name> [--revoke]
+```
+
 ---
 
 ## Getting your ESPN cookies (for private leagues)
@@ -227,13 +256,25 @@ Each post's `week` is the week it looks ahead to: preseason rankings are week 1,
 games are week 4. Entries name teams by `team_name` (any name the team has used, or its abbreviation) or ESPN
 `team_id`; an import with a name that matches no team is rejected whole, with the names listed.
 
-Backend tests cover how missing weeks are filled:
+---
+
+## Tests, lint and CI
 
 ```bash
+# Backend: in-memory SQLite and ESPN fakes, no Postgres or network needed
 cd backend
 .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m pytest
+.venv/bin/ruff check .
+
+# Frontend
+cd frontend
+npm test
+npm run build          # includes the TypeScript check
 ```
+
+`.github/workflows/ci.yml` runs all of these on every pull request and push to `main`.
+Dependabot (`.github/dependabot.yml`) opens weekly dependency update PRs.
 
 ---
 
@@ -244,3 +285,5 @@ cd backend
 - **Backend crashes on first request** — Alembic migrations weren't applied. Run `.venv/bin/alembic upgrade head` from the backend dir.
 - **Login returns 401 for the right password** — the bcrypt hash uses a per-install pepper indirectly via the password itself. Make sure you created the user under the same `SECRET_KEY` you're using now (rotating the key doesn't invalidate passwords, but does invalidate sessions).
 - **Box score links don't work for old seasons** — `espn_api` only supports box scores from 2019 forward. Pre-2019 matchup rows are non-clickable by design.
+- **Transactions says ESPN didn't return a season** — ESPN gave nothing for it from either the activity feed or the transactions view. The page tries again after the next refresh point. To see what ESPN returns for each season of your league, run `.venv/bin/python scripts/diagnose_transactions.py` from `backend/` (it reads `LEAGUE_ID`, `ESPN_S2` and `SWID` from `.env`).
+- **No one can generate invite codes** — nobody is an admin yet. Run `python -m app.admin set-admin --username <name>` against that database.

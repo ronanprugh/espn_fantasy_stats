@@ -1,3 +1,10 @@
+"""SQLAlchemy engine and session factory for the app's Postgres database.
+
+`SessionLocal` is used directly by code that runs outside a request (the
+cache, the admin CLI); endpoints take a session from `get_db` instead, so
+tests can swap it for an in-memory database with `dependency_overrides`.
+"""
+
 from collections.abc import Iterator
 
 from sqlalchemy import create_engine

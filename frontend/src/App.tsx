@@ -1,3 +1,8 @@
+/**
+ * The signed-in shell: sidebar on desktop, bottom tab bar and More sheet on
+ * phones, and the current page in between (`<Outlet />`). Sends anyone not
+ * signed in to /login, remembering where they were headed.
+ */
 import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { BottomTabBar } from './components/BottomTabBar'

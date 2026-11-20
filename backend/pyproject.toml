@@ -1,0 +1,19 @@
+# Tool configuration for the backend. Dependencies stay in requirements*.txt
+# (the Dockerfile and the migrate workflow install from those).
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    # Starlette's TestClient warns about its httpx backend; harmless here.
+    "ignore:Using `httpx` with `starlette.testclient`",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+# Errors only: syntax, undefined names, unused imports and variables. Style
+# is left to review; widen this list once the code passes a stricter set.
+select = ["E4", "E7", "E9", "F"]

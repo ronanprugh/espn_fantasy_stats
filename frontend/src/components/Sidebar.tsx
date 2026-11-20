@@ -1,3 +1,8 @@
+/**
+ * The desktop navigation: league picker, the destinations by group, and your
+ * settings menu at the bottom. Collapses to a thin strip that still says where
+ * you are. Hidden below 900px, where BottomTabBar and MoreSheet take over.
+ */
 import { Fragment } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useLeague } from '../contexts/LeagueContext'

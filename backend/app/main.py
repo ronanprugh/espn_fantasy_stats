@@ -1,3 +1,26 @@
+"""The FastAPI application: middleware and every HTTP endpoint.
+
+Everything lives under `/api`. Sections, in order:
+
+- Health        `/api/health`, the liveness probe (never touches Postgres)
+- Auth          login, logout, signup with an invite code, password change,
+                personal API tokens
+- Admin         invite codes
+- Leagues       the signed-in user's leagues (`/api/me/leagues`)
+- League data   `/api/leagues/{league_id}/...`, where `league_id` is the ESPN
+                league id; `get_user_league` checks it belongs to the user and
+                decrypts its cookies
+- Power rankings
+
+Data endpoints share one pattern: read the payload from `cache` when it is
+fresh enough (see `_fresh_since`), otherwise fetch from ESPN through
+`espn_client`, serialise, store and return. `?refresh=true` skips the cache.
+Feature logic lives in its own module (team_hub, rivalries, trades,
+power_rankings...) as pure functions; this module loads data and wires it up.
+
+Interactive API docs are served at `/docs` when the backend is running.
+"""
+
 from dataclasses import dataclass
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
@@ -16,12 +39,16 @@ from . import trade_store
 from .trades import (
     ACTIVITY_MESSAGE_TYPES,
     activity_from_topic,
+    activity_from_transaction,
     moves_from_activity,
     player_position,
     team_fields,
     topic_key,
     topic_player_ids,
+    trade_events,
     trade_outcomes,
+    trades_from_rosters,
+    transaction_player_ids,
     trades_from_activity,
 )
 from .rivalries import is_unplayed, rivalry_summary
@@ -41,6 +68,8 @@ from .crypto import decrypt, encrypt
 import datetime as dt
 import json
 import secrets
+
+import requests
 from .database import get_db
 from .espn_client import (
     POSITIONS_ORDER,
@@ -56,6 +85,7 @@ from .espn_client import (
     is_live_season,
     last_refresh_point,
     serialize_all_matchups,
+    serialize_box_scores,
     serialize_playoffs,
     serialize_roster,
     serialize_scoreboard,
@@ -143,6 +173,7 @@ def health():
 
 @app.post("/api/auth/login", response_model=UserResponse)
 def auth_login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    """Sign in with a username and password; sets the session cookie."""
     user = db.query(User).filter(User.username == payload.username).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(
@@ -154,17 +185,21 @@ def auth_login(payload: LoginRequest, request: Request, db: Session = Depends(ge
 
 @app.post("/api/auth/logout")
 def auth_logout(request: Request):
+    """End the current session."""
     logout(request)
     return {"ok": True}
 
 
 @app.get("/api/auth/me", response_model=UserResponse)
 def auth_me(user: User = Depends(current_user)):
+    """The signed-in user (from the session or an API token); 401 if none."""
     return UserResponse(id=user.id, username=user.username, is_admin=user.is_admin)
 
 
 @app.post("/api/auth/signup", response_model=UserResponse)
 def auth_signup(payload: SignupRequest, db: Session = Depends(get_db)):
+    """Create an account with a valid, unexpired invite code (bcrypt-hashed, so
+    every live code is checked in turn). Doesn't sign the new user in."""
     raw = payload.invite_code.strip()
     now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
     candidates = (
@@ -194,6 +229,7 @@ MAX_API_TOKENS = 10
 
 @app.get("/api/me/tokens", response_model=list[ApiTokenInfo])
 def list_api_tokens(user: User = Depends(session_user), db: Session = Depends(get_db)):
+    """The user's API tokens, newest first. Never the tokens themselves."""
     return (
         db.query(ApiToken)
         .filter(ApiToken.user_id == user.id)
@@ -208,6 +244,8 @@ def create_api_token(
     user: User = Depends(session_user),
     db: Session = Depends(get_db),
 ):
+    """Mint a read-only API token. The response is the only time the token is
+    shown in full; at most MAX_API_TOKENS per user."""
     count = db.query(ApiToken).filter(ApiToken.user_id == user.id).count()
     if count >= MAX_API_TOKENS:
         raise HTTPException(
@@ -236,6 +274,7 @@ def create_api_token(
 
 @app.delete("/api/me/tokens/{token_id}")
 def revoke_api_token(token_id: int, user: User = Depends(session_user), db: Session = Depends(get_db)):
+    """Delete one of the user's API tokens; it stops working immediately."""
     row = db.get(ApiToken, token_id)
     if row is None or row.user_id != user.id:
         raise HTTPException(status_code=404, detail="Token not found")
@@ -250,6 +289,7 @@ def auth_change_password(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    """Change the signed-in user's password, given the current one."""
     if not verify_password(payload.current_password, user.password_hash):
         # 400, not 401: the session is fine, the input is wrong. The client
         # treats a 401 from a signed-in user as an expired session and signs
@@ -281,6 +321,8 @@ def admin_generate_invite(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    """Admins only: a new invite code, valid for 1, 6, 12 or 24 hours and up to
+    `max_uses` sign-ups. Only its hash is stored, so the code is shown once."""
     if payload.expires_in_hours not in _VALID_EXPIRY_HOURS:
         raise HTTPException(status_code=400, detail="expires_in_hours must be 1, 6, 12, or 24")
     raw = secrets.token_urlsafe(32)
@@ -303,6 +345,7 @@ def admin_generate_invite(
 
 @app.get("/api/me/leagues", response_model=list[LeagueSummary])
 def list_my_leagues(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """The leagues the user has added."""
     rows = (
         db.query(LeagueModel)
         .filter(LeagueModel.user_id == user.id)
@@ -326,6 +369,8 @@ def add_my_league(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    """Add an ESPN league to the user's account. Cookies are optional (public
+    leagues need none) and are encrypted before they are stored."""
     existing = (
         db.query(LeagueModel)
         .filter(
@@ -361,6 +406,8 @@ def update_my_league(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    """Rename a league, replace or clear its cookies (an empty string clears),
+    or set or clear the user's own team (`favorite_owner_id`)."""
     row = (
         db.query(LeagueModel)
         .filter(LeagueModel.id == league_row_id, LeagueModel.user_id == user.id)
@@ -394,6 +441,7 @@ def delete_my_league(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
+    """Remove a league from the user's account. Its shared cache stays."""
     row = (
         db.query(LeagueModel)
         .filter(LeagueModel.id == league_row_id, LeagueModel.user_id == user.id)
@@ -414,6 +462,9 @@ def delete_my_league(
 
 @dataclass
 class LeagueContext:
+    """A league the current user has added, with its ESPN cookies decrypted
+    (None for a public league, or one whose cookies no longer decrypt)."""
+
     espn_league_id: int
     espn_s2: str | None
     swid: str | None
@@ -425,6 +476,8 @@ def get_user_league(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ) -> LeagueContext:
+    """Dependency for every `/api/leagues/{league_id}/...` endpoint: 404s unless
+    the current user has added that ESPN league."""
     row = (
         db.query(LeagueModel)
         .filter(
@@ -496,11 +549,13 @@ def _get_season_box_scores(
 
     In a live season only the two most recently completed weeks and later go
     stale. Earlier weeks are final, and refreshing them would turn every
-    positional-stats rebuild into one ESPN fetch per week of the season. A
-    The two most recently completed weeks stay refreshable, so ESPN's stat
+    positional-stats rebuild into one ESPN fetch per week of the season. The
+    two most recently completed weeks stay refreshable, so ESPN's stat
     corrections, which land the Tuesday after the games, are picked up.
+
+    Raises WeekNotPlayedError for a week of the live season ESPN hasn't
+    reached yet.
     """
-    from .espn_client import serialize_box_scores as _ser  # local import for clarity
     # Before the cache lookup, so box scores cached under a future week's key
     # back when nothing guarded this (they hold the then-current week's data)
     # are never served. They're replaced once that week is actually played.
@@ -518,7 +573,7 @@ def _get_season_box_scores(
         if cached:
             return cached
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
-    matchups = _ser(league, week)
+    matchups = serialize_box_scores(league, week)
     payload = {
         "league_id": league_id,
         "year": year,
@@ -535,6 +590,29 @@ ACTIVITY_PAGE = 25
 ACTIVITY_MAX_PAGES = 200
 # Players looked up per player-card request.
 PLAYER_CARD_CHUNK = 100
+
+
+def _communication_page(league, headers: dict) -> dict:
+    """One page of the league's activity feed (ESPN's "communication").
+
+    espn_api answers a 404 here with an empty page, which is how ESPN replies
+    for many past seasons, so an empty page can mean "not served" as well as
+    "nothing happened". And for a season espn_api reads from the leagueHistory
+    endpoint, its league_get would append "/communication/" after that
+    endpoint's `?seasonId=` query, so the feed is requested from the season's
+    own endpoint instead. Anything but a page of topics comes back as {}.
+    """
+    req = league.espn_request
+    params = {"view": "kona_league_communication"}
+    endpoint = getattr(req, "LEAGUE_ENDPOINT", "")
+    if "/leagueHistory/" in endpoint:
+        base = endpoint.split("/leagueHistory/")[0]
+        url = f"{base}/seasons/{req.year}/segments/0/leagues/{req.league_id}/communication/"
+        r = requests.get(url, params=params, headers=headers, cookies=req.cookies, timeout=30)
+        data = r.json() if r.status_code == 200 else {}
+    else:
+        data = req.league_get(extend="/communication/", params=params, headers=headers)
+    return data if isinstance(data, dict) else {}
 
 
 def _fetch_activity_topics(league) -> list[dict]:
@@ -557,12 +635,8 @@ def _fetch_activity_topics(league) -> list[dict]:
                 "filterIncludeMessageTypeIds": {"value": ACTIVITY_MESSAGE_TYPES},
             }
         }
-        data = league.espn_request.league_get(
-            extend="/communication/",
-            params={"view": "kona_league_communication"},
-            headers={"x-fantasy-filter": json.dumps(filters)},
-        )
-        batch = (data or {}).get("topics") or []
+        data = _communication_page(league, {"x-fantasy-filter": json.dumps(filters)})
+        batch = data.get("topics") or []
         fresh = [t for t in batch if topic_key(t) not in seen]
         if not fresh:
             break
@@ -570,6 +644,25 @@ def _fetch_activity_topics(league) -> list[dict]:
         topics.extend(fresh)
         offset += len(batch)
     return topics
+
+
+def _fetch_transactions(league) -> list[dict]:
+    """Every transaction in the season from ESPN's transactions view
+    (`mTransactions2`), one request per scoring period, deduplicated by id.
+    The fallback for seasons the activity feed doesn't serve."""
+    found: dict[str, dict] = {}
+    last = getattr(league, "finalScoringPeriod", None) or 18
+    for period in range(1, last + 1):
+        data = league.espn_request.league_get(
+            params={"view": "mTransactions2", "scoringPeriodId": period}
+        )
+        for tx in (data or {}).get("transactions") or []:
+            found.setdefault(str(tx.get("id") or len(found)), tx)
+    return sorted(found.values(), key=lambda t: t.get("processDate") or t.get("proposedDate") or 0, reverse=True)
+
+
+def _has_games(league) -> bool:
+    return any((getattr(t, "wins", 0) + getattr(t, "losses", 0) + getattr(t, "ties", 0)) > 0 for t in league.teams)
 
 
 def _player_directory(league, player_ids: set[int]) -> dict[int, dict]:
@@ -600,23 +693,63 @@ def _player_directory(league, player_ids: set[int]) -> dict[int, dict]:
     return out
 
 
+ACTIVITY_KEY = "activity_v3"
+
+
+def _load_season_activity(
+    league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
+) -> dict:
+    """Every transaction in the season (2019 on): trades, waiver claims,
+    free-agent pickups and drops, as plain dicts (app/trades.py), in
+    `{"activities": [...], "unavailable": bool, "source": ..., "trade_events":
+    [...]}`. One fetch serves trades and transactions.
+
+    Read from the activity feed, or for a season the feed doesn't serve, from
+    the transactions view. A season with games but nothing from either source
+    is `unavailable`: ESPN didn't say, which is not the same as nothing
+    happening. That answer is cached only until the next refresh point, so a
+    season is never stuck empty; real answers are cached like other ESPN data.
+    """
+    if not refresh:
+        cached = cache.get(league_id, year, ACTIVITY_KEY, fresh_since=_fresh_since(year))
+        if cached and cached.get("unavailable"):
+            cached = cache.get(league_id, year, ACTIVITY_KEY, fresh_since=last_refresh_point())
+        if cached:
+            return cached
+    league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
+    teams = {t.team_id: team_fields(t) for t in league.teams}
+    topics = _fetch_activity_topics(league)
+    events: list[dict] = []
+    if topics:
+        source = "feed"
+        players = _player_directory(league, topic_player_ids(topics))
+        activities = [activity_from_topic(t, teams.get, players) for t in topics]
+    elif _has_games(league):
+        # The transactions view keeps a past season's waiver claims, pickups
+        # and drops, but of its trades only when they went through: the
+        # players are rebuilt from the rosters (_season_trade_results).
+        source = "transactions"
+        transactions = _fetch_transactions(league)
+        players = _player_directory(league, transaction_player_ids(transactions))
+        activities = [a for t in transactions if (a := activity_from_transaction(t, teams.get, players))]
+        events = trade_events(transactions)
+    else:
+        source, activities = "none", []
+    payload = {
+        "activities": activities,
+        "unavailable": not activities and _has_games(league),
+        "source": source,
+        "trade_events": events,
+    }
+    cache.put(league_id, year, ACTIVITY_KEY, payload)
+    return payload
+
+
 def _get_season_activity(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> list[dict]:
-    """Every transaction in the season (2019 on): trades, waiver claims,
-    free-agent pickups and drops, as plain dicts (app/trades.py). Kept in the
-    cache like other ESPN data; one fetch serves trades and transactions."""
-    if not refresh:
-        cached = cache.get(league_id, year, "activity_v2", fresh_since=_fresh_since(year))
-        if cached:
-            return cached["activities"]
-    league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
-    topics = _fetch_activity_topics(league)
-    players = _player_directory(league, topic_player_ids(topics))
-    teams = {t.team_id: team_fields(t) for t in league.teams}
-    activities = [activity_from_topic(t, teams.get, players) for t in topics]
-    cache.put(league_id, year, "activity_v2", {"activities": activities})
-    return activities
+    """The season's activities alone (see _load_season_activity)."""
+    return _load_season_activity(league_id, year, espn_s2, swid, refresh)["activities"]
 
 
 def _season_trade_results(
@@ -627,16 +760,22 @@ def _season_trade_results(
     lid = ctx.espn_league_id
     if not refresh and trade_store.is_current(db, lid, year):
         return trade_store.load(db, lid, [year])
-    trades = trades_from_activity(
-        _get_season_activity(lid, year, ctx.espn_s2, ctx.swid, refresh), year
-    )
+    activity = _load_season_activity(lid, year, ctx.espn_s2, ctx.swid, refresh)
+    trades = trades_from_activity(activity["activities"], year)
+    # From the transactions view, a trade's players are rebuilt from rosters.
+    # Not with nothing from it at all: without its pickups to tell them
+    # apart, every waiver claim would look like a trade.
+    from_rosters = not trades and activity.get("source") == "transactions" and not activity["unavailable"]
+    season_teams = _get_season_teams(lid, year, ctx.espn_s2, ctx.swid)
     # Final once the season is over: its results can't change after that.
-    final = season_over(_get_season_teams(lid, year, ctx.espn_s2, ctx.swid))
+    # Not while ESPN's data for it was missing or partial, though: final
+    # results are kept for good, so those are recalculated next time instead.
+    final = season_over(season_teams) and not activity["unavailable"]
     # Every completed week's box scores: WAR's baselines and the points per
     # game draw on the whole season. The week being played is left out until
     # it's over, so its partial scores don't count as games.
     box_by_week: dict[int, dict] = {}
-    if trades:
+    if trades or from_rosters:
         weeks = _get_season_scoreboard(lid, year, ctx.espn_s2, ctx.swid)["weeks"]
         current = None
         if is_live_season(year) and not final:
@@ -649,9 +788,31 @@ def _season_trade_results(
             except WeekNotPlayedError:
                 break
             except Exception:
+                # A week ESPN wouldn't serve: calculate without it for now,
+                # and try again after the next refresh point.
+                final = False
                 continue
+    if from_rosters:
+        teams = {t["team_id"]: _team_fields(t) for t in season_teams["teams"]}
+        trades = trades_from_rosters(box_by_week, activity["activities"], activity.get("trade_events", []), teams.get, year)
     trade_store.save(db, lid, year, trade_outcomes(trades, box_by_week), final)
     return trade_store.load(db, lid, [year])
+
+
+def _team_fields(team: dict) -> dict:
+    """A serialized team (SeasonTeams) as the fields a trade side keeps."""
+    owner = team["owners"][0] if team.get("owners") else {}
+    return {
+        "team_id": team["team_id"],
+        "team_name": team["team_name"],
+        "owner_id": owner.get("id", ""),
+        "owner_name": f"{owner.get('first_name', '')} {owner.get('last_name', '')}".strip() or "—",
+    }
+
+
+def _activity_unavailable(ctx: LeagueContext, year: int) -> bool:
+    """Whether ESPN gave nothing for a season that was played (cached)."""
+    return _load_season_activity(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid)["unavailable"]
 
 
 def _transaction_years(ctx: LeagueContext) -> list[int]:
@@ -783,6 +944,7 @@ def _get_season_scoreboard(
 
 @app.get("/api/leagues/{league_id}/info", response_model=LeagueInfo)
 def league_info(ctx: LeagueContext = Depends(get_user_league)):
+    """The league's display name and every season it has played."""
     try:
         years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
@@ -801,6 +963,7 @@ def league_info(ctx: LeagueContext = Depends(get_user_league)):
 
 @app.get("/api/leagues/{league_id}/seasons/{year}/teams", response_model=SeasonTeams)
 def teams(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
+    """Every team in a season: owners, record, points, standings and weekly scores."""
     try:
         return _get_season_teams(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
     except Exception as e:
@@ -812,6 +975,7 @@ def teams(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_use
     response_model=SeasonScoreboard,
 )
 def scoreboard(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
+    """Every matchup in a season, week by week, with names, scores and round."""
     try:
         return _get_season_scoreboard(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
     except Exception as e:
@@ -825,11 +989,17 @@ def season_transactions(year: int, refresh: bool = False, ctx: LeagueContext = D
     if year < 2019:
         return {"league_id": ctx.espn_league_id, "year": year, "supported": False, "moves": []}
     try:
-        activities = _get_season_activity(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
+        activity = _load_season_activity(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
-    moves = [{**m, "year": year} for m in moves_from_activity(activities, year)]
-    return {"league_id": ctx.espn_league_id, "year": year, "supported": True, "moves": moves}
+    moves = [{**m, "year": year} for m in moves_from_activity(activity["activities"], year)]
+    return {
+        "league_id": ctx.espn_league_id,
+        "year": year,
+        "supported": True,
+        "unavailable": activity["unavailable"],
+        "moves": moves,
+    }
 
 
 @app.get("/api/leagues/{league_id}/transactions", response_model=LeagueMoves)
@@ -838,13 +1008,15 @@ def all_transactions(ctx: LeagueContext = Depends(get_user_league)):
     request for the All seasons view."""
     try:
         years = _transaction_years(ctx)
-        moves = []
+        moves, unavailable = [], []
         for year in years:
-            activities = _get_season_activity(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid)
-            moves += [{**m, "year": year} for m in moves_from_activity(activities, year)]
+            activity = _load_season_activity(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid)
+            if activity["unavailable"]:
+                unavailable.append(year)
+            moves += [{**m, "year": year} for m in moves_from_activity(activity["activities"], year)]
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
-    return {"league_id": ctx.espn_league_id, "years": years, "moves": moves}
+    return {"league_id": ctx.espn_league_id, "years": years, "unavailable_years": unavailable, "moves": moves}
 
 
 @app.get("/api/leagues/{league_id}/seasons/{year}/trades", response_model=SeasonTrades)
@@ -861,9 +1033,16 @@ def season_trades(
         return {"league_id": ctx.espn_league_id, "year": year, "supported": False, "trades": []}
     try:
         trades = _season_trade_results(db, ctx, year, refresh)
+        unavailable = not trades and _activity_unavailable(ctx, year)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
-    return {"league_id": ctx.espn_league_id, "year": year, "supported": True, "trades": trades}
+    return {
+        "league_id": ctx.espn_league_id,
+        "year": year,
+        "supported": True,
+        "unavailable": unavailable,
+        "trades": trades,
+    }
 
 
 @app.get("/api/leagues/{league_id}/trades", response_model=LeagueTrades)
@@ -877,9 +1056,11 @@ def all_trades(ctx: LeagueContext = Depends(get_user_league), db: Session = Depe
             if not trade_store.is_current(db, ctx.espn_league_id, year):
                 _season_trade_results(db, ctx, year)
         trades = trade_store.load(db, ctx.espn_league_id, years)
+        traded = {t["year"] for t in trades}
+        unavailable = [y for y in years if y not in traded and _activity_unavailable(ctx, y)]
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
-    return {"league_id": ctx.espn_league_id, "years": years, "trades": trades}
+    return {"league_id": ctx.espn_league_id, "years": years, "unavailable_years": unavailable, "trades": trades}
 
 
 @app.get(
@@ -889,6 +1070,8 @@ def all_trades(ctx: LeagueContext = Depends(get_user_league), db: Session = Depe
 def box_scores(
     year: int, week: int, refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)
 ):
+    """Every game in one week with both lineups, player by player (2019 on).
+    404 for a week of the live season that hasn't been reached."""
     if year < 2019:
         raise HTTPException(
             status_code=400,
@@ -913,6 +1096,8 @@ def positional_stats_for_year(
     refresh: bool = False,
     ctx: LeagueContext = Depends(get_user_league),
 ):
+    """Points by lineup position (QB, RB, ... D/ST) for each team in a season,
+    regular season and championship-bracket playoffs (2019 on)."""
     if year < 2019:
         raise HTTPException(
             status_code=400,
@@ -934,6 +1119,7 @@ def positional_stats_aggregate(
     refresh: bool = False,
     ctx: LeagueContext = Depends(get_user_league),
 ):
+    """Positional stats summed per owner across every season from 2019 on."""
     try:
         all_years = discover_years(
             ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid
@@ -1012,6 +1198,7 @@ def positional_stats_aggregate(
     response_model=SeasonPlayoffs,
 )
 def playoffs(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
+    """A season's playoff teams and every playoff-week matchup, for the bracket."""
     if not refresh:
         cached = cache.get(ctx.espn_league_id, year, "playoffs_v1", fresh_since=_fresh_since(year))
         if cached:
@@ -1036,6 +1223,9 @@ def team_hub(
     refresh: bool = False,
     ctx: LeagueContext = Depends(get_user_league),
 ):
+    """One owner's Team Hub: every season they played, career records and
+    accolades, and for the selected season (the latest by default) the
+    roster, schedule and last matchup."""
     try:
         all_years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
@@ -1182,6 +1372,7 @@ def team_hub(
 
 @app.get("/api/leagues/{league_id}/owner_history", response_model=LeagueOwnerHistory)
 def owner_history(refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
+    """Every owner's season-by-season results, for Trends and owner pickers."""
     try:
         years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
@@ -1271,6 +1462,8 @@ def aggregate(
     refresh: bool = False,
     ctx: LeagueContext = Depends(get_user_league),
 ):
+    """Career totals per owner over the seasons from `start_year` to `end_year`
+    (inclusive; every season by default)."""
     try:
         available = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
@@ -1322,6 +1515,8 @@ def head_to_head(
     refresh: bool = False,
     ctx: LeagueContext = Depends(get_user_league),
 ):
+    """Every meeting between two owners across every season, with their record,
+    points and the matchup list."""
     if owner_a == owner_b:
         raise HTTPException(status_code=400, detail="owner_a and owner_b must differ")
     try:
@@ -1448,9 +1643,10 @@ def head_to_head(
 def _league_posts(db: Session, espn_league_id: int) -> list[PowerRankingPost]:
     """The league's archive, or nothing if the tables aren't there yet.
 
-    Migrations are applied to production by hand, so a deploy can land before
-    them. Every other page should keep working in that window, and this one
-    should show its empty state rather than an error.
+    Render deploys and the migrate workflow run side by side, so new code can
+    briefly run before its migration has been applied (or before anyone has
+    set the workflow up). Every other page should keep working in that
+    window, and this one should show its empty state rather than an error.
     """
     try:
         return (
@@ -1471,6 +1667,8 @@ def power_rankings(
     ctx: LeagueContext = Depends(get_user_league),
     db: Session = Depends(get_db),
 ):
+    """The league's power rankings: every post's summary and, per season, every
+    regular-season week's ranks with gaps filled (see power_rankings.py)."""
     posts = _league_posts(db, ctx.espn_league_id)
     author = pr.primary_author(posts)
     seasons = []
@@ -1514,6 +1712,7 @@ def power_ranking_post(
     ctx: LeagueContext = Depends(get_user_league),
     db: Session = Depends(get_db),
 ):
+    """One power rankings post in full, with its text."""
     posts = _league_posts(db, ctx.espn_league_id)
     post = next((p for p in posts if p.id == post_id), None)
     if post is None:
@@ -1527,6 +1726,7 @@ def power_ranking_image(
     ctx: LeagueContext = Depends(get_user_league),
     db: Session = Depends(get_db),
 ):
+    """The saved image for an image post (a tier list, say)."""
     post = _league_post(db, ctx.espn_league_id, post_id)
     if post.image is None:
         raise HTTPException(status_code=404, detail="That post has no saved image.")
@@ -1589,6 +1789,8 @@ def delete_power_rankings(
     ctx: LeagueContext = Depends(get_user_league),
     db: Session = Depends(get_db),
 ):
+    """Delete the league's whole power rankings archive, for everyone who has
+    added the league."""
     for post in _league_posts(db, ctx.espn_league_id):
         db.delete(post)
     db.commit()
