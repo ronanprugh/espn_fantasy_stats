@@ -8,7 +8,7 @@ import type {
   SeasonTeams,
   Team,
 } from '../api'
-import { isUnplayed } from './scoreboard'
+import { isLive, isUnplayed } from './scoreboard'
 import { formatDashRecord, isInProgress } from './seasonStats'
 import { currentStreak, ordinal } from './teamHub'
 
@@ -27,12 +27,8 @@ export function seasonPhase(teams: SeasonTeams, scoreboard: SeasonScoreboard): P
   return scoreboard.matchups.some((m) => !m.is_bye && !isUnplayed(m)) ? 'season' : 'preseason'
 }
 
-/** A game that has started but has no result: ESPN sets the winner once the
- * week is over. (A tie also has no winner; ties are rare enough, and a tied
- * week reads the same as a finished live one once the next week starts.) */
-export function isLive(m: ScoreboardMatchup): boolean {
-  return !m.is_bye && !isUnplayed(m) && m.winner_id === null
-}
+// One definition of a game in progress, shared with the Scoreboard.
+export { isLive }
 
 export type WeekStatus = {
   /** The week to show: the latest one with points on the board. */

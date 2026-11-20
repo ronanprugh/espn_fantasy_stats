@@ -12,7 +12,7 @@ import { rankLookup, type RankLookup } from '../lib/powerRankings'
 import { RoundBadge } from '../components/RoundBadge'
 import { SeasonPicker } from '../components/SeasonPicker'
 import { WeekStepper } from '../components/WeekStepper'
-import { isUnplayed, weekExtremes } from '../lib/scoreboard'
+import { isLive, isUnplayed, weekExtremes } from '../lib/scoreboard'
 import { TeamLink } from '../components/TeamLink'
 import { useTeamOwners } from '../hooks/useTeamOwners'
 import { useSwipe } from '../hooks/useSwipe'
@@ -228,58 +228,65 @@ function ScoreboardCard({
     const r = rank?.(teamId)
     return r ? <PrBadge rank={r.entry.rank} assumed={r.assumed} sourceWeek={r.sourceWeek} /> : null
   }
-  if (matchup.is_bye) {
-    return (
-      <div className={`scoreboard-card bye${mine}`}>
-        <div className="card-badge">
-          <RoundBadge round={matchup.round_label} hideRegular />
-        </div>
-        <div className="card-row">
-          <div className="team">
-            <div className="team-name">{name(matchup.team_a_id, matchup.team_a_name)}</div>
-            <div className="team-owner">{matchup.team_a_owner}</div>
-          </div>
-          <div className="score">{matchup.team_a_score.toFixed(1)}</div>
-        </div>
-        <div className="bye-label">BYE</div>
-      </div>
-    )
-  }
-
   const aWon = matchup.winner_id === matchup.team_a_id
   const bWon = matchup.winner_id === matchup.team_b_id
+  // Scoreboard-style: team A on the left, team B mirrored on the right, the
+  // two scores facing each other in the middle with the game's status under.
+  const status = matchup.is_bye
+    ? 'Bye'
+    : isUnplayed(matchup)
+      ? 'Upcoming'
+      : isLive(matchup)
+        ? 'Live'
+        : 'Final'
+  const side = (teamId: number, teamName: string, ownerName: string, align: 'left' | 'right') => (
+    <div className={`sb-team ${align}`}>
+      <div className="team-name">
+        {align === 'left' && badge(teamId)} {name(teamId, teamName)} {align === 'right' && badge(teamId)}
+      </div>
+      <div className="team-owner">
+        {align === 'right' && <span className="sb-rank-sm">{badge(teamId)}</span>}
+        {ownerName}
+        {align === 'left' && <span className="sb-rank-sm">{badge(teamId)}</span>}
+      </div>
+      {scoreBadge(teamId)}
+    </div>
+  )
+  const score = (value: number, won: boolean, lost: boolean) => (
+    <span className={`sb-score${won ? ' won' : ''}${lost ? ' lost' : ''}`}>{value.toFixed(1)}</span>
+  )
 
   const content = (
     <>
-      <div className="card-badge">
+      <div className="sb-head">
         <RoundBadge round={matchup.round_label} hideRegular />
       </div>
-      <div className={`card-row ${aWon ? 'winner' : ''}`}>
-        <div className="team">
-          <div className="team-name">
-            {badge(matchup.team_a_id)} {name(matchup.team_a_id, matchup.team_a_name)}
+      <div className="sb-row">
+        {side(matchup.team_a_id, matchup.team_a_name, matchup.team_a_owner, 'left')}
+        <div className="sb-middle">
+          <div className="sb-scores">
+            {score(matchup.team_a_score, aWon, bWon)}
+            {matchup.is_bye ? null : (
+              <>
+                <span className="sb-dash" aria-hidden="true">–</span>
+                {score(matchup.team_b_score, bWon, aWon)}
+              </>
+            )}
           </div>
-          <div className="team-owner">
-            {matchup.team_a_owner}
-            {scoreBadge(matchup.team_a_id)}
-          </div>
+          <div className={`sb-status ${status.toLowerCase()}`}>{status}</div>
         </div>
-        <div className="score">{matchup.team_a_score.toFixed(1)}</div>
-      </div>
-      <div className={`card-row ${bWon ? 'winner' : ''}`}>
-        <div className="team">
-          <div className="team-name">
-            {badge(matchup.team_b_id)} {name(matchup.team_b_id, matchup.team_b_name)}
-          </div>
-          <div className="team-owner">
-            {matchup.team_b_owner}
-            {scoreBadge(matchup.team_b_id)}
-          </div>
-        </div>
-        <div className="score">{matchup.team_b_score.toFixed(1)}</div>
+        {matchup.is_bye ? (
+          <div className="sb-team right sb-bye">BYE</div>
+        ) : (
+          side(matchup.team_b_id, matchup.team_b_name, matchup.team_b_owner, 'right')
+        )}
       </div>
     </>
   )
+
+  if (matchup.is_bye) {
+    return <div className={`scoreboard-card bye${mine}`}>{content}</div>
+  }
 
   // The box score is a real link (keyboard focus, screen readers and
   // open-in-new-tab all work) laid over the whole card. It can't wrap the card,

@@ -127,8 +127,8 @@ export function TableSkeleton({
   )
 }
 
-/** A grid of cards. `matchup` cards are Scoreboard-shaped (two team lines
- * with scores); `stat` cards are a label over a big number. */
+/** A grid of cards. `matchup` cards are Scoreboard-shaped (a team each side,
+ * the scores between); `stat` cards are a label over a big number. */
 export function CardGridSkeleton({
   count = 6,
   variant = 'matchup',
@@ -141,16 +141,22 @@ export function CardGridSkeleton({
       <div className={variant === 'matchup' ? 'scoreboard-list' : 'hub-summary'}>
         {Array.from({ length: count }, (_, i) =>
           variant === 'matchup' ? (
+            // The Scoreboard card's shape: team, the two scores, team.
             <div key={i} className="scoreboard-card skeleton-card">
-              {[0, 1].map((row) => (
-                <div key={row} className="card-row">
-                  <div className="team">
-                    <SkeletonBlock width={CELL_WIDTHS[(i + row) % CELL_WIDTHS.length]} height={15} />
-                    <SkeletonBlock width="35%" height={11} className="skeleton-sub" />
-                  </div>
-                  <SkeletonBlock width="48px" height={20} />
+              <div className="sb-row">
+                <div className="sb-team">
+                  <SkeletonBlock width={CELL_WIDTHS[i % CELL_WIDTHS.length]} height={15} />
+                  <SkeletonBlock width="45%" height={11} className="skeleton-sub" />
                 </div>
-              ))}
+                <div className="sb-middle">
+                  <SkeletonBlock width="120px" height={26} />
+                  <SkeletonBlock width="40px" height={10} className="skeleton-sub" />
+                </div>
+                <div className="sb-team right">
+                  <SkeletonBlock width={CELL_WIDTHS[(i + 2) % CELL_WIDTHS.length]} height={15} />
+                  <SkeletonBlock width="45%" height={11} className="skeleton-sub" />
+                </div>
+              </div>
             </div>
           ) : (
             <div key={i} className="stat-card skeleton-card">
