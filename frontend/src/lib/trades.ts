@@ -61,6 +61,44 @@ export function biggestWin(trades: readonly Trade[]): Trade | null {
   )
 }
 
+/**
+ * Where each received player went next, when his new team traded him on
+ * within the season: `"${tradeUid}:${teamId}:${playerId}"` → the team he was
+ * traded to. A player traded twice in a week never plays for the team in the
+ * middle, so his line in the first trade says where he went instead of
+ * showing a bare 0 points.
+ */
+export function tradedOn(trades: readonly Trade[]): Map<string, string> {
+  const out = new Map<string, string>()
+  const byDate = [...trades].sort((a, b) => a.date - b.date)
+  byDate.forEach((t, i) => {
+    for (const side of t.sides) {
+      for (const p of side.received) {
+        const next = byDate.slice(i + 1).find(
+          (u) => u.year === t.year && u.sides.some((s) => s.team_id === side.team_id && s.sent.some((x) => x.player_id === p.player_id)),
+        )
+        const to = next?.sides.find((s) => s.team_id !== side.team_id && s.received.some((x) => x.player_id === p.player_id))
+        if (to) out.set(`${t.uid}:${side.team_id}:${p.player_id}`, to.team_name)
+      }
+    }
+  })
+  return out
+}
+
+export type Shortfall = { year: number; espn: number; shown: number }
+
+/**
+ * Seasons where ESPN counts more trades than are shown. Past seasons'
+ * trades are rebuilt from weekly rosters, where two trades between the same
+ * two teams within a week of each other can't be told apart and show as one.
+ */
+export function tradeShortfall(trades: readonly Trade[], espnCounts: Record<string, number>): Shortfall[] {
+  return Object.entries(espnCounts)
+    .map(([year, espn]) => ({ year: Number(year), espn, shown: trades.filter((t) => t.year === Number(year)).length }))
+    .filter((s) => s.espn > s.shown)
+    .sort((a, b) => a.year - b.year)
+}
+
 /** A moment's calendar day in Eastern time, where the league's day turns. */
 export function easternDay(ms: number): string {
   return new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })

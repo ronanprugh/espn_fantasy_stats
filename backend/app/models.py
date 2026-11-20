@@ -190,6 +190,9 @@ class TradeSync(Base):
     season: Mapped[int] = mapped_column(primary_key=True)
     computed_at: Mapped[dt.datetime] = mapped_column(nullable=False)
     final: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    # For a season rebuilt from rosters: how many trades ESPN says went
+    # through, to compare with how many were rebuilt. Null otherwise.
+    espn_trade_count: Mapped[int | None] = mapped_column(nullable=True)
 
 
 class Cache(Base):

@@ -24,6 +24,9 @@ import {
   moveRecords,
   tradeDays,
   traderRecords,
+  tradedOn,
+  tradeShortfall,
+  type Shortfall,
   type BusiestDay,
   type OwnerDay,
 } from '../lib/trades'
@@ -50,8 +53,9 @@ const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
 const listYears = (ys: number[]) =>
   ys.length < 2 ? String(ys[0] ?? '') : `${ys.slice(0, -1).join(', ')} and ${ys[ys.length - 1]}`
 
-/** `missing`: played seasons ESPN returned no transactions for. */
-type Loaded = { key: string; trades: Trade[]; moves: Move[]; missing: number[] }
+/** `missing`: played seasons ESPN returned no transactions for. `short`:
+ * seasons where ESPN counts more trades than could be rebuilt. */
+type Loaded = { key: string; trades: Trade[]; moves: Move[]; missing: number[]; short: Shortfall[] }
 
 /**
  * The league's transactions, one kind at a time: trades (and who won them),
@@ -86,11 +90,23 @@ export function TransactionsPage() {
     const load: Promise<Loaded> =
       source === 'trades'
         ? year === 'all'
-          ? fetchAllTrades(leagueId).then((r) => ({ key, trades: r.trades, moves: [], missing: r.unavailable_years ?? [] }))
-          : fetchTrades(leagueId, year).then((r) => ({ key, trades: r.trades, moves: [], missing: r.unavailable ? [year] : [] }))
+          ? fetchAllTrades(leagueId).then((r) => ({
+              key,
+              trades: r.trades,
+              moves: [],
+              missing: r.unavailable_years ?? [],
+              short: tradeShortfall(r.trades, r.espn_trade_counts ?? {}),
+            }))
+          : fetchTrades(leagueId, year).then((r) => ({
+              key,
+              trades: r.trades,
+              moves: [],
+              missing: r.unavailable ? [year] : [],
+              short: r.espn_trade_count != null ? tradeShortfall(r.trades, { [year]: r.espn_trade_count }) : [],
+            }))
         : year === 'all'
-          ? fetchAllMoves(leagueId).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable_years ?? [] }))
-          : fetchMoves(leagueId, year).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable ? [year] : [] }))
+          ? fetchAllMoves(leagueId).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable_years ?? [], short: [] }))
+          : fetchMoves(leagueId, year).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable ? [year] : [], short: [] }))
     load
       .then((d) => !cancelled && setData(d))
       .catch((e: Error) => !cancelled && setError(e.message))
@@ -153,6 +169,16 @@ export function TransactionsPage() {
           page tries again later.
         </p>
       )}
+      {shown && kind === 'trades' && shown.short.length > 0 && (
+        <p className="subtitle">
+          ESPN records{' '}
+          {shown.short
+            .map((s) => `${plural(s.espn, 'trade')} in ${s.year} (${s.shown} shown)`)
+            .join(', ')}
+          . Earlier seasons' trades are rebuilt from weekly rosters, so two trades between the same two teams within a
+          week of each other appear as one.
+        </p>
+      )}
       {shown && count === 0 && shown.missing.length === 0 && (
         <p className="subtitle">
           No {kindInfo.noun}s in {scope}. ESPN keeps transactions from {FIRST_TRADE_YEAR} on.
@@ -198,6 +224,7 @@ function TradesView({ trades, yourTeam, allSeasons }: { trades: Trade[]; yourTea
   const records = traderRecords(trades)
   const biggest = biggestWin(trades)
   const days = tradeDays(trades)
+  const onward = tradedOn(trades)
   return (
     <>
       <p className="subtitle">
@@ -250,14 +277,14 @@ function TradesView({ trades, yourTeam, allSeasons }: { trades: Trade[]; yourTea
         {[...trades]
           .sort((a, b) => b.date - a.date)
           .map((t) => (
-            <TradeCard key={`${t.year}:${t.uid}`} trade={t} yourTeam={yourTeam} />
+            <TradeCard key={`${t.year}:${t.uid}`} trade={t} yourTeam={yourTeam} onward={onward} />
           ))}
       </section>
     </>
   )
 }
 
-function TradeCard({ trade, yourTeam }: { trade: Trade; yourTeam: string | null }) {
+function TradeCard({ trade, yourTeam, onward }: { trade: Trade; yourTeam: string | null; onward: Map<string, string> }) {
   const winner = trade.sides.find((s) => s.team_id === trade.winner_team_id)
   const mine = trade.sides.some((s) => isYours(yourTeam, s.owner_id))
   const year = trade.year
@@ -273,14 +300,31 @@ function TradeCard({ trade, yourTeam }: { trade: Trade; yourTeam: string | null 
       </header>
       <div className="trade-sides">
         {trade.sides.map((s) => (
-          <TradeSideView key={s.team_id} side={s} year={year} won={s.team_id === trade.winner_team_id} />
+          <TradeSideView
+            key={s.team_id}
+            side={s}
+            year={year}
+            won={s.team_id === trade.winner_team_id}
+            onwardOf={(playerId) => onward.get(`${trade.uid}:${s.team_id}:${playerId}`)}
+          />
         ))}
       </div>
     </article>
   )
 }
 
-function TradeSideView({ side, year, won }: { side: TradeSide; year: number; won: boolean }) {
+function TradeSideView({
+  side,
+  year,
+  won,
+  onwardOf,
+}: {
+  side: TradeSide
+  year: number
+  won: boolean
+  /** The team a received player was traded on to, if he was. */
+  onwardOf: (playerId: number) => string | undefined
+}) {
   return (
     <div className={`trade-side${won ? ' won' : ''}`}>
       <div className="trade-side-head">
@@ -300,17 +344,28 @@ function TradeSideView({ side, year, won }: { side: TradeSide; year: number; won
               {p.name}
               {p.position && <span className="trade-pos"> {p.position}</span>}
             </span>
-            <span className="trade-pts" title={`${fmt(p.bench_points)} more on the bench`}>
-              {fmtWar(p.war)}
-              <span className="trade-weeks">
-                {' '}
-                · {fmt(p.started_points)} pts · {p.weeks_started} wk
-              </span>
-            </span>
+            <TradePlayerStats player={p} onward={onwardOf(p.player_id)} />
           </li>
         ))}
       </ul>
     </div>
+  )
+}
+
+/** A received player's WAR and starts for his new team. One traded on before
+ * he played for it says where he went; one traded on later says so too. */
+function TradePlayerStats({ player: p, onward }: { player: TradeSide['received'][number]; onward?: string }) {
+  if (onward && p.weeks_started === 0 && p.bench_points === 0) {
+    return <span className="trade-pts trade-weeks">traded on to {onward}</span>
+  }
+  return (
+    <span className="trade-pts" title={`${fmt(p.bench_points)} more on the bench`}>
+      {fmtWar(p.war)}
+      <span className="trade-weeks">
+        {' '}
+        · {fmt(p.started_points)} pts · {p.weeks_started} wk{onward ? ` · then traded to ${onward}` : ''}
+      </span>
+    </span>
   )
 }
 

@@ -46,6 +46,7 @@ from .trades import (
     topic_key,
     topic_player_ids,
     trade_events,
+    trades_that_went_through,
     trade_outcomes,
     trades_from_rosters,
     transaction_player_ids,
@@ -693,7 +694,7 @@ def _player_directory(league, player_ids: set[int]) -> dict[int, dict]:
     return out
 
 
-ACTIVITY_KEY = "activity_v3"
+ACTIVITY_KEY = "activity_v4"
 
 
 def _load_season_activity(
@@ -720,6 +721,7 @@ def _load_season_activity(
     teams = {t.team_id: team_fields(t) for t in league.teams}
     topics = _fetch_activity_topics(league)
     events: list[dict] = []
+    espn_trades = None
     if topics:
         source = "feed"
         players = _player_directory(league, topic_player_ids(topics))
@@ -733,6 +735,7 @@ def _load_season_activity(
         players = _player_directory(league, transaction_player_ids(transactions))
         activities = [a for t in transactions if (a := activity_from_transaction(t, teams.get, players))]
         events = trade_events(transactions)
+        espn_trades = trades_that_went_through(transactions)
     else:
         source, activities = "none", []
     payload = {
@@ -740,6 +743,8 @@ def _load_season_activity(
         "unavailable": not activities and _has_games(league),
         "source": source,
         "trade_events": events,
+        # For seasons rebuilt from rosters: ESPN's own count, to check against.
+        "espn_trade_count": espn_trades,
     }
     cache.put(league_id, year, ACTIVITY_KEY, payload)
     return payload
@@ -761,10 +766,9 @@ def _season_trade_results(
     if not refresh and trade_store.is_current(db, lid, year):
         return trade_store.load(db, lid, [year])
     activity = _load_season_activity(lid, year, ctx.espn_s2, ctx.swid, refresh)
-    # From the transactions view, trades are rebuilt from the rosters, always:
-    # that view lists the players of a past trade only to a member who was
-    # in it, so the trades it does list are the viewer's own, not the
-    # league's. Not with nothing from it at all, though: without its pickups
+    # From the transactions view, trades are rebuilt from the rosters: that
+    # view lists the players of a past trade only to a member who was in it,
+    # so the trades it does list are the viewer's own, not the league's. Not with nothing from it at all, though: without its pickups
     # to tell them apart, every waiver claim would look like a trade.
     from_rosters = activity.get("source") == "transactions" and not activity["unavailable"]
     trades = [] if from_rosters else trades_from_activity(activity["activities"], year)
@@ -796,8 +800,15 @@ def _season_trade_results(
                 continue
     if from_rosters:
         teams = {t["team_id"]: _team_fields(t) for t in season_teams["teams"]}
-        trades = trades_from_rosters(box_by_week, activity["activities"], activity.get("trade_events", []), teams.get, year)
-    trade_store.save(db, lid, year, trade_outcomes(trades, box_by_week), final)
+        # Trades ESPN lists in full (a member's own) stand as listed; the
+        # rosters fill in everyone else's.
+        known = trades_from_activity(activity["activities"], year)
+        trades = trades_from_rosters(
+            box_by_week, activity["activities"], activity.get("trade_events", []), teams.get, year, known
+        )
+    trade_store.save(
+        db, lid, year, trade_outcomes(trades, box_by_week), final, activity.get("espn_trade_count")
+    )
     return trade_store.load(db, lid, [year])
 
 
@@ -1036,6 +1047,7 @@ def season_trades(
     try:
         trades = _season_trade_results(db, ctx, year, refresh)
         unavailable = not trades and _activity_unavailable(ctx, year)
+        espn_count = trade_store.espn_trade_counts(db, ctx.espn_league_id, [year]).get(year)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
     return {
@@ -1043,6 +1055,7 @@ def season_trades(
         "year": year,
         "supported": True,
         "unavailable": unavailable,
+        "espn_trade_count": espn_count,
         "trades": trades,
     }
 
@@ -1060,9 +1073,16 @@ def all_trades(ctx: LeagueContext = Depends(get_user_league), db: Session = Depe
         trades = trade_store.load(db, ctx.espn_league_id, years)
         traded = {t["year"] for t in trades}
         unavailable = [y for y in years if y not in traded and _activity_unavailable(ctx, y)]
+        counts = trade_store.espn_trade_counts(db, ctx.espn_league_id, years)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
-    return {"league_id": ctx.espn_league_id, "years": years, "unavailable_years": unavailable, "trades": trades}
+    return {
+        "league_id": ctx.espn_league_id,
+        "years": years,
+        "unavailable_years": unavailable,
+        "espn_trade_counts": counts,
+        "trades": trades,
+    }
 
 
 @app.get(

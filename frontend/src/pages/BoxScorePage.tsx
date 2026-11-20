@@ -70,12 +70,15 @@ export function BoxScorePage() {
   const ownerA = ownerOf(year, teamA)
   const ownerB = ownerOf(year, teamB)
 
+  const leagueId = selectedLeague?.espn_league_id
   useEffect(() => {
-    if (!selectedLeague) return
+    if (!leagueId) return
+    let cancelled = false
     setLoading(true)
     setError(null)
-    fetchBoxScores(selectedLeague.espn_league_id, year, week)
+    fetchBoxScores(leagueId, year, week)
       .then((data) => {
+        if (cancelled) return
         const ids = new Set([teamA, teamB])
         const found = data.matchups.find((m) => {
           const hId = m.home?.team_id
@@ -88,9 +91,13 @@ export function BoxScorePage() {
         })
         setMatchup(found ?? null)
       })
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [selectedLeague?.espn_league_id, year, week, teamA, teamB])
+      .catch((e: Error) => !cancelled && setError(e.message))
+      .finally(() => !cancelled && setLoading(false))
+    // A quick hop to another game mustn't let this one's answer land late.
+    return () => {
+      cancelled = true
+    }
+  }, [leagueId, year, week, teamA, teamB])
 
   return (
     <div className="page">

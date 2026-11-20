@@ -63,10 +63,11 @@ export function PowerRankingsPage() {
   const { data, loading, error, reload, hasData } = usePowerRankings(leagueId)
   const [params, update] = useUrlState()
   const view = (VIEWS.find((v) => v.key === params.get('view'))?.key ?? 'week') as View
-  const opts: PrOptions = {
-    includeAssumed: params.get('assumed') === '1',
-    includeGuest: params.get('guest') !== '0',
-  }
+  const includeAssumed = params.get('assumed') === '1'
+  const includeGuest = params.get('guest') !== '0'
+  // One object per setting, so the views' memoised stats recompute only
+  // when a toggle changes.
+  const opts = useMemo<PrOptions>(() => ({ includeAssumed, includeGuest }), [includeAssumed, includeGuest])
   const [modal, setModal] = useState<{ postId: number; highlight?: string } | null>(null)
   const openPost: OpenPost = (postId, highlight) => setModal({ postId, highlight })
 
@@ -377,7 +378,7 @@ function SeasonView({ data, season, opts }: { data: PowerRankings; season: Power
   const [focus, setFocus] = useState<Set<number>>(new Set())
   const [sortKey, setSortKey] = useState<SeasonSortKey>('avg')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const stats = useMemo(() => ownerSeasonStats(data, opts), [data, opts.includeAssumed, opts.includeGuest])
+  const stats = useMemo(() => ownerSeasonStats(data, opts), [data, opts])
   const rows = season.teams.map((t) => stats.get(`${season.season}:${t.owner_id}`)!).filter(Boolean)
   const posted = season.weeks.filter((w) => w.source === 'posted').length
 
@@ -490,10 +491,10 @@ function AllTimeView({
   opts: PrOptions
   onPickWeek: (season: number, week: number) => void
 }) {
-  const stats = useMemo(() => ownerStats(data, opts), [data, opts.includeAssumed, opts.includeGuest])
-  const accuracy = useMemo(() => pickAccuracy(data, opts), [data, opts.includeAssumed, opts.includeGuest])
-  const upsets = useMemo(() => biggestUpsets(data, 8, opts), [data, opts.includeAssumed, opts.includeGuest])
-  const seasonStats = useMemo(() => ownerSeasonStats(data, opts), [data, opts.includeAssumed, opts.includeGuest])
+  const stats = useMemo(() => ownerStats(data, opts), [data, opts])
+  const accuracy = useMemo(() => pickAccuracy(data, opts), [data, opts])
+  const upsets = useMemo(() => biggestUpsets(data, 8, opts), [data, opts])
+  const seasonStats = useMemo(() => ownerSeasonStats(data, opts), [data, opts])
   const author = authorOwnerId(data)
   const [sortKey, setSortKey] = useState<AllSortKey>('avg')
   const [sortDir, setSortDir] = useState<SortDir>('asc')

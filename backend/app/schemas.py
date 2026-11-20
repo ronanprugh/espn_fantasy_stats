@@ -7,7 +7,7 @@ FastAPI validates (and filters) what goes out. The frontend's types in
 
 import datetime as dt
 from pydantic import BaseModel, Field
-from typing import List
+from typing import Dict, List
 
 
 class LoginRequest(BaseModel):
@@ -126,6 +126,9 @@ class LeagueTrades(BaseModel):
     years: List[int]
     # Played seasons ESPN returned no transactions for.
     unavailable_years: List[int] = []
+    # Seasons whose trades were rebuilt from rosters: how many trades ESPN
+    # says went through, to compare with how many were rebuilt.
+    espn_trade_counts: Dict[int, int] = {}
     trades: List[Trade]
 
 
@@ -136,6 +139,9 @@ class SeasonTrades(BaseModel):
     supported: bool
     # ESPN returned no transactions at all for a season that was played.
     unavailable: bool = False
+    # For a season rebuilt from rosters: how many trades ESPN says went
+    # through. Null otherwise.
+    espn_trade_count: int | None = None
     trades: List[Trade]
 
 

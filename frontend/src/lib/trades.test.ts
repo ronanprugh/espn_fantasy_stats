@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Move, Trade, TradeSide } from '../api'
-import { biggestWin, easternDay, moveDays, moveRecords, tradeDays, traderRecords } from './trades'
+import { biggestWin, easternDay, moveDays, moveRecords, tradeDays, traderRecords, tradedOn, tradeShortfall } from './trades'
 
 const side = (id: number, owner: string, war: number, ppg: [number, number] | null = null): TradeSide => ({
   team_id: id, team_name: `Team ${id}`, owner_id: owner, owner_name: owner,
@@ -105,5 +105,42 @@ describe('moveRecords and moveDays', () => {
   it('finds the busiest day for a kind of move', () => {
     const { leagueDay } = moveDays(moves.filter((m) => m.kind === 'waiver'))
     expect(leagueDay).toEqual({ day: '2026-10-14', count: 2 })
+  })
+})
+
+describe('tradedOn', () => {
+  const henry = { player_id: 9, name: 'Derrick Henry', position: 'RB' }
+  const withPlayers = (t: Trade, date: number, moves: [number, number][]): Trade => ({
+    ...t,
+    date,
+    sides: t.sides.map((s) => ({
+      ...s,
+      received: moves.filter(([, to]) => to === s.team_id).map(() => ({ ...henry, started_points: 0, bench_points: 0, weeks_started: 0, war: 0 })),
+      sent: moves.filter(([from]) => from === s.team_id).map(() => henry),
+    })),
+  })
+
+  it('names the team a received player was traded on to', () => {
+    // 1 trades Henry to 2, who trades him on to 3 the same week.
+    const first = withPlayers(trade(side(1, 'a', 0), side(2, 'b', 0)), 100, [[1, 2]])
+    const second = withPlayers(trade(side(2, 'b', 0), side(3, 'c', 0)), 200, [[2, 3]])
+    const on = tradedOn([second, first])
+    expect(on.get(`${first.uid}:2:9`)).toBe('Team 3')
+    expect(on.has(`${second.uid}:3:9`)).toBe(false)
+  })
+
+  it('ignores a player the team never sent on, and other seasons', () => {
+    const first = withPlayers(trade(side(1, 'a', 0), side(2, 'b', 0)), 100, [[1, 2]])
+    const laterSeason = { ...withPlayers(trade(side(2, 'b', 0), side(3, 'c', 0)), 200, [[2, 3]]), year: 2027, uid: 'x' }
+    expect(tradedOn([first, laterSeason]).size).toBe(0)
+  })
+})
+
+describe('tradeShortfall', () => {
+  it('lists seasons where ESPN counts more trades than are shown', () => {
+    const t = (year: number): Trade => ({ ...trade(side(1, 'a', 1), side(2, 'b', 0)), year })
+    const trades = [t(2019), t(2019), t(2020)]
+    expect(tradeShortfall(trades, { '2020': 1, '2019': 3, '2021': 0 })).toEqual([{ year: 2019, espn: 3, shown: 2 }])
+    expect(tradeShortfall(trades, {})).toEqual([])
   })
 })

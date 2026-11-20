@@ -157,6 +157,9 @@ export type SeasonTrades = {
   /** ESPN returned no transactions at all for this season, though it was
    * played: its trades are unknown, not zero. Older servers omit it. */
   unavailable?: boolean
+  /** For a season rebuilt from rosters: how many trades ESPN says went
+   * through, to compare with how many were rebuilt. Null otherwise. */
+  espn_trade_count?: number | null
   trades: Trade[]
 }
 
@@ -198,7 +201,14 @@ export async function fetchTrades(leagueId: number, year: number): Promise<Seaso
 /** Every season's trades (2019 on) in one request, for All seasons. */
 export async function fetchAllTrades(
   leagueId: number,
-): Promise<{ league_id: number; years: number[]; unavailable_years?: number[]; trades: Trade[] }> {
+): Promise<{
+  league_id: number
+  years: number[]
+  unavailable_years?: number[]
+  /** As SeasonTrades.espn_trade_count, by season (JSON keys are strings). */
+  espn_trade_counts?: Record<string, number>
+  trades: Trade[]
+}> {
   return jsonFetch(`/api/leagues/${leagueId}/trades`)
 }
 
