@@ -11,12 +11,18 @@ apiece). The other functions derive one record per trade or move. Trades are cre
 with what each side's new players went on to score for it, from the week of
 the trade to the end of the season, read from the cached weekly box scores.
 
-Only points scored in a starting slot count toward the winner: points left on
-the bench didn't help anyone. Bench points are reported alongside.
+Trades are decided by WAR (wins above replacement): for every week one of a
+side's new players started for it, how much more likely his points made an
+average team to win than a replacement player's would have (war_baselines).
+Only starts count: points left on the bench didn't help anyone. Bench points
+are reported alongside, as is each side's team points per game since the
+trade, against what it would have scored had it kept the players it sent.
 """
 
 from __future__ import annotations
 
+import math
+import statistics
 from collections.abc import Iterable
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -196,12 +202,138 @@ def _lineups_by_week(box_by_week: dict[int, dict]) -> dict[int, dict[int, dict[i
     return out
 
 
+def _team_scores_by_week(box_by_week: dict[int, dict]) -> dict[int, dict[int, float]]:
+    """week -> team_id -> the team's score (its starters' points)."""
+    out: dict[int, dict[int, float]] = {}
+    for week, payload in box_by_week.items():
+        for m in payload.get("matchups", []):
+            for side in (m.get("home"), m.get("away")):
+                if side:
+                    out.setdefault(week, {})[side["team_id"]] = float(side.get("total_points") or 0.0)
+    return out
+
+
+def _starts(box_by_week: dict[int, dict]) -> Iterable[tuple[int, str, float]]:
+    """(week, position, points) for every player started in a lineup slot."""
+    for week, payload in box_by_week.items():
+        for m in payload.get("matchups", []):
+            for side in (m.get("home"), m.get("away")):
+                for p in (side or {}).get("lineup", []):
+                    if p.get("slot_position") not in BENCH_SLOTS and p.get("position"):
+                        yield week, p["position"], float(p.get("points") or 0.0)
+
+
+def war_baselines(box_by_week: dict[int, dict]) -> dict:
+    """What a start is measured against, from the season's completed weeks.
+
+    - sigma: the spread (standard deviation) of teams' weekly scores.
+    - average: the average starter's points at each position, every team's
+      starts in every week (a flex start counts at the player's position).
+    - replacement: the worst starter at each position, the lowest score any
+      team got from a starter there each week, averaged over the weeks.
+    """
+    scores = [s for week in _team_scores_by_week(box_by_week).values() for s in week.values()]
+    by_pos: dict[str, list[float]] = {}
+    worst: dict[str, dict[int, float]] = {}
+    for week, pos, pts in _starts(box_by_week):
+        by_pos.setdefault(pos, []).append(pts)
+        w = worst.setdefault(pos, {})
+        w[week] = min(w.get(week, pts), pts)
+    return {
+        "sigma": statistics.pstdev(scores) if len(scores) > 1 else 0.0,
+        "average": {pos: statistics.fmean(v) for pos, v in by_pos.items()},
+        "replacement": {pos: statistics.fmean(w.values()) for pos, w in worst.items()},
+    }
+
+
+def _win_chance(points_over_average: float, sigma: float) -> float:
+    """An average team's chance of beating an average opponent once one of its
+    starters scores this far from the average starter: the normal curve of
+    weekly scores, read at that many points from the middle."""
+    return 0.5 * (1 + math.erf(points_over_average / (sigma * math.sqrt(2))))
+
+
+def start_war(points: float, position: str, baselines: dict) -> float:
+    """Wins above replacement for one start: the average team's chance of
+    winning with these points in the slot, less its chance with the worst
+    starter's. Zero where there's nothing to measure against."""
+    sigma = baselines["sigma"]
+    average = baselines["average"].get(position)
+    replacement = baselines["replacement"].get(position)
+    if not sigma or average is None or replacement is None:
+        return 0.0
+    return _win_chance(points - average, sigma) - _win_chance(replacement - average, sigma)
+
+
+def _ppg(scores: list[float]) -> float | None:
+    return round(statistics.fmean(scores), 2) if scores else None
+
+
+FLEX_ANY = {"QB", "RB", "WR", "TE"}
+
+
+def fits_slot(position: str, slot: str) -> bool:
+    """Whether a player at `position` can start in lineup `slot` (RB/WR/TE
+    and the like take any of their positions; OP takes any offensive one)."""
+    if not position or slot in BENCH_SLOTS:
+        return False
+    if slot == position:
+        return True
+    if slot == "OP":
+        return position in FLEX_ANY
+    return "/" in slot and position in slot.split("/")
+
+
+def _score_if_kept(lineup: dict[int, dict], received: set[int], kept: list[dict]) -> float:
+    """A team's score for a week had it kept the players it traded away.
+
+    Starts from what really happened: the slots its new players started in
+    are emptied, and each is refilled, highest-scoring first, by the best
+    eligible player among those it traded away (with what he scored that week
+    wherever he was) and its own bench that week. A slot nobody fits scores 0.
+    Everyone else's starts stand.
+    """
+    score = 0.0
+    open_slots = []
+    for p in lineup.values():
+        if p["slot_position"] in BENCH_SLOTS:
+            continue
+        if p["player_id"] in received:
+            open_slots.append(p["slot_position"])
+        else:
+            score += p["points"]
+    if not open_slots:
+        return score
+    candidates = kept + [
+        p for p in lineup.values() if p["slot_position"] in BENCH_SLOTS and p["player_id"] not in received
+    ]
+    used: set[int] = set()
+    for slot in open_slots:
+        fit = [c for c in candidates if c["player_id"] not in used and fits_slot(c.get("position", ""), slot)]
+        if fit:
+            best = max(fit, key=lambda c: c["points"])
+            used.add(best["player_id"])
+            score += best["points"]
+    return score
+
+
 def trade_outcomes(trades: list[dict], box_by_week: dict[int, dict]) -> list[dict]:
-    """Each trade with what every side's new players scored for that side from
-    the trade's week on: starting points (which decide the winner), bench
-    points, and weeks started. The winner is the side whose new players
-    started for more points; none on a tie, or before anyone has played."""
+    """Each trade with what every side's new players did for it from the
+    trade's week on, read from the season's completed weeks (`box_by_week`,
+    every one from week 1, so the baselines and the before-trade points per
+    game have the whole season to draw on).
+
+    Per player: WAR, starting points, bench points and weeks started. Per side:
+    the players' total WAR (which decides the winner) and starting points, and
+    the team's points per game since the trade, as it was and as it would have
+    been had it kept the players it sent (_score_if_kept). The winner is the
+    side whose new players added the most WAR; none on a tie, or before
+    anyone has played."""
     lineups = _lineups_by_week(box_by_week)
+    team_scores = _team_scores_by_week(box_by_week)
+    baselines = war_baselines(box_by_week)
+    # week -> player_id -> his lineup entry, on whichever team had him.
+    where = {w: {pid: e for team in teams.values() for pid, e in team.items()} for w, teams in lineups.items()}
     weeks = sorted(lineups)
     result = []
     for trade in trades:
@@ -209,7 +341,7 @@ def trade_outcomes(trades: list[dict], box_by_week: dict[int, dict]) -> list[dic
         for side in trade["sides"]:
             players = []
             for p in side["received"]:
-                started = bench = 0.0
+                started = bench = war = 0.0
                 weeks_started = 0
                 for w in weeks:
                     if w < trade["week"]:
@@ -222,19 +354,34 @@ def trade_outcomes(trades: list[dict], box_by_week: dict[int, dict]) -> list[dic
                     else:
                         started += entry["points"]
                         weeks_started += 1
+                        war += start_war(entry["points"], entry.get("position") or p.get("position", ""), baselines)
                 players.append({
                     **p,
+                    "war": round(war, 3),
                     "started_points": round(started, 2),
                     "bench_points": round(bench, 2),
                     "weeks_started": weeks_started,
                 })
+            received_ids = {p["player_id"] for p in side["received"]}
+            with_trade, without = [], []
+            for w in weeks:
+                lineup = lineups[w].get(side["team_id"])
+                if w < trade["week"] or lineup is None:
+                    continue
+                with_trade.append(team_scores[w][side["team_id"]])
+                kept = [where[w][p["player_id"]] for p in side["sent"] if p["player_id"] in where.get(w, {})]
+                without.append(_score_if_kept(lineup, received_ids, kept))
             sides.append({
                 **{k: v for k, v in side.items() if k != "received"},
                 "received": players,
+                "war": round(sum(x["war"] for x in players), 3),
                 "started_points": round(sum(x["started_points"] for x in players), 2),
+                "ppg": _ppg(with_trade),
+                "ppg_if_kept": _ppg(without),
+                "games": len(with_trade),
             })
-        ranked = sorted(sides, key=lambda s: s["started_points"], reverse=True)
-        margin = round(ranked[0]["started_points"] - ranked[1]["started_points"], 2)
+        ranked = sorted(sides, key=lambda s: s["war"], reverse=True)
+        margin = round(ranked[0]["war"] - ranked[1]["war"], 2)
         winner = ranked[0]["team_id"] if margin > 0 else None
         result.append({**trade, "sides": sides, "winner_team_id": winner, "margin": margin})
     return result
