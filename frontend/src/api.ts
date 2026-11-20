@@ -135,6 +135,34 @@ export type SeasonTrades = {
   trades: Trade[]
 }
 
+export type MoveKind = 'waiver' | 'free_agent' | 'drop'
+
+export type Move = {
+  date: number
+  week: number
+  kind: MoveKind
+  team_id: number
+  team_name: string
+  owner_id: string
+  owner_name: string
+  added: { player_id: number; name: string; position: string }[]
+  dropped: { player_id: number; name: string; position: string }[]
+  /** Waiver budget spent, where the league uses one. */
+  bid: number
+}
+
+export type SeasonMoves = {
+  league_id: number
+  year: number
+  supported: boolean
+  moves: Move[]
+}
+
+/** Waiver claims, free-agent pickups and drops (trades are fetchTrades). */
+export async function fetchMoves(leagueId: number, year: number): Promise<SeasonMoves> {
+  return jsonFetch<SeasonMoves>(`/api/leagues/${leagueId}/seasons/${year}/transactions`)
+}
+
 export async function fetchTrades(leagueId: number, year: number): Promise<SeasonTrades> {
   return jsonFetch<SeasonTrades>(`/api/leagues/${leagueId}/seasons/${year}/trades`)
 }

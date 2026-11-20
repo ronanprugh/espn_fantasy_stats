@@ -1,7 +1,19 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace as NS
 
-from app.trades import EASTERN, kickoff, trade_outcomes, trades_from_activity, week_of
+from app.trades import (
+    EASTERN,
+    kickoff,
+    moves_from_activity,
+    normalize_activity,
+    trade_outcomes,
+    week_of,
+)
+from app.trades import trades_from_activity as _trades
+
+
+def trades_from_activity(acts, year):
+    return _trades([normalize_activity(a) for a in acts], year)
 
 
 def ms(y, mo, d, h=12):
@@ -109,7 +121,7 @@ def test_trades_endpoint(monkeypatch):
     pages = []
 
     class FakeLeague:
-        def recent_activity(self, size, msg_type, offset):
+        def recent_activity(self, size=25, msg_type=None, offset=0):
             pages.append((size, msg_type, offset))
             return [TRADE] if offset == 0 else []
 
@@ -136,9 +148,70 @@ def test_trades_endpoint(monkeypatch):
         assert body["supported"] is True
         [t] = body["trades"]
         assert t["week"] == 5 and t["winner_team_id"] == 2 and t["margin"] == 3.0
-        assert pages == [(50, "TRADED", 0)]
+        # Pages until ESPN returns nothing.
+        assert pages == [(25, None, 0), (25, None, 1)]
 
         old = client.get("/api/leagues/1/seasons/2018/trades").json()
         assert old == {"league_id": 1, "year": 2018, "supported": False, "trades": []}
+    finally:
+        main.app.dependency_overrides.clear()
+
+
+PICKUP = NS(date=ms(2026, 10, 14, 3), actions=[
+    (A, "WAIVER ADDED", player(30, "Rico Dowdle", "RB"), 17),
+    (A, "DROPPED", player(31, "Roschon Johnson", "RB"), 0),
+])
+FA = NS(date=ms(2026, 10, 16), actions=[(B, "FA ADDED", player(32, "Jake Ferguson", "TE"), 0)])
+DROP = NS(date=ms(2026, 10, 17), actions=[(B, "DROPPED", player(33, "Kimani Vidal", "RB"), 0)])
+
+
+def test_moves_keep_kinds_separate_and_leave_out_trades():
+    acts = [normalize_activity(a) for a in (TRADE, PICKUP, FA, DROP)]
+    moves = moves_from_activity(acts, 2026)
+    assert [m["kind"] for m in moves] == ["waiver", "free_agent", "drop"]
+    waiver = moves[0]
+    assert waiver["team_name"] == "Alpha" and waiver["bid"] == 17 and waiver["week"] == 6
+    assert [p["name"] for p in waiver["added"]] == ["Rico Dowdle"]
+    assert [p["name"] for p in waiver["dropped"]] == ["Roschon Johnson"]
+    assert moves[2]["added"] == [] and moves[2]["dropped"][0]["name"] == "Kimani Vidal"
+
+
+def test_activity_paging_stops_when_espn_repeats_a_page(monkeypatch):
+    from app import main
+
+    calls = []
+
+    class Repeating:
+        def recent_activity(self, size=25, msg_type=None, offset=0):
+            calls.append(offset)
+            return [PICKUP, FA]  # ignores offset: same page every time
+
+    monkeypatch.setattr(main.cache, "get", lambda *a, **k: None)
+    monkeypatch.setattr(main.cache, "put", lambda *a, **k: None)
+    monkeypatch.setattr(main, "get_league", lambda *a, **k: Repeating())
+    acts = main._get_season_activity(1, 2026, None, None)
+    assert len(acts) == 2 and calls == [0, 2]
+
+
+def test_transactions_endpoint(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import main
+
+    class FakeLeague:
+        def recent_activity(self, size=25, msg_type=None, offset=0):
+            return [TRADE, PICKUP, FA, DROP] if offset == 0 else []
+
+    ctx = main.LeagueContext(espn_league_id=1, espn_s2=None, swid=None, display_name="Test League")
+    monkeypatch.setattr(main.cache, "get", lambda *a, **k: None)
+    monkeypatch.setattr(main.cache, "put", lambda *a, **k: None)
+    monkeypatch.setattr(main, "get_league", lambda *a, **k: FakeLeague())
+    main.app.dependency_overrides[main.get_user_league] = lambda: ctx
+    try:
+        client = TestClient(main.app)
+        body = client.get("/api/leagues/1/seasons/2026/transactions").json()
+        assert body["supported"] is True
+        assert [m["kind"] for m in body["moves"]] == ["waiver", "free_agent", "drop"]
+        assert client.get("/api/leagues/1/seasons/2018/transactions").json()["supported"] is False
     finally:
         main.app.dependency_overrides.clear()

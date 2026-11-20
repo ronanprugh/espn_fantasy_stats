@@ -1,10 +1,13 @@
-"""A league's trades and who won them.
+"""A league's transactions: trades and who won them, and the waiver claims,
+free-agent pickups and drops.
 
-ESPN keeps trades from 2019 on, as "activity" messages: each trade is one
-activity holding a TRADE_SENT and a TRADE_RECEIVED row per player. These
-functions turn those into one record per trade, then credit each side with
-what its new players went on to score for it, from the week of the trade to
-the end of the season, read from the cached weekly box scores.
+ESPN keeps league activity from 2019 on. Each transaction is one "activity"
+of messages: a trade holds a TRADE_SENT and a TRADE_RECEIVED row per player;
+a pickup holds an add (WAIVER ADDED or FA ADDED) and usually a DROPPED. These
+functions first turn espn_api's Activity objects into plain dicts (so they
+can be cached), then derive one record per trade or move. Trades are credited
+with what each side's new players went on to score for it, from the week of
+the trade to the end of the season, read from the cached weekly box scores.
 
 Only points scored in a starting slot count toward the winner: points left on
 the bench didn't help anyone. Bench points are reported alongside.
@@ -61,27 +64,79 @@ def _player_fields(player) -> dict:
     return {"player_id": pid, "name": f"Player {player}", "position": ""}
 
 
-def trades_from_activity(activities: Iterable, year: int) -> list[dict]:
-    """One record per trade, oldest first, from espn_api Activity objects
-    (`league.recent_activity(msg_type="TRADED")`)."""
+def normalize_activity(act) -> dict:
+    """An espn_api Activity as a plain, cacheable dict."""
+    actions = []
+    for team, action, player, *rest in act.actions:
+        actions.append({
+            "team": _team_fields(team),
+            "action": action,
+            "player": _player_fields(player),
+            "bid": int(rest[0]) if rest and isinstance(rest[0], (int, float)) else 0,
+        })
+    return {"date": int(act.date), "actions": actions}
+
+
+def activity_key(act: dict) -> tuple:
+    """Identifies one activity, to spot ESPN repeating a page."""
+    return (act["date"], tuple((a["action"], a["player"]["player_id"]) for a in act["actions"]))
+
+
+def trades_from_activity(activities: Iterable[dict], year: int) -> list[dict]:
+    """One record per trade, oldest first, from normalized activities."""
     trades = []
     for act in activities:
         sides: dict[int, dict] = {}
-        for team, action, player, *_ in act.actions:
-            fields = _team_fields(team)
-            if fields is None or action not in ("TRADE_SENT", "TRADE_RECEIVED"):
+        for a in act["actions"]:
+            team = a["team"]
+            if team is None or a["action"] not in ("TRADE_SENT", "TRADE_RECEIVED"):
                 continue
-            side = sides.setdefault(fields["team_id"], {**fields, "received": [], "sent": []})
-            side["received" if action == "TRADE_RECEIVED" else "sent"].append(_player_fields(player))
+            side = sides.setdefault(team["team_id"], {**team, "received": [], "sent": []})
+            side["received" if a["action"] == "TRADE_RECEIVED" else "sent"].append(a["player"])
         if len(sides) < 2:
             continue
         trades.append({
-            "date": int(act.date),
-            "week": week_of(int(act.date), year),
+            "date": act["date"],
+            "week": week_of(act["date"], year),
             "sides": sorted(sides.values(), key=lambda s: s["team_id"]),
         })
     trades.sort(key=lambda t: t["date"])
     return trades
+
+
+# Kinds of non-trade move, in the order a pickup's kind is decided.
+MOVE_KINDS = {"WAIVER ADDED": "waiver", "FA ADDED": "free_agent"}
+
+
+def moves_from_activity(activities: Iterable[dict], year: int) -> list[dict]:
+    """Waiver claims, free-agent pickups and drops, oldest first: one record
+    per team per activity, with what it added and dropped. A pickup that came
+    with a drop is a waiver claim or free-agent pickup carrying the drop; a
+    drop on its own is a drop. Trades are left out (see trades_from_activity)."""
+    moves = []
+    for act in activities:
+        if any(a["action"].startswith("TRADE") for a in act["actions"]):
+            continue
+        by_team: dict[int, dict] = {}
+        for a in act["actions"]:
+            team = a["team"]
+            if team is None:
+                continue
+            move = by_team.setdefault(team["team_id"], {
+                **team, "added": [], "dropped": [], "bid": 0, "kind": "drop",
+            })
+            if a["action"] in MOVE_KINDS:
+                move["added"].append(a["player"])
+                move["bid"] += a["bid"]
+                if move["kind"] != "waiver":
+                    move["kind"] = MOVE_KINDS[a["action"]]
+            elif a["action"] == "DROPPED":
+                move["dropped"].append(a["player"])
+        for move in by_team.values():
+            if move["added"] or move["dropped"]:
+                moves.append({"date": act["date"], "week": week_of(act["date"], year), **move})
+    moves.sort(key=lambda m: m["date"])
+    return moves
 
 
 def _lineups_by_week(box_by_week: dict[int, dict]) -> dict[int, dict[int, dict[int, dict]]]:

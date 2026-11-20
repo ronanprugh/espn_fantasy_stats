@@ -12,7 +12,13 @@ from . import power_rankings as pr
 from .accolades import accolades as count_accolades
 from .season_state import season_over
 from .team_hub import career_records, team_schedule
-from .trades import trade_outcomes, trades_from_activity
+from .trades import (
+    activity_key,
+    moves_from_activity,
+    normalize_activity,
+    trade_outcomes,
+    trades_from_activity,
+)
 from .rivalries import is_unplayed, rivalry_summary
 from .auth import (
     current_user,
@@ -76,6 +82,7 @@ from .schemas import (
     SeasonScoreboard,
     SeasonTeams,
     SeasonTrades,
+    SeasonMoves,
     TeamHub,
     UpdateLeagueRequest,
     UserResponse,
@@ -514,25 +521,46 @@ def _get_season_box_scores(
     return payload
 
 
+# ESPN's activity feed pages 25 at a time; a season of adds and drops can
+# run to several hundred.
+ACTIVITY_PAGE = 25
+ACTIVITY_MAX_PAGES = 200
+
+
+def _get_season_activity(
+    league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
+) -> list[dict]:
+    """Every transaction in the season (2019 on): trades, waiver claims,
+    free-agent pickups and drops, normalized (app/trades.py). One fetch serves
+    both the trades and the transactions endpoints."""
+    if not refresh:
+        cached = cache.get(league_id, year, "activity_v1", fresh_since=_fresh_since(year))
+        if cached:
+            return cached["activities"]
+    league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
+    activities: list[dict] = []
+    seen: set = set()
+    offset = 0
+    # Page until ESPN returns nothing new. A short page isn't treated as the
+    # end, since ESPN may cap a page below the size asked for.
+    for _ in range(ACTIVITY_MAX_PAGES):
+        batch = [normalize_activity(a) for a in league.recent_activity(size=ACTIVITY_PAGE, offset=offset)]
+        fresh = [a for a in batch if activity_key(a) not in seen]
+        if not fresh:
+            break
+        for a in fresh:
+            seen.add(activity_key(a))
+        activities.extend(fresh)
+        offset += len(batch)
+    cache.put(league_id, year, "activity_v1", {"activities": activities})
+    return activities
+
+
 def _get_season_trades(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> list[dict]:
-    """The season's trades from ESPN's league activity (2019 on), oldest first."""
-    if not refresh:
-        cached = cache.get(league_id, year, "trades_v1", fresh_since=_fresh_since(year))
-        if cached:
-            return cached["trades"]
-    league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
-    activities: list = []
-    page = 50
-    for offset in range(0, 1000, page):
-        batch = league.recent_activity(size=page, msg_type="TRADED", offset=offset)
-        activities.extend(batch)
-        if len(batch) < page:
-            break
-    trades = trades_from_activity(activities, year)
-    cache.put(league_id, year, "trades_v1", {"trades": trades})
-    return trades
+    """The season's trades, oldest first."""
+    return trades_from_activity(_get_season_activity(league_id, year, espn_s2, swid, refresh), year)
 
 
 def _compute_positional_stats_for_year(
@@ -692,6 +720,24 @@ def scoreboard(year: int, refresh: bool = False, ctx: LeagueContext = Depends(ge
         return _get_season_scoreboard(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+
+
+@app.get("/api/leagues/{league_id}/seasons/{year}/transactions", response_model=SeasonMoves)
+def season_transactions(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
+    """The season's waiver claims, free-agent pickups and drops (trades are on
+    /trades). ESPN only keeps league activity from 2019 on."""
+    if year < 2019:
+        return {"league_id": ctx.espn_league_id, "year": year, "supported": False, "moves": []}
+    try:
+        activities = _get_season_activity(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+    return {
+        "league_id": ctx.espn_league_id,
+        "year": year,
+        "supported": True,
+        "moves": moves_from_activity(activities, year),
+    }
 
 
 @app.get("/api/leagues/{league_id}/seasons/{year}/trades", response_model=SeasonTrades)

@@ -17,7 +17,8 @@ import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { PlayoffsPage } from './pages/PlayoffsPage'
 import { PositionalStatsPage } from './pages/PositionalStatsPage'
-import { TradesPage } from './pages/TradesPage'
+import { TransactionsPage } from './pages/TransactionsPage'
+import { TradesRedirect } from './pages/TradesRedirect'
 import { PowerRankingsPage } from './pages/PowerRankingsPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
 import { StandingsPage } from './pages/StandingsPage'
@@ -43,7 +44,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route path="team_hub" element={<TeamHubPage />} />
               <Route path="scoreboard" element={<ScoreboardPage />} />
               <Route path="positional" element={<PositionalStatsPage />} />
-              <Route path="trades" element={<TradesPage />} />
+              <Route path="transactions" element={<TransactionsPage />} />
+              <Route path="trades" element={<TradesRedirect />} />
               <Route path="power_rankings" element={<PowerRankingsPage />} />
               <Route path="box_score/:year/:week/:teamA/:teamB" element={<BoxScorePage />} />
               <Route path="leagues" element={<LeaguesPage />} />

@@ -67,6 +67,28 @@ class Trade(BaseModel):
     margin: float
 
 
+class Move(BaseModel):
+    date: int
+    week: int
+    # "waiver", "free_agent" or "drop"
+    kind: str
+    team_id: int
+    team_name: str
+    owner_id: str
+    owner_name: str
+    added: List[TradeSentPlayer]
+    dropped: List[TradeSentPlayer]
+    # Waiver budget spent, where the league uses one.
+    bid: int
+
+
+class SeasonMoves(BaseModel):
+    league_id: int
+    year: int
+    supported: bool
+    moves: List[Move]
+
+
 class SeasonTrades(BaseModel):
     league_id: int
     year: int
