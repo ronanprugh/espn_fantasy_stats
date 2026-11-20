@@ -184,6 +184,21 @@ export function PositionalStatsPage() {
   }
 
 
+  // Weeks ESPN wouldn't serve are left out of the totals until the server
+  // retries them (after its next refresh point); say so rather than show
+  // short totals as if they were complete.
+  const missing: [number, number[]][] =
+    yearMode === 'all'
+      ? Object.entries(aggData?.missing_weeks ?? {}).map(([y, ws]) => [Number(y), ws])
+      : seasonData?.missing_weeks?.length
+        ? [[seasonData.year, seasonData.missing_weeks]]
+        : []
+  const missingNote = missing.length
+    ? `ESPN didn't return ${missing
+        .map(([y, ws]) => `week${ws.length === 1 ? '' : 's'} ${ws.join(', ')} of ${y}`)
+        .join('; ')}, so ${missing.length === 1 && missing[0][1].length === 1 ? "that week's games are" : 'those games are'} left out for now. They're filled in on a later visit.`
+    : null
+
   return (
     <div className="page">
       <header className="page-header">
@@ -211,6 +226,7 @@ export function PositionalStatsPage() {
 
       {error && <ErrorMessage message={error} />}
       {loading && <TableSkeleton rows={10} cols={7} />}
+      {!loading && missingNote && <p className="subtitle">{missingNote}</p>}
 
       {!loading && rows.length === 0 && !error && (
         <p className="subtitle" style={{ marginTop: 16 }}>

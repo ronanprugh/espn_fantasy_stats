@@ -292,6 +292,9 @@ class SeasonPositionalStats(BaseModel):
     year: int
     reg_season_count: int
     positions: List[SeasonPositionStats]
+    # Weeks ESPN wouldn't serve when these were built: left out of the
+    # totals for now, and tried again after the next refresh point.
+    missing_weeks: List[int] = []
 
 
 class PositionOwnerAggregate(BaseModel):
@@ -316,6 +319,8 @@ class LeaguePositionalAggregate(BaseModel):
     league_id: int
     years: List[int]
     positions: List[PositionAggregate]
+    # Season -> weeks ESPN wouldn't serve, left out of the totals for now.
+    missing_weeks: Dict[int, List[int]] = {}
 
 
 class TeamHub(BaseModel):

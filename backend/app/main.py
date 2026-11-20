@@ -892,6 +892,10 @@ def _compute_positional_stats_for_year(
 
     if not refresh:
         cached = cache.get(league_id, year, "positional_stats_v3", fresh_since=_fresh_since(year))
+        if cached and cached.get("missing_weeks"):
+            # Built without a week ESPN wouldn't serve: good only until the
+            # next refresh point, then tried again.
+            cached = cache.get(league_id, year, "positional_stats_v3", fresh_since=last_refresh_point())
         if cached:
             return cached
 
@@ -922,11 +926,15 @@ def _compute_positional_stats_for_year(
 
     # team_id -> position -> { tot_pts, tot_games, po_pts, po_games }
     acc: dict[int, dict[str, dict]] = {}
+    missing_weeks: list[int] = []
 
     for week in range(1, total_weeks + 1):
         try:
             bs = _get_season_box_scores(league_id, year, week, espn_s2, swid, refresh)
         except Exception:
+            # Counted without this week for now, and said so; the payload is
+            # then cached only until the next refresh point (see above).
+            missing_weeks.append(week)
             continue
         week_points = compute_positional_week_points(bs)
         championship_set = championship_teams_by_week.get(week, set())
@@ -975,6 +983,7 @@ def _compute_positional_stats_for_year(
         "year": year,
         "reg_season_count": reg_season_count,
         "positions": positions,
+        "missing_weeks": missing_weeks,
     }
     cache.put(league_id, year, "positional_stats_v3", payload)
     return payload
@@ -1203,6 +1212,7 @@ def positional_stats_aggregate(
     # Aggregate per position per owner across years.
     # owners[pos][owner_id] = {meta + tallies}
     by_pos: dict[str, dict[str, dict]] = {p: {} for p in POSITIONS_ORDER}
+    missing_weeks: dict[int, list[int]] = {}
 
     for year in years:
         try:
@@ -1211,6 +1221,8 @@ def positional_stats_aggregate(
             )
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+        if season.get("missing_weeks"):
+            missing_weeks[year] = season["missing_weeks"]
         for pos_block in season["positions"]:
             pos = pos_block["position"]
             for row in pos_block["teams"]:
@@ -1256,6 +1268,7 @@ def positional_stats_aggregate(
         "league_id": ctx.espn_league_id,
         "years": years,
         "positions": positions,
+        "missing_weeks": missing_weeks,
     }
 
 
