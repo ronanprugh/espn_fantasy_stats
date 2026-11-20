@@ -4627,3 +4627,194 @@ button.cov:focus-visible, .pr-week-pill:focus-visible, .bump-legend-item:focus-v
   color: var(--text-muted);
   overflow-wrap: anywhere;
 }
+
+/* ------------------------------------------------------------------ *
+ * Scoreboard cards, scoreboard-style: team A left, team B mirrored on
+ * the right, the two scores facing each other in the middle with the
+ * game's status (Final / Live / Upcoming) beneath.
+ * ------------------------------------------------------------------ */
+.scoreboard-list:has(.sb-row) {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
+}
+
+.scoreboard-card .sb-head {
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+}
+
+.scoreboard-card .sb-head:empty {
+  display: none;
+}
+
+.scoreboard-card .sb-head + .sb-row {
+  margin-top: 4px;
+}
+
+.sb-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.sb-team {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sb-team.right {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.sb-team .team-name {
+  max-width: 100%;
+  font-weight: 600;
+}
+
+.sb-team .team-owner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sb-team.right .team-owner {
+  justify-content: flex-end;
+}
+
+.sb-bye {
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.sb-middle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.sb-scores {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-score {
+  min-width: 3.4ch;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-strong);
+}
+
+.sb-scores .sb-score:first-child {
+  text-align: right;
+}
+
+.sb-score.won {
+  color: var(--success);
+}
+
+.sb-score.lost {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.sb-dash {
+  font-size: 18px;
+  color: var(--text-faint);
+}
+
+.sb-status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.sb-status.live {
+  color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  .sb-row {
+    gap: 8px;
+  }
+
+  .sb-score {
+    font-size: 21px;
+    min-width: 3ch;
+  }
+
+  .sb-scores {
+    gap: 6px;
+  }
+
+  .sb-team .team-name {
+    font-size: 13px;
+  }
+}
+
+.sb-team .score-badge {
+  margin-left: 0;
+}
+
+/* Names wrap to a second line rather than cut off: on a phone each side
+ * has a third of the card. */
+.sb-team .team-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.25;
+}
+
+.sb-team .sb-rank-sm {
+  display: none;
+}
+
+.sb-team > .score-badge {
+  margin-top: 3px;
+  align-self: flex-start;
+}
+
+.sb-team.right > .score-badge {
+  align-self: flex-end;
+}
+
+@media (max-width: 600px) {
+  /* The rank badge moves down beside the owner, leaving the name the room. */
+  .sb-team .team-name .pr-badge {
+    display: none;
+  }
+
+  .sb-team .sb-rank-sm {
+    display: inline-flex;
+  }
+}
+
+/* The Scoreboard placeholder's blocks line up like the card's text. */
+.skeleton-card .sb-team.right .skeleton,
+.skeleton-card .sb-middle .skeleton {
+  margin-left: auto;
+}
+
+.skeleton-card .sb-middle .skeleton {
+  margin-right: auto;
+}
+
+.skeleton-card .sb-team .skeleton-sub,
+.skeleton-card .sb-middle .skeleton-sub {
+  margin-top: 6px;
+}
