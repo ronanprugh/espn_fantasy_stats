@@ -9,7 +9,7 @@ from espn_api.requests.espn_requests import ESPNAccessDenied
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from app import main
+from app import loaders, main
 
 
 def test_espn_failure_sorts_exceptions(caplog):
@@ -41,7 +41,7 @@ def test_responses_never_carry_exception_text(league, monkeypatch, error, status
     def boom(*a, **k):
         raise error
 
-    monkeypatch.setattr(main, "discover_years", boom)
+    monkeypatch.setattr(loaders, "discover_years", boom)
     r = TestClient(main.app).get("/api/leagues/1/info")
     assert r.status_code == status
     assert "hunter2" not in r.text and "secret" not in r.text and "db.internal" not in r.text

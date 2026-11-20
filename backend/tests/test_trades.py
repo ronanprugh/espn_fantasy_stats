@@ -273,38 +273,38 @@ CARDS = {pid: {"id": pid, "fullName": p["name"], "defaultPositionId": {"QB": 1, 
 
 
 def test_activity_pages_until_nothing_new(monkeypatch):
-    from app import main
+    from app import loaders
 
     many = [{"id": f"t{i}", "date": ms(2026, 10, 1), "messages": []} for i in range(30)]
     league = fake_league(many, page=10)
-    assert len(main._fetch_activity_topics(league)) == 30
+    assert len(loaders._fetch_activity_topics(league)) == 30
     assert league.espn_request.calls == [0, 10, 20, 30]
 
     # ESPN ignoring the offset: the repeated page stops the loop.
     stuck = fake_league(many[:5], ignore_offset=True)
-    assert len(main._fetch_activity_topics(stuck)) == 5
+    assert len(loaders._fetch_activity_topics(stuck)) == 5
     assert stuck.espn_request.calls == [0, 5]
 
 
 def test_player_directory_batches_and_falls_back_to_names(monkeypatch):
-    from app import main
+    from app import loaders
 
     league = fake_league([], cards=CARDS)
-    monkeypatch.setattr(main, "PLAYER_CARD_CHUNK", 4)
-    found = main._player_directory(league, set(PLAYERS))
+    monkeypatch.setattr(loaders, "PLAYER_CARD_CHUNK", 4)
+    found = loaders._player_directory(league, set(PLAYERS))
     assert len(league.espn_request.card_calls) == 2       # 7 players, 4 per request
     assert found[20] == {"name": "Dak Prescott", "position": "QB"}
     assert found[33] == {"name": "Kimani Vidal", "position": ""}  # not in the cards: name map
 
 
 def test_season_activity_reads_espn_in_a_few_requests(monkeypatch):
-    from app import main
+    from app import loaders, main
 
     league = fake_league([TRADE, PICKUP, FA, DROP], cards=CARDS)
     monkeypatch.setattr(main.cache, "get", lambda *a, **k: None)
     monkeypatch.setattr(main.cache, "put", lambda *a, **k: None)
-    monkeypatch.setattr(main, "get_league", lambda *a, **k: league)
-    activities = main._get_season_activity(1, 2026, None, None)
+    monkeypatch.setattr(loaders, "get_league", lambda *a, **k: league)
+    activities = loaders._get_season_activity(1, 2026, None, None)
     assert [a["uid"] for a in activities] == ["trade-1", "move-1", "move-2", "move-3"]
     assert len(league.espn_request.calls) == 2 and len(league.espn_request.card_calls) == 1
 
@@ -365,7 +365,7 @@ def test_store_round_trip_and_currency(db):
 
 
 def wire(monkeypatch, league, over=True):
-    from app import main
+    from app import loaders, main
 
     calls = {"box": 0}
 
@@ -377,11 +377,11 @@ def wire(monkeypatch, league, over=True):
 
     monkeypatch.setattr(main.cache, "get", lambda *a, **k: None)
     monkeypatch.setattr(main.cache, "put", lambda *a, **k: None)
-    monkeypatch.setattr(main, "get_league", lambda *a, **k: league)
-    monkeypatch.setattr(main, "discover_years", lambda *a, **k: [2018, 2026])
-    monkeypatch.setattr(main, "_get_season_scoreboard", lambda *a, **k: {"weeks": list(range(1, 18))})
-    monkeypatch.setattr(main, "_get_season_box_scores", box_scores)
-    monkeypatch.setattr(main, "_get_season_teams", lambda *a, **k: {"teams": [{"final_standing": 1 if over else 0}]})
+    monkeypatch.setattr(loaders, "get_league", lambda *a, **k: league)
+    monkeypatch.setattr(loaders, "discover_years", lambda *a, **k: [2018, 2026])
+    monkeypatch.setattr(loaders, "_get_season_scoreboard", lambda *a, **k: {"weeks": list(range(1, 18))})
+    monkeypatch.setattr(loaders, "_get_season_box_scores", box_scores)
+    monkeypatch.setattr(loaders, "_get_season_teams", lambda *a, **k: {"teams": [{"final_standing": 1 if over else 0}]})
     ctx = main.LeagueContext(espn_league_id=1, espn_s2=None, swid=None, display_name="Test League")
     main.app.dependency_overrides[main.get_user_league] = lambda: ctx
     return calls
@@ -435,12 +435,12 @@ def test_all_seasons_endpoints(db, monkeypatch):
 def test_the_week_being_played_waits_until_it_is_over(db, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from app import main
+    from app import loaders, main
 
     league = fake_league([TRADE], cards=CARDS)
     league.current_week = 6  # week 6 is under way
     wire(monkeypatch, league, over=False)
-    monkeypatch.setattr(main, "is_live_season", lambda year: True)
+    monkeypatch.setattr(loaders, "is_live_season", lambda year: True)
 
     [t] = TestClient(main.app).get("/api/leagues/1/seasons/2026/trades").json()["trades"]
     assert {s["team_id"]: s["games"] for s in t["sides"]} == {1: 1, 2: 1}
@@ -516,13 +516,13 @@ def played_league(requests_):
 
 
 def test_season_activity_falls_back_to_transactions(monkeypatch):
-    from app import main
+    from app import loaders, main
 
     league = played_league(TxRequests([TX_TRADE, TX_WAIVER, TX_FA], cards=CARDS))
     monkeypatch.setattr(main.cache, "get", lambda *a, **k: None)
     monkeypatch.setattr(main.cache, "put", lambda *a, **k: None)
-    monkeypatch.setattr(main, "get_league", lambda *a, **k: league)
-    activity = main._load_season_activity(1, 2024, None, None)
+    monkeypatch.setattr(loaders, "get_league", lambda *a, **k: league)
+    activity = loaders._load_season_activity(1, 2024, None, None)
     assert activity["unavailable"] is False
     assert sorted(a["uid"] for a in activity["activities"]) == ["tx:tx-fa", "tx:tx-trade", "tx:tx-waiver"]
     assert league.espn_request.tx_calls == [1, 2, 3]
@@ -533,7 +533,7 @@ def test_season_activity_falls_back_to_transactions(monkeypatch):
 def test_a_season_espn_says_nothing_about_is_never_stored_as_final(db, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from app import main
+    from app import loaders, main
 
     league = played_league(TxRequests([], cards=CARDS))
     stored = {}
@@ -543,7 +543,7 @@ def test_a_season_espn_says_nothing_about_is_never_stored_as_final(db, monkeypat
 
     body = client.get("/api/leagues/1/seasons/2026/trades").json()
     assert body["trades"] == [] and body["unavailable"] is True
-    assert stored[main.ACTIVITY_KEY]["activities"] == [] and stored[main.ACTIVITY_KEY]["unavailable"] is True
+    assert stored[loaders.ACTIVITY_KEY]["activities"] == [] and stored[loaders.ACTIVITY_KEY]["unavailable"] is True
     assert db.get(TradeSync, (1, 2026)).final is False
     everything = client.get("/api/leagues/1/trades").json()
     assert everything["unavailable_years"] == [2026]
@@ -551,7 +551,7 @@ def test_a_season_espn_says_nothing_about_is_never_stored_as_final(db, monkeypat
 
 
 def test_unavailable_activity_is_retried_after_the_next_refresh_point(monkeypatch):
-    from app import main
+    from app import loaders, main
 
     calls = []
 
@@ -562,8 +562,8 @@ def test_unavailable_activity_is_retried_after_the_next_refresh_point(monkeypatc
     league = played_league(TxRequests([TX_FA], cards=CARDS))
     monkeypatch.setattr(main.cache, "get", get)
     monkeypatch.setattr(main.cache, "put", lambda *a, **k: None)
-    monkeypatch.setattr(main, "get_league", lambda *a, **k: league)
-    activity = main._load_season_activity(1, 2020, None, None)
+    monkeypatch.setattr(loaders, "get_league", lambda *a, **k: league)
+    activity = loaders._load_season_activity(1, 2020, None, None)
     assert calls[0] is None and calls[1] is not None  # the empty answer only counts until the refresh point
     assert [a["uid"] for a in activity["activities"]] == ["tx:tx-fa"]
 
@@ -571,7 +571,7 @@ def test_unavailable_activity_is_retried_after_the_next_refresh_point(monkeypatc
 def test_a_week_espn_wouldnt_serve_keeps_results_from_being_final(db, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from app import main
+    from app import loaders, main
 
     wire(monkeypatch, fake_league([TRADE], cards=CARDS))
 
@@ -582,13 +582,13 @@ def test_a_week_espn_wouldnt_serve_keeps_results_from_being_final(db, monkeypatc
             raise main.WeekNotPlayedError("not yet")
         return WEEKS.get(week, {"matchups": []})
 
-    monkeypatch.setattr(main, "_get_season_box_scores", flaky)
+    monkeypatch.setattr(loaders, "_get_season_box_scores", flaky)
     TestClient(main.app).get("/api/leagues/1/seasons/2026/trades")
     assert db.get(TradeSync, (1, 2026)).final is False
 
 
 def test_history_endpoint_seasons_read_the_feed_from_the_season_endpoint(monkeypatch):
-    from app import main
+    from app import loaders
 
     seen = {}
 
@@ -602,9 +602,9 @@ def test_history_endpoint_seasons_read_the_feed_from_the_season_endpoint(monkeyp
         seen["url"] = url
         return Response()
 
-    monkeypatch.setattr(main.requests, "get", get)
+    monkeypatch.setattr(loaders.requests, "get", get)
     req = NS(LEAGUE_ENDPOINT="https://x/apis/v3/games/ffl/leagueHistory/77?seasonId=2021", year=2021, league_id=77, cookies={})
-    assert main._communication_page(NS(espn_request=req), {}) == {"topics": [TRADE]}
+    assert loaders._communication_page(NS(espn_request=req), {}) == {"topics": [TRADE]}
     assert seen["url"] == "https://x/apis/v3/games/ffl/seasons/2021/segments/0/leagues/77/communication/"
 
 
@@ -653,7 +653,7 @@ def test_a_rebuilt_trade_without_an_acceptance_dates_from_its_week():
 def test_past_season_trades_come_from_rosters_end_to_end(db, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from app import main
+    from app import loaders, main
 
     accept = {**TX_ACCEPT, "relatedTransactionId": "p1"}
     uphold = {"id": "u", "type": "TRADE_UPHOLD", "status": "EXECUTED", "teamId": 1, "scoringPeriodId": 5,
@@ -666,8 +666,8 @@ def test_past_season_trades_come_from_rosters_end_to_end(db, monkeypatch):
             raise main.WeekNotPlayedError("not yet")
         return ROSTER_WEEKS.get(week, {"matchups": []})
 
-    monkeypatch.setattr(main, "_get_season_box_scores", box_scores)
-    monkeypatch.setattr(main, "_get_season_teams", lambda *a, **k: {"teams": [
+    monkeypatch.setattr(loaders, "_get_season_box_scores", box_scores)
+    monkeypatch.setattr(loaders, "_get_season_teams", lambda *a, **k: {"teams": [
         {"team_id": tid, "team_name": t["team_name"], "final_standing": 1,
          "owners": [{"id": t["owner_id"], "first_name": "O", "last_name": t["owner_id"]}]}
         for tid, t in TEAMS.items()
@@ -687,7 +687,7 @@ def test_past_season_trades_come_from_rosters_even_when_the_viewer_traded(db, mo
     who was in it. That trade mustn't stop everyone else's from being found."""
     from fastapi.testclient import TestClient
 
-    from app import main
+    from app import loaders, main
 
     # The viewer's own trade (week 5), as ESPN lists it to them...
     own = {**TX_TRADE, "type": "TRADE_PROPOSAL", "status": "EXECUTED", "scoringPeriodId": 5}
@@ -705,8 +705,8 @@ def test_past_season_trades_come_from_rosters_even_when_the_viewer_traded(db, mo
             raise main.WeekNotPlayedError("not yet")
         return weeks.get(week, {"matchups": []})
 
-    monkeypatch.setattr(main, "_get_season_box_scores", box_scores)
-    monkeypatch.setattr(main, "_get_season_teams", lambda *a, **k: {"teams": [
+    monkeypatch.setattr(loaders, "_get_season_box_scores", box_scores)
+    monkeypatch.setattr(loaders, "_get_season_teams", lambda *a, **k: {"teams": [
         {"team_id": tid, "team_name": t["team_name"], "final_standing": 1,
          "owners": [{"id": t["owner_id"], "first_name": "O", "last_name": t["owner_id"]}]}
         for tid, t in TEAMS.items()

@@ -15,7 +15,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import espn_client, main
+from app import deps, espn_client, loaders, main
 from app import power_rankings as pr
 from app.auth import hash_password
 from app.database import get_db
@@ -64,7 +64,7 @@ def espn(monkeypatch):
             raise state["answer"]
         return state["answer"]
 
-    monkeypatch.setattr(main, "check_league_access", check)
+    monkeypatch.setattr(deps, "check_league_access", check)
     return state
 
 
@@ -118,7 +118,7 @@ def unverified_league(db) -> League:
 
 def test_a_row_added_before_the_check_is_checked_once_on_first_use(db, espn, monkeypatch):
     unverified_league(db)
-    monkeypatch.setattr(main, "discover_years", lambda *a, **k: [2025])
+    monkeypatch.setattr(loaders, "discover_years", lambda *a, **k: [2025])
     client = signed_in()
     assert client.get("/api/leagues/77/info").status_code == 200
     assert client.get("/api/leagues/77/info").status_code == 200
@@ -130,7 +130,7 @@ def test_a_row_added_before_the_check_is_checked_once_on_first_use(db, espn, mon
 def test_a_row_espn_doesnt_confirm_cannot_read_shared_data(db, espn, monkeypatch):
     unverified_league(db)
     espn["answer"] = LeagueAccess.DENIED
-    monkeypatch.setattr(main, "discover_years", lambda *a, **k: pytest.fail("shared data was read"))
+    monkeypatch.setattr(loaders, "discover_years", lambda *a, **k: pytest.fail("shared data was read"))
     client = signed_in()
     assert client.get("/api/leagues/77/info").status_code == 403
     assert client.delete("/api/leagues/77/power_rankings").status_code == 403

@@ -90,7 +90,7 @@ def test_average_finish_is_zero_without_a_finished_season():
 def test_team_hub_endpoint_in_a_live_season(monkeypatch):
     from fastapi.testclient import TestClient
 
-    from app import main
+    from app import loaders, main
 
     def team(tid, oid, standing, final):
         return {
@@ -115,10 +115,10 @@ def test_team_hub_endpoint_in_a_live_season(monkeypatch):
         raise RuntimeError("no ESPN in tests")
 
     ctx = main.LeagueContext(espn_league_id=1, espn_s2=None, swid=None, display_name="Test League")
-    monkeypatch.setattr(main, "discover_years", lambda *a, **k: [2025, 2026])
-    monkeypatch.setattr(main, "_get_season_teams", lambda lid, y, *a, **k: payloads[y])
-    monkeypatch.setattr(main, "_get_season_scoreboard", lambda lid, y, *a, **k: boards[y])
-    monkeypatch.setattr(main, "get_league", no_league)
+    monkeypatch.setattr(loaders, "discover_years", lambda *a, **k: [2025, 2026])
+    monkeypatch.setattr(loaders, "_get_season_teams", lambda lid, y, *a, **k: payloads[y])
+    monkeypatch.setattr(loaders, "_get_season_scoreboard", lambda lid, y, *a, **k: boards[y])
+    monkeypatch.setattr(loaders, "get_league", no_league)
     main.app.dependency_overrides[main.get_user_league] = lambda: ctx
     try:
         r = TestClient(main.app).get("/api/leagues/1/owners/o1/hub")

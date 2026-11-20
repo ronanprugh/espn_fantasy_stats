@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app import main
+from app import loaders, main
 from app.rivalries import is_unplayed, rivalry_summary
 
 
@@ -81,9 +81,9 @@ def test_everyone_gets_a_row_sorted_by_meetings():
 def test_summary_endpoint(monkeypatch):
     by_year = {y: (t, m) for y, t, m in SEASONS}
     ctx = main.LeagueContext(espn_league_id=1, espn_s2=None, swid=None, display_name="Test League")
-    monkeypatch.setattr(main, "discover_years", lambda *a, **k: [2023, 2024])
-    monkeypatch.setattr(main, "_get_season_teams", lambda lid, y, *a, **k: by_year[y][0])
-    monkeypatch.setattr(main, "_get_season_matchups", lambda lid, y, *a, **k: by_year[y][1])
+    monkeypatch.setattr(loaders, "discover_years", lambda *a, **k: [2023, 2024])
+    monkeypatch.setattr(loaders, "_get_season_teams", lambda lid, y, *a, **k: by_year[y][0])
+    monkeypatch.setattr(loaders, "_get_season_matchups", lambda lid, y, *a, **k: by_year[y][1])
     main.app.dependency_overrides[main.get_user_league] = lambda: ctx
     try:
         client = TestClient(main.app)
