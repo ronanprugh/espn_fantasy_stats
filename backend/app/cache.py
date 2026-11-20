@@ -2,7 +2,7 @@
 
 Rows are keyed on (ESPN league id, season, key), not on the user, so everyone
 who has added a league shares one copy of its data. Keys carry a version
-suffix (`teams_v3`, `box_scores_v1_w5`): bump it whenever the shape of a
+suffix (`teams_v3`, `box_scores_v2_w5`): bump it whenever the shape of a
 payload changes, and old rows are simply never read again.
 
 Freshness is decided by the caller through `fresh_since` (see
@@ -27,9 +27,12 @@ TEAMS = "teams_v3"
 MATCHUPS = "matchups_v2"
 SCOREBOARD = "scoreboard_v2"
 PLAYOFFS = "playoffs_v1"
-POSITIONAL_STATS = "positional_stats_v3"
+# v4: rebuilt from box scores fetched again under box_scores_v2.
+POSITIONAL_STATS = "positional_stats_v4"
 ACTIVITY = "activity_v4"
-_BOX_SCORES = "box_scores_v1"
+# v2: carries `complete`; every week is fetched again once, replacing copies
+# saved mid-game or under a week ESPN hadn't reached (loaders._get_season_box_scores).
+_BOX_SCORES = "box_scores_v2"
 
 
 def box_scores_key(week: int) -> str:

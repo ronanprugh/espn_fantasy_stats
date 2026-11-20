@@ -94,11 +94,17 @@ def _get_season_box_scores(
 ) -> dict:
     """Cached per-week box scores (the same payload the API endpoint serves).
 
-    In a live season only the two most recently completed weeks and later go
-    stale. Earlier weeks are final, and refreshing them would turn every
-    positional-stats rebuild into one ESPN fetch per week of the season. The
-    two most recently completed weeks stay refreshable, so ESPN's stat
-    corrections, which land the Tuesday after the games, are picked up.
+    A copy is kept for good only if the week was over when it was fetched
+    (`complete`); one fetched while the week was being played is fetched
+    again. Without that, a copy saved mid-game, or before the guard below
+    existed, under a week ESPN hadn't reached (ESPN answers with the current
+    week's games), was kept for good once the week left the refresh window.
+
+    In a live season the two most recently completed weeks and later also go
+    stale at each refresh point, so ESPN's stat corrections, which land the
+    Tuesday after the games, are picked up. Earlier complete weeks are final:
+    refreshing them would turn every positional-stats rebuild into one ESPN
+    fetch per week of the season.
 
     Raises WeekNotPlayedError for a week of the live season ESPN hasn't
     reached yet.
@@ -106,18 +112,20 @@ def _get_season_box_scores(
     # Before the cache lookup, so box scores cached under a future week's key
     # back when nothing guarded this (they hold the then-current week's data)
     # are never served. They're replaced once that week is actually played.
-    if is_live_season(year) and week > get_league(league_id, year, espn_s2, swid).current_week:
+    live = is_live_season(year)
+    if live and week > get_league(league_id, year, espn_s2, swid).current_week:
         raise WeekNotPlayedError(f"Week {week} of {year} hasn't been played yet.")
     cache_key = cache.box_scores_key(week)
     fresh_since = None
-    if is_live_season(year):
+    if live:
         teams = _get_season_teams(league_id, year, espn_s2, swid)["teams"]
         played = max((t["wins"] + t["losses"] + t["ties"] for t in teams), default=0)
         if week >= played - 1:
             fresh_since = last_refresh_point()
     if not refresh:
         cached = cache.get(league_id, year, cache_key, fresh_since=fresh_since)
-        if cached:
+        # Outside the refresh window only a copy of a finished week will do.
+        if cached and (cached.get("complete") or fresh_since is not None):
             return cached
     league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
     matchups = serialize_box_scores(league, week)
@@ -126,6 +134,9 @@ def _get_season_box_scores(
         "year": year,
         "week": week,
         "matchups": matchups,
+        # Over when fetched: ESPN has moved on to a later week, or the season
+        # is over.
+        "complete": not live or week < league.current_week,
     }
     cache.put(league_id, year, cache_key, payload)
     return payload
