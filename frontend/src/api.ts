@@ -97,6 +97,48 @@ export async function generateInvite(
   })
 }
 
+export type TradePlayer = {
+  player_id: number
+  name: string
+  position: string
+  /** Scored for the side that received him, from the trade's week on. */
+  started_points: number
+  bench_points: number
+  weeks_started: number
+}
+
+export type TradeSide = {
+  team_id: number
+  team_name: string
+  owner_id: string
+  owner_name: string
+  received: TradePlayer[]
+  sent: { player_id: number; name: string; position: string }[]
+  /** Starting points from the players received: decides the winner. */
+  started_points: number
+}
+
+export type Trade = {
+  /** Milliseconds since the epoch. */
+  date: number
+  week: number
+  sides: TradeSide[]
+  winner_team_id: number | null
+  margin: number
+}
+
+export type SeasonTrades = {
+  league_id: number
+  year: number
+  /** ESPN keeps trades from 2019 on. */
+  supported: boolean
+  trades: Trade[]
+}
+
+export async function fetchTrades(leagueId: number, year: number): Promise<SeasonTrades> {
+  return jsonFetch<SeasonTrades>(`/api/leagues/${leagueId}/seasons/${year}/trades`)
+}
+
 export type ApiToken = {
   id: number
   name: string

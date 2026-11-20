@@ -31,6 +31,50 @@ class ApiTokenCreated(ApiTokenInfo):
     token: str
 
 
+class TradePlayer(BaseModel):
+    player_id: int
+    name: str
+    position: str
+    # What the player scored for the side that received him, from the trade's
+    # week on: in starting slots (decides the winner) and on the bench.
+    started_points: float
+    bench_points: float
+    weeks_started: int
+
+
+class TradeSentPlayer(BaseModel):
+    player_id: int
+    name: str
+    position: str
+
+
+class TradeSide(BaseModel):
+    team_id: int
+    team_name: str
+    owner_id: str
+    owner_name: str
+    received: List[TradePlayer]
+    sent: List[TradeSentPlayer]
+    started_points: float
+
+
+class Trade(BaseModel):
+    # Milliseconds since the epoch, as ESPN reports it.
+    date: int
+    week: int
+    sides: List[TradeSide]
+    winner_team_id: int | None
+    margin: float
+
+
+class SeasonTrades(BaseModel):
+    league_id: int
+    year: int
+    # ESPN keeps trades from 2019 on.
+    supported: bool
+    trades: List[Trade]
+
+
 class UserResponse(BaseModel):
     id: int
     username: str

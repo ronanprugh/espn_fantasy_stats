@@ -12,6 +12,7 @@ from . import power_rankings as pr
 from .accolades import accolades as count_accolades
 from .season_state import season_over
 from .team_hub import career_records, team_schedule
+from .trades import trade_outcomes, trades_from_activity
 from .rivalries import is_unplayed, rivalry_summary
 from .auth import (
     current_user,
@@ -74,6 +75,7 @@ from .schemas import (
     SeasonPositionalStats,
     SeasonScoreboard,
     SeasonTeams,
+    SeasonTrades,
     TeamHub,
     UpdateLeagueRequest,
     UserResponse,
@@ -512,6 +514,27 @@ def _get_season_box_scores(
     return payload
 
 
+def _get_season_trades(
+    league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
+) -> list[dict]:
+    """The season's trades from ESPN's league activity (2019 on), oldest first."""
+    if not refresh:
+        cached = cache.get(league_id, year, "trades_v1", fresh_since=_fresh_since(year))
+        if cached:
+            return cached["trades"]
+    league = get_league(league_id, year, espn_s2=espn_s2, swid=swid)
+    activities: list = []
+    page = 50
+    for offset in range(0, 1000, page):
+        batch = league.recent_activity(size=page, msg_type="TRADED", offset=offset)
+        activities.extend(batch)
+        if len(batch) < page:
+            break
+    trades = trades_from_activity(activities, year)
+    cache.put(league_id, year, "trades_v1", {"trades": trades})
+    return trades
+
+
 def _compute_positional_stats_for_year(
     league_id: int, year: int, espn_s2: str | None, swid: str | None, refresh: bool = False
 ) -> dict:
@@ -669,6 +692,40 @@ def scoreboard(year: int, refresh: bool = False, ctx: LeagueContext = Depends(ge
         return _get_season_scoreboard(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+
+
+@app.get("/api/leagues/{league_id}/seasons/{year}/trades", response_model=SeasonTrades)
+def season_trades(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_user_league)):
+    """Every trade in a season, with what each side's new players went on to
+    score for it (app/trades.py). ESPN only keeps trades from 2019 on."""
+    if year < 2019:
+        return {"league_id": ctx.espn_league_id, "year": year, "supported": False, "trades": []}
+    try:
+        trades = _get_season_trades(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
+        weeks = _get_season_scoreboard(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid)["weeks"]
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+    # Box scores from the first trade's week on: they're cached, and earlier
+    # weeks can't count toward any trade.
+    box_by_week: dict[int, dict] = {}
+    first = min((t["week"] for t in trades), default=None)
+    for week in weeks:
+        if first is None or week < first:
+            continue
+        try:
+            box_by_week[week] = _get_season_box_scores(
+                ctx.espn_league_id, year, week, ctx.espn_s2, ctx.swid
+            )
+        except WeekNotPlayedError:
+            break
+        except Exception:
+            continue
+    return {
+        "league_id": ctx.espn_league_id,
+        "year": year,
+        "supported": True,
+        "trades": trade_outcomes(trades, box_by_week),
+    }
 
 
 @app.get(
