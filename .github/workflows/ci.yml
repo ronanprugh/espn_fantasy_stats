@@ -1,8 +1,10 @@
 # Checks every pull request and every push to main: the backend's lint and
-# tests, and the frontend's lint, type check, tests and production build.
+# tests, the migrations against Postgres, and the frontend's lint, type
+# check, tests and production build.
 #
-# Neither job needs a database or ESPN: the backend tests use in-memory
-# SQLite and fakes for ESPN, and set their own dummy secrets (tests/conftest.py).
+# Only the migrations job needs a database (a Postgres service container),
+# and none needs ESPN: the backend tests use in-memory SQLite and fakes for
+# ESPN, and set their own dummy secrets (tests/conftest.py).
 
 name: ci
 
@@ -38,6 +40,49 @@ jobs:
         run: ruff check .
       - name: Test
         run: python -m pytest -q
+
+  # The migrations, run for real against Postgres: production is otherwise
+  # the first place they execute (the backend tests build tables with
+  # SQLite create_all, which never touches Alembic).
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fantasy
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: fantasy
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fantasy -d fantasy"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://fantasy:dev@localhost:5432/fantasy
+      # app.config insists on these; nothing here uses them.
+      SECRET_KEY: ci
+      ENCRYPTION_KEY: Zb0p3QqgWVSYcO2t4Ywq3C2yPF4QO7sGzsG0Wq2T3cE=
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Upgrade to head
+        run: alembic upgrade head
+      - name: Models and migrations agree
+        # Fails when a model changed without a migration to match.
+        run: alembic check
+      - name: Downgrade to base and back
+        run: alembic downgrade base && alembic upgrade head
 
   frontend:
     runs-on: ubuntu-latest
