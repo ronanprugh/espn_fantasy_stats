@@ -372,16 +372,20 @@ function TradeSideView({
  * he played for it says where he went; one traded on later says so too. */
 function TradePlayerStats({ player: p, onward }: { player: TradeSide['received'][number]; onward?: string }) {
   if (onward && p.weeks_started === 0 && p.bench_points === 0) {
-    return <span className="trade-pts trade-weeks">traded on to {onward}</span>
+    return <span className="trade-onward">traded on to {onward}</span>
   }
   return (
-    <span className="trade-pts" title={`${fmt(p.bench_points)} more on the bench`}>
-      {fmtWar(p.war)}
-      <span className="trade-weeks">
-        {' '}
-        · {fmt(p.started_points)} pts · {p.weeks_started} wk{onward ? ` · then traded to ${onward}` : ''}
+    <>
+      <span className="trade-pts" title={`${fmt(p.bench_points)} more on the bench`}>
+        {fmtWar(p.war)}
+        <span className="trade-weeks">
+          {' '}
+          · {fmt(p.started_points)} pts · {p.weeks_started} wk
+        </span>
       </span>
-    </span>
+      {/* Its own line, so a long team name wraps instead of running out of the card. */}
+      {onward && <span className="trade-onward">then traded to {onward}</span>}
+    </>
   )
 }
 
