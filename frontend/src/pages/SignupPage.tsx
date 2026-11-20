@@ -4,7 +4,7 @@
  */
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { signup } from '../api'
+import { errorMessage, signup } from '../api'
 import { SlowHint } from '../components/Loading'
 
 export function SignupPage() {
@@ -22,8 +22,8 @@ export function SignupPage() {
     try {
       await signup(username, password, inviteCode)
       navigate('/login', { replace: true, state: { signedUp: true } })
-    } catch (e: any) {
-      setError(e.message || 'Signup failed')
+    } catch (e) {
+      setError(errorMessage(e, 'Signup failed'))
     } finally {
       setSubmitting(false)
     }

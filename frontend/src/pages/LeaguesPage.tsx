@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import {
+  errorMessage,
   createLeague,
   deleteLeague,
   fetchOwnerHistory,
@@ -79,6 +80,11 @@ function LeagueRow({
 }) {
   const [editingName, setEditingName] = useState(false)
   const [editingFavorite, setEditingFavorite] = useState(false)
+  // Replacing the ESPN cookies, e.g. once they've expired: ESPN must accept
+  // the new ones (the server checks before saving).
+  const [editingCookies, setEditingCookies] = useState(false)
+  const [s2Draft, setS2Draft] = useState('')
+  const [swidDraft, setSwidDraft] = useState('')
   const [nameDraft, setNameDraft] = useState(league.display_name)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -134,8 +140,8 @@ function LeagueRow({
       await updateLeague(league.id, { display_name: trimmed })
       await onChanged()
       setEditingName(false)
-    } catch (err: any) {
-      setError(err.message || 'Failed to save')
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to save'))
     } finally {
       setSaving(false)
     }
@@ -152,11 +158,84 @@ function LeagueRow({
       }
       await onChanged()
       setEditingFavorite(false)
-    } catch (err: any) {
-      setError(err.message || 'Failed to save')
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to save'))
     } finally {
       setSaving(false)
     }
+  }
+
+  const startEditCookies = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setS2Draft('')
+    setSwidDraft('')
+    setError(null)
+    setEditingCookies(true)
+  }
+
+  const saveCookies = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    const espn_s2 = s2Draft.trim()
+    const swid = swidDraft.trim()
+    if (!espn_s2 !== !swid) {
+      setError('Fill in both cookies, or leave both empty for a public league.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await updateLeague(league.id, { espn_s2, swid })
+      await onChanged()
+      setEditingCookies(false)
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't save the cookies"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editingCookies) {
+    return (
+      <li className={`editing ${isSelected ? 'selected' : ''}`}>
+        <form className="league-row-main editing-form" onSubmit={saveCookies}>
+          <div className="league-name">{league.display_name}: ESPN cookies</div>
+          <label htmlFor={`lc-s2-${league.id}`}>espn_s2</label>
+          <input
+            id={`lc-s2-${league.id}`}
+            type="password"
+            value={s2Draft}
+            onChange={(e) => setS2Draft(e.target.value)}
+            placeholder="A long value, usually starting AEA…"
+            autoFocus
+          />
+          <label htmlFor={`lc-swid-${league.id}`}>SWID</label>
+          <input
+            id={`lc-swid-${league.id}`}
+            type="text"
+            value={swidDraft}
+            onChange={(e) => setSwidDraft(e.target.value)}
+            placeholder="{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setEditingCookies(false)
+            }}
+          />
+          <p className="hint">
+            Copy both from a browser signed in to fantasy.espn.com as a member of the league (developer tools →
+            Application → Cookies). ESPN is asked to confirm they work before they're saved. Leave both empty for a
+            public league.
+          </p>
+          {error && <div className="login-error inline">{error}</div>}
+        </form>
+        <div className="league-row-actions">
+          <button className="primary-btn small" onClick={saveCookies} disabled={saving}>
+            {saving ? 'Checking…' : 'Save'}
+          </button>
+          <button className="secondary-btn small" onClick={() => setEditingCookies(false)} disabled={saving}>
+            Cancel
+          </button>
+        </div>
+      </li>
+    )
   }
 
   if (editingName) {
@@ -249,6 +328,9 @@ function LeagueRow({
           <span className="pill-tag use-this" aria-hidden="true">Use this</span>
         )}
         <button className="edit-btn" onClick={startEditName}>Edit</button>
+        <button className="edit-btn" onClick={startEditCookies} title="Replace this league's ESPN cookies, e.g. after they expire">
+          Cookies
+        </button>
         <button
           className="danger-btn"
           onClick={async () => {
@@ -285,8 +367,8 @@ function AddLeagueForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCa
         swid: swid || undefined,
       })
       await onDone()
-    } catch (e: any) {
-      setError(e.message || 'Failed to add league')
+    } catch (e) {
+      setError(errorMessage(e, 'Failed to add league'))
     } finally {
       setSubmitting(false)
     }

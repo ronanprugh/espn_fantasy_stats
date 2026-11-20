@@ -3,7 +3,7 @@
  * admins, generate invite codes for new users.
  */
 import { useState } from 'react'
-import { changePassword, generateInvite } from '../api'
+import { errorMessage, changePassword, generateInvite } from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import { ApiTokens } from '../components/ApiTokens'
 
@@ -24,8 +24,8 @@ export function AccountPage() {
     try {
       const result = await generateInvite(inviteHours, inviteMaxUses)
       setInviteResult(result)
-    } catch (e: any) {
-      setInviteError(e.message || 'Failed to generate invite')
+    } catch (e) {
+      setInviteError(errorMessage(e, 'Failed to generate invite'))
     } finally {
       setInviteSubmitting(false)
     }
@@ -60,8 +60,8 @@ export function AccountPage() {
       setCurrent('')
       setNext('')
       setConfirm('')
-    } catch (e: any) {
-      setError(e.message || 'Failed to change password')
+    } catch (e) {
+      setError(errorMessage(e, 'Failed to change password'))
     } finally {
       setSubmitting(false)
     }
