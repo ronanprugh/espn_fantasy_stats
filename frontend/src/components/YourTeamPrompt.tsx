@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { updateLeague, type LeagueSummary, type OwnerHistory } from '../api'
+import { errorMessage, updateLeague, type LeagueSummary, type OwnerHistory } from '../api'
 import { useLeague } from '../contexts/LeagueContext'
 
 /**
@@ -36,8 +36,8 @@ export function YourTeamPrompt({
       // Reloads the league list, so favorite_owner_id is set everywhere and
       // this prompt unmounts.
       await refresh()
-    } catch (e: any) {
-      setError(e.message || "Couldn't save that")
+    } catch (e) {
+      setError(errorMessage(e, "Couldn't save that"))
       setSaving(false)
     }
   }

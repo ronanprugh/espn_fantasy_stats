@@ -1,3 +1,4 @@
+import type { DotArgs, TooltipArgs } from '../lib/chartTypes'
 /**
  * Trends' line chart: one stat per season for each chosen owner, with the
  * league average for reference. Completed seasons are solid lines and the
@@ -84,7 +85,7 @@ export function ComparisonChart({
   /* Read values from the data row, not the tooltip payload: at the join year
    * the solid and dashed keys both carry the same point, and the payload
    * would list it twice. */
-  const renderTooltip = ({ active, label }: any) => {
+  const renderTooltip = ({ active, label }: TooltipArgs) => {
     if (!active) return null
     const row = data.find((d) => d.year === label)
     if (!row) return null
@@ -124,7 +125,7 @@ export function ComparisonChart({
   /* The season in progress gets a hollow dot on its dashed segment; the
    * segment's other end is the last completed season, which already has a
    * solid dot from the main line. */
-  const currentDot = (color: string, r: number) => (props: any) => {
+  const currentDot = (color: string, r: number) => (props: DotArgs<{ year: number } | undefined>) => {
     const { cx, cy, payload, index, dataKey } = props
     if (payload?.year !== current || cx == null || cy == null) {
       return <g key={`${dataKey}-${index}`} />

@@ -31,6 +31,12 @@ const NETWORK_ERROR = "Couldn't reach the server. Check your connection and try 
 const SERVER_ERROR =
   "Couldn't load this right now. The server or ESPN may be slow; try again in a minute."
 
+/** The message to show for a caught error: its own message when it's an
+ * Error that has one (every api.ts failure is), else `fallback`. */
+export function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof Error && e.message ? e.message : fallback
+}
+
 /** Messages for failures worth retrying; ErrorMessage offers a retry for these. */
 export const RETRYABLE_ERRORS: ReadonlySet<string> = new Set([NETWORK_ERROR, SERVER_ERROR])
 

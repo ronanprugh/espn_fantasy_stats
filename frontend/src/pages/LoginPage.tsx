@@ -1,3 +1,4 @@
+import { errorMessage } from '../api'
 /**
  * Sign in. Returns you to the page you were sent here from, and says so when
  * you arrive from an expired session or a fresh sign-up.
@@ -25,8 +26,8 @@ export function LoginPage() {
       await login(username, password)
       const dest = (location.state as { from?: string } | null)?.from ?? '/'
       navigate(dest, { replace: true })
-    } catch (e: any) {
-      setError(e.message || 'Login failed')
+    } catch (e) {
+      setError(errorMessage(e, 'Login failed'))
     } finally {
       setSubmitting(false)
     }

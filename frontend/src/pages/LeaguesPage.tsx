@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import {
+  errorMessage,
   createLeague,
   deleteLeague,
   fetchOwnerHistory,
@@ -134,8 +135,8 @@ function LeagueRow({
       await updateLeague(league.id, { display_name: trimmed })
       await onChanged()
       setEditingName(false)
-    } catch (err: any) {
-      setError(err.message || 'Failed to save')
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to save'))
     } finally {
       setSaving(false)
     }
@@ -152,8 +153,8 @@ function LeagueRow({
       }
       await onChanged()
       setEditingFavorite(false)
-    } catch (err: any) {
-      setError(err.message || 'Failed to save')
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to save'))
     } finally {
       setSaving(false)
     }
@@ -285,8 +286,8 @@ function AddLeagueForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCa
         swid: swid || undefined,
       })
       await onDone()
-    } catch (e: any) {
-      setError(e.message || 'Failed to add league')
+    } catch (e) {
+      setError(errorMessage(e, 'Failed to add league'))
     } finally {
       setSubmitting(false)
     }

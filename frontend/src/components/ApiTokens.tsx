@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createApiToken, fetchApiTokens, revokeApiToken, type ApiToken } from '../api'
+import { errorMessage, createApiToken, fetchApiTokens, revokeApiToken, type ApiToken } from '../api'
 
 const when = (iso: string | null) =>
   iso ? new Date(iso.endsWith('Z') ? iso : `${iso}Z`).toLocaleString() : 'never'
@@ -37,8 +37,8 @@ export function ApiTokens() {
       setCreated(t.token)
       setName('')
       await load()
-    } catch (e: any) {
-      setError(e.message || "Couldn't create a token")
+    } catch (e) {
+      setError(errorMessage(e, "Couldn't create a token"))
     } finally {
       setBusy(false)
     }
@@ -50,8 +50,8 @@ export function ApiTokens() {
     try {
       await revokeApiToken(t.id)
       await load()
-    } catch (e: any) {
-      setError(e.message || "Couldn't revoke that token")
+    } catch (e) {
+      setError(errorMessage(e, "Couldn't revoke that token"))
     }
   }
 

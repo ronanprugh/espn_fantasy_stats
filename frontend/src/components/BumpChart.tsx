@@ -1,3 +1,4 @@
+import type { DotArgs, TooltipArgs } from '../lib/chartTypes'
 import {
   CartesianGrid,
   Line,
@@ -45,7 +46,7 @@ export function BumpChart({ season, focus, onToggle }: Props) {
   const teams = [...season.teams].sort((a, b) => a.team_id - b.team_id)
   const lit = (id: number) => focus.size === 0 || focus.has(id)
 
-  const renderTooltip = ({ active, label }: any) => {
+  const renderTooltip = ({ active, label }: TooltipArgs) => {
     if (!active || label == null) return null
     const w = season.weeks.find((x) => x.week === label)
     if (!w) return null
@@ -103,7 +104,7 @@ export function BumpChart({ season, focus, onToggle }: Props) {
                   strokeOpacity={on ? 1 : 0.12}
                   strokeWidth={on && focus.size ? 3 : 2}
                   isAnimationActive={false}
-                  dot={(p: any) => (
+                  dot={(p: DotArgs<{ week: number }>) => (
                     <circle
                       key={`${t.team_id}-${p.payload.week}`}
                       cx={p.cx}

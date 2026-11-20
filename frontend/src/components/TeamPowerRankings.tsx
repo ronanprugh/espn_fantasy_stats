@@ -1,3 +1,4 @@
+import type { DotArgs, TooltipArgs } from '../lib/chartTypes'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -105,7 +106,7 @@ export function TeamPowerRankings({
               <ReferenceLine key={r.i} x={r.i - 0.5} stroke="var(--border)" />
             ))}
             <Tooltip
-              content={({ active, payload }: any) => {
+              content={({ active, payload }: TooltipArgs<{ label: string; rank: number; assumed: boolean }>) => {
                 const r = active && payload?.[0]?.payload
                 if (!r) return null
                 return (
@@ -125,7 +126,7 @@ export function TeamPowerRankings({
               stroke="var(--accent)"
               strokeWidth={2}
               isAnimationActive={false}
-              dot={(p: any) => (
+              dot={(p: DotArgs<{ assumed: boolean }>) => (
                 <circle
                   key={p.index}
                   cx={p.cx}
