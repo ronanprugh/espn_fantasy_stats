@@ -1,13 +1,26 @@
+import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
-// Node environment on purpose: the suite covers pure logic and stylesheet
-// parsing (contrast math, token-name stability, navigation destinations).
-// Component render tests would need jsdom + Testing Library, which this spec
-// deliberately does not add. Restricting `include` to .ts keeps Vitest from
-// picking up .tsx components that would fail without a DOM.
+// Two kinds of test:
+// - `*.test.ts`: pure logic and stylesheet parsing (contrast math, token-name
+//   stability, navigation destinations), in Node, fast and DOM-free.
+// - `*.test.tsx`: components rendered with Testing Library, in jsdom.
 export default defineConfig({
+  plugins: [react()],
   test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts'],
+    projects: [
+      {
+        test: { name: 'unit', environment: 'node', include: ['src/**/*.test.ts'] },
+      },
+      {
+        plugins: [react()],
+        test: {
+          name: 'dom',
+          environment: 'jsdom',
+          include: ['src/**/*.test.tsx'],
+          setupFiles: ['src/test/setup.ts'],
+        },
+      },
+    ],
   },
 })
