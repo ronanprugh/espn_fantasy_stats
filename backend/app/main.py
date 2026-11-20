@@ -74,6 +74,7 @@ import requests
 from .database import get_db
 from .espn_client import (
     POSITIONS_ORDER,
+    ESPN_TIMEOUT,
     LeagueAccess,
     WeekNotPlayedError,
     check_league_access,
@@ -653,7 +654,7 @@ def _communication_page(league, headers: dict) -> dict:
     if "/leagueHistory/" in endpoint:
         base = endpoint.split("/leagueHistory/")[0]
         url = f"{base}/seasons/{req.year}/segments/0/leagues/{req.league_id}/communication/"
-        r = requests.get(url, params=params, headers=headers, cookies=req.cookies, timeout=30)
+        r = requests.get(url, params=params, headers=headers, cookies=req.cookies, timeout=ESPN_TIMEOUT)
         data = r.json() if r.status_code == 200 else {}
     else:
         data = req.league_get(extend="/communication/", params=params, headers=headers)

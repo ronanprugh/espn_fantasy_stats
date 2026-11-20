@@ -19,6 +19,7 @@ from datetime import datetime, time as clock_time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import requests
+import espn_api.requests.espn_requests as _espn_requests
 from espn_api.football import League
 from .season_state import season_over
 
@@ -58,6 +59,34 @@ _leagues: dict[tuple[int, int], tuple[League, datetime]] = {}
 _years_cache: dict[int, list[int]] = {}
 
 
+# How long any ESPN request may take: (connect, read) seconds. espn_api
+# sends every request without a timeout, so one that ESPN accepts and never
+# answers would hold a worker thread for good; this gives each a limit.
+ESPN_TIMEOUT = (10, 30)
+
+
+class _RequestsWithTimeout:
+    """The `requests` module as espn_api sees it, with ESPN_TIMEOUT as the
+    default for every call. Everything else passes through unchanged."""
+
+    def __init__(self, module):
+        self._module = module
+
+    def get(self, *args, **kwargs):
+        kwargs.setdefault("timeout", ESPN_TIMEOUT)
+        return self._module.get(*args, **kwargs)
+
+    def post(self, *args, **kwargs):
+        kwargs.setdefault("timeout", ESPN_TIMEOUT)
+        return self._module.post(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._module, name)
+
+
+# espn_api makes all its requests through this module's `requests` name.
+_espn_requests.requests = _RequestsWithTimeout(requests)
+
 ESPN_GAMES = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl"
 # The earliest season probed when checking access: a league that hasn't been
 # renewed lately only answers for the seasons it played.
@@ -87,7 +116,7 @@ def check_league_access(league_id: int, espn_s2: str | None, swid: str | None) -
             (f"{ESPN_GAMES}/seasons/{year}/segments/0/leagues/{league_id}", {"view": "mSettings"}),
             (f"{ESPN_GAMES}/leagueHistory/{league_id}", {"seasonId": year, "view": "mSettings"}),
         ):
-            r = requests.get(url, params=params, cookies=cookies, timeout=20)
+            r = requests.get(url, params=params, cookies=cookies, timeout=ESPN_TIMEOUT)
             if r.status_code == 200 and r.json():
                 return LeagueAccess.OK
             if r.status_code in (401, 403):
