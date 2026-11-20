@@ -693,7 +693,7 @@ def _player_directory(league, player_ids: set[int]) -> dict[int, dict]:
     return out
 
 
-ACTIVITY_KEY = "activity_v3"
+ACTIVITY_KEY = "activity_v4"
 
 
 def _load_season_activity(
@@ -761,10 +761,9 @@ def _season_trade_results(
     if not refresh and trade_store.is_current(db, lid, year):
         return trade_store.load(db, lid, [year])
     activity = _load_season_activity(lid, year, ctx.espn_s2, ctx.swid, refresh)
-    # From the transactions view, trades are rebuilt from the rosters, always:
-    # that view lists the players of a past trade only to a member who was
-    # in it, so the trades it does list are the viewer's own, not the
-    # league's. Not with nothing from it at all, though: without its pickups
+    # From the transactions view, trades are rebuilt from the rosters: that
+    # view lists the players of a past trade only to a member who was in it,
+    # so the trades it does list are the viewer's own, not the league's. Not with nothing from it at all, though: without its pickups
     # to tell them apart, every waiver claim would look like a trade.
     from_rosters = activity.get("source") == "transactions" and not activity["unavailable"]
     trades = [] if from_rosters else trades_from_activity(activity["activities"], year)
@@ -796,7 +795,12 @@ def _season_trade_results(
                 continue
     if from_rosters:
         teams = {t["team_id"]: _team_fields(t) for t in season_teams["teams"]}
-        trades = trades_from_rosters(box_by_week, activity["activities"], activity.get("trade_events", []), teams.get, year)
+        # Trades ESPN lists in full (a member's own) stand as listed; the
+        # rosters fill in everyone else's.
+        known = trades_from_activity(activity["activities"], year)
+        trades = trades_from_rosters(
+            box_by_week, activity["activities"], activity.get("trade_events", []), teams.get, year, known
+        )
     trade_store.save(db, lid, year, trade_outcomes(trades, box_by_week), final)
     return trade_store.load(db, lid, [year])
 

@@ -185,6 +185,8 @@ def activity_from_transaction(tx: dict, team_by_id, players: dict[int, dict]) ->
             if receiver:
                 actions.append({"team": receiver, "action": "TRADE_RECEIVED", "player": p, "bid": 0})
         elif kind in _PICKUP_TYPES and itype == "ADD":
+            if (item.get("fromTeamId") or 0) > 0:
+                continue  # from another team: a trade leg, not a pickup (the rosters show it)
             action = "WAIVER ADDED" if kind == "WAIVER" else "FA ADDED"
             actions.append({
                 "team": team_by_id(item.get("toTeamId")),
@@ -194,12 +196,16 @@ def activity_from_transaction(tx: dict, team_by_id, players: dict[int, dict]) ->
                 "bid": int(bid) if action == "WAIVER ADDED" and isinstance(bid, (int, float)) else 0,
             })
             bid = 0
-        elif kind in _PICKUP_TYPES and itype == "DROP":
+        elif (kind in _PICKUP_TYPES or kind == "TRADE_ACCEPT") and itype == "DROP":
             actions.append({"team": team_by_id(item.get("fromTeamId")), "action": "DROPPED", "player": player(pid), "bid": 0})
     if not actions:
         return None
     date = tx.get("processDate") or tx.get("proposedDate") or 0
-    return {"uid": f"tx:{tx.get('id') or date}", "date": int(date), "actions": actions}
+    activity = {"uid": f"tx:{tx.get('id') or date}", "date": int(date), "actions": actions}
+    if isinstance(tx.get("scoringPeriodId"), int):
+        # ESPN's own week for it, which places it exactly against the rosters.
+        activity["period"] = tx["scoringPeriodId"]
+    return activity
 
 
 def trade_events(transactions: Iterable[dict]) -> list[dict]:
@@ -233,64 +239,152 @@ def _week_start_ms(year: int, week: int) -> int:
     return int(datetime(day.year, day.month, day.day, 12, tzinfo=EASTERN).timestamp() * 1000)
 
 
+# Legs of one trade can show up a week apart in the rosters (a player
+# traded mid-week appears with his new team the next week, one dropped at
+# once shows only in the drop), so legs between the same two teams this
+# many weeks apart or fewer are one trade.
+_TRADE_LEG_WEEKS = 1
+
+
 def trades_from_rosters(
-    box_by_week: dict[int, dict], activities: Iterable[dict], events: Iterable[dict], team_by_id, year: int
+    box_by_week: dict[int, dict],
+    activities: Iterable[dict],
+    events: Iterable[dict],
+    team_by_id,
+    year: int,
+    known: Iterable[dict] = (),
 ) -> list[dict]:
-    """A past season's trades, rebuilt from its weekly rosters, in the shape
-    trades_from_activity gives.
+    """A past season's trades, rebuilt from its rosters and transactions, in
+    the shape trades_from_activity gives.
 
-    A player who turns up on another team's roster without that team having
-    picked him up (a waiver claim or free-agent add since he was last seen)
-    was traded to it. Players moving between the same two teams in the same
-    week are one trade, credited from that week. Its time is the accepting
-    team's acceptance from `events` where there is one, else the start of the
-    week. The box scores carry the whole roster, bench and IR included.
+    `known` are trades ESPN listed in full (to a member, the ones they were
+    in): they're kept as they are, and the rest are rebuilt.
+
+    Each player's owner is followed through the season, event by event: his
+    pickups and drops (and the trades in `known`) at their times, and the
+    weekly rosters as of the end of each week. A pickup makes the picking
+    team his owner and a drop leaves him unowned. Where a roster shows him
+    on a team other than his owner, or another team drops him, his owner
+    traded him to that team. Following every move, not just the rosters, is
+    what gets the sender right for a player picked up and traded within the
+    same week, and finds one cut straight after a trade.
+
+    Legs between the same two teams within _TRADE_LEG_WEEKS of each other
+    are one trade, credited from its first week. Its time is an acceptance
+    from `events` where there is one, else the start of the week. The box
+    scores carry the whole roster, bench and IR included.
     """
-    adds: dict[int, list[tuple[int, int]]] = {}
+    known = list(known)
+    # (week, order, time, player id, what, team, player)
+    timeline: list[tuple] = []
     for act in activities:
-        week = week_of(act["date"], year)
+        week = act.get("period") or week_of(act["date"], year)
         for a in act["actions"]:
-            if a["action"] in MOVE_KINDS and a["team"]:
-                adds.setdefault(a["player"]["player_id"], []).append((week, a["team"]["team_id"]))
-
-    last: dict[int, tuple[int, int]] = {}
-    moved: dict[tuple[int, int, int], list[tuple[dict, int, int]]] = {}
-    for week in sorted(box_by_week):
+            if not a["team"]:
+                continue
+            what = {"WAIVER ADDED": "add", "FA ADDED": "add", "DROPPED": "drop", "TRADE_RECEIVED": "add"}.get(a["action"])
+            if what:
+                timeline.append((week, 0, act["date"], a["player"]["player_id"], what, a["team"]["team_id"], a["player"]))
+    names: dict[int, dict] = {}
+    for week in box_by_week:
         for m in box_by_week[week].get("matchups", []):
             for side in (m.get("home"), m.get("away")):
                 if not side:
                     continue
-                team = side["team_id"]
                 for p in side.get("lineup", []):
                     pid = p["player_id"]
-                    seen = last.get(pid)
-                    if seen and seen[1] != team:
-                        picked_up = any(seen[0] <= w <= week and to == team for w, to in adds.get(pid, []))
-                        if not picked_up:
-                            pair = tuple(sorted((seen[1], team)))
-                            player = {"player_id": pid, "name": p.get("name") or f"Player {pid}", "position": p.get("position", "")}
-                            moved.setdefault((week, *pair), []).append((player, seen[1], team))
-                    last[pid] = (week, team)
+                    names[pid] = {"player_id": pid, "name": p.get("name") or f"Player {pid}", "position": p.get("position", "")}
+                    timeline.append((week, 1, 0, pid, "roster", side["team_id"], names[pid]))
+    timeline.sort(key=lambda e: e[:3])
+
+    # (week, player, sender, receiver)
+    legs: list[tuple[int, dict, int, int]] = []
+    owner: dict[int, int | None] = {}
+    for week, _, _, pid, what, team, player in timeline:
+        current = owner.get(pid)
+        if what == "add":
+            owner[pid] = team
+        elif what == "drop":
+            if current is not None and current != team:
+                legs.append((week, names.get(pid) or player, current, team))
+            owner[pid] = None
+        else:  # on this team's roster at the end of the week
+            if current is not None and current != team:
+                legs.append((week, player, current, team))
+            owner[pid] = team
+
+    groups: list[dict] = []
+    for week, player, sender, receiver in sorted(legs, key=lambda leg: leg[0]):
+        pair = tuple(sorted((sender, receiver)))
+        group = next(
+            (g for g in groups if g["pair"] == pair and week - g["last"] <= _TRADE_LEG_WEEKS), None
+        )
+        if group is None:
+            group = {"pair": pair, "week": week, "last": week, "legs": []}
+            groups.append(group)
+        group["last"] = week
+        group["legs"].append((player, sender, receiver))
+
+    # A player traded twice in one week (A to B, then B to C) shows in the
+    # weekly rosters only as A to C, a trade where A got nothing. ESPN trades
+    # are between two teams, so where A and C each traded with the same team
+    # that week, the player went through it: credit him to both of those
+    # trades instead.
+    def near(g: dict, h: dict) -> bool:
+        return g["week"] - _TRADE_LEG_WEEKS <= h["week"] <= g["last"] + _TRADE_LEG_WEEKS
+
+    for g in list(groups):
+        receivers = {r for _, _, r in g["legs"]}
+        if len(receivers) != 1:
+            continue
+        (to,) = receivers
+        (frm,) = set(g["pair"]) - {to}
+        via = [
+            b for b in {t for h in groups if h is not g and near(g, h) for t in h["pair"]} - {frm, to}
+            if any(h["pair"] == tuple(sorted((frm, b))) and near(g, h) for h in groups)
+            and any(h["pair"] == tuple(sorted((b, to))) and near(g, h) for h in groups)
+        ]
+        if len(via) != 1:
+            continue
+        b = via[0]
+        first = next(h for h in groups if h["pair"] == tuple(sorted((frm, b))) and near(g, h))
+        second = next(h for h in groups if h["pair"] == tuple(sorted((b, to))) and near(g, h))
+        for player, _, _ in g["legs"]:
+            first["legs"].append((player, frm, b))
+            second["legs"].append((player, b, to))
+        groups.remove(g)
+
+    def overlaps_known(g: dict) -> bool:
+        return any(
+            {s["team_id"] for s in t["sides"]} >= set(g["pair"])
+            and g["week"] - _TRADE_LEG_WEEKS <= t["week"] <= g["last"] + _TRADE_LEG_WEEKS
+            for t in known
+        )
 
     when = {}
     for e in events:
         key = (e["week"], e["team_id"])
         when[key] = max(when.get(key, 0), e["date"])
 
-    trades = []
-    for (week, a, b), players in sorted(moved.items()):
+    trades = list(known)
+    for g in groups:
+        if overlaps_known(g):
+            continue
+        a, b = g["pair"]
         teams = {tid: team_by_id(tid) for tid in (a, b)}
         if not all(teams.values()):
             continue
         sides = {tid: {**teams[tid], "received": [], "sent": []} for tid in (a, b)}
-        for player, sender, receiver in players:
-            sides[sender]["sent"].append(player)
-            sides[receiver]["received"].append(player)
-        date = max(when.get((week, a), 0), when.get((week, b), 0)) or _week_start_ms(year, week)
+        for player, sender, receiver in g["legs"]:
+            if player not in sides[receiver]["received"]:
+                sides[sender]["sent"].append(player)
+                sides[receiver]["received"].append(player)
+        weeks = range(g["week"] - _TRADE_LEG_WEEKS, g["last"] + 1)
+        date = max((when.get((w, t), 0) for w in weeks for t in (a, b)), default=0) or _week_start_ms(year, g["week"])
         trades.append({
-            "uid": f"roster:{year}:{week}:{a}-{b}",
+            "uid": f"roster:{year}:{g['week']}:{a}-{b}",
             "date": date,
-            "week": week,
+            "week": g["week"],
             "sides": sorted(sides.values(), key=lambda s: s["team_id"]),
         })
     trades.sort(key=lambda t: t["date"])
