@@ -213,14 +213,20 @@ def _team_scores_by_week(box_by_week: dict[int, dict]) -> dict[int, dict[int, fl
     return out
 
 
-def _starts(box_by_week: dict[int, dict]) -> Iterable[tuple[int, str, float]]:
-    """(week, position, points) for every player started in a lineup slot."""
+# How many players past a position's starter pool replacement level averages.
+REPLACEMENT_BAND = 3
+# Fewest games a player needs to be ranked for replacement level.
+MIN_RANKED_GAMES = 3
+
+
+def _rostered(box_by_week: dict[int, dict]) -> Iterable[tuple[int, int, dict]]:
+    """(week, team_id, lineup entry) for every rostered player, bench included."""
     for week, payload in box_by_week.items():
         for m in payload.get("matchups", []):
             for side in (m.get("home"), m.get("away")):
-                for p in (side or {}).get("lineup", []):
-                    if p.get("slot_position") not in BENCH_SLOTS and p.get("position"):
-                        yield week, p["position"], float(p.get("points") or 0.0)
+                if side:
+                    for p in side.get("lineup", []):
+                        yield week, side["team_id"], p
 
 
 def war_baselines(box_by_week: dict[int, dict]) -> dict:
@@ -229,20 +235,52 @@ def war_baselines(box_by_week: dict[int, dict]) -> dict:
     - sigma: the spread (standard deviation) of teams' weekly scores.
     - average: the average starter's points at each position, every team's
       starts in every week (a flex start counts at the player's position).
-    - replacement: the worst starter at each position, the lowest score any
-      team got from a starter there each week, averaged over the weeks.
+    - replacement: the waiver-wire level at each position. Every rostered
+      player (bench included) is ranked by points per game; the starter pool
+      is how many players the league starts there in a week (league size
+      times the starts per team, flex starts included as teams used them);
+      replacement is the average points per game of the REPLACEMENT_BAND
+      players just past the pool, e.g. QB15-QB17 in a 14-team 1-QB league.
+      Weeks a player didn't play (a bye, or out: no points and no
+      projection) and IR stints don't count toward his points per game.
     """
-    scores = [s for week in _team_scores_by_week(box_by_week).values() for s in week.values()]
-    by_pos: dict[str, list[float]] = {}
-    worst: dict[str, dict[int, float]] = {}
-    for week, pos, pts in _starts(box_by_week):
-        by_pos.setdefault(pos, []).append(pts)
-        w = worst.setdefault(pos, {})
-        w[week] = min(w.get(week, pts), pts)
+    by_week = _team_scores_by_week(box_by_week).values()
+    scores = [s for week in by_week for s in week.values()]
+    teams = {team for week in by_week for team in week}
+    team_weeks = len(scores)
+
+    starts: dict[str, list[float]] = {}
+    games: dict[int, list[float]] = {}
+    position_of: dict[int, str] = {}
+    for _, _, p in _rostered(box_by_week):
+        pos, pts = p.get("position", ""), float(p.get("points") or 0.0)
+        if not pos:
+            continue
+        if p.get("slot_position") not in BENCH_SLOTS:
+            starts.setdefault(pos, []).append(pts)
+        if p.get("slot_position") == "IR" or (pts == 0 and not p.get("projected_points")):
+            continue
+        games.setdefault(p["player_id"], []).append(pts)
+        position_of[p["player_id"]] = pos
+
+    weeks = len(box_by_week)
+    need = min(MIN_RANKED_GAMES, weeks)
+    ranked: dict[str, list[float]] = {}
+    for pid, pts in games.items():
+        if len(pts) >= need:
+            ranked.setdefault(position_of[pid], []).append(statistics.fmean(pts))
+    replacement = {}
+    for pos, pool_starts in starts.items():
+        ppg = sorted(ranked.get(pos, []), reverse=True)
+        if not ppg:
+            continue
+        pool = round(len(pool_starts) / team_weeks * len(teams)) if team_weeks else 0
+        band = ppg[pool:pool + REPLACEMENT_BAND] or ppg[-REPLACEMENT_BAND:]
+        replacement[pos] = statistics.fmean(band)
     return {
         "sigma": statistics.pstdev(scores) if len(scores) > 1 else 0.0,
-        "average": {pos: statistics.fmean(v) for pos, v in by_pos.items()},
-        "replacement": {pos: statistics.fmean(w.values()) for pos, w in worst.items()},
+        "average": {pos: statistics.fmean(v) for pos, v in starts.items()},
+        "replacement": replacement,
     }
 
 

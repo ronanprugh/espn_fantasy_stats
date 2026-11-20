@@ -40,6 +40,8 @@ class TradePlayer(BaseModel):
     started_points: float
     bench_points: float
     weeks_started: int
+    # Wins above replacement from his starts for that side.
+    war: float
 
 
 class TradeSentPlayer(BaseModel):
@@ -56,6 +58,13 @@ class TradeSide(BaseModel):
     received: List[TradePlayer]
     sent: List[TradeSentPlayer]
     started_points: float
+    # The new players' WAR, which decides the trade.
+    war: float
+    # The team's points per game since the trade, and had it kept the players
+    # it sent; over `games` completed games (none yet: null).
+    ppg: float | None
+    ppg_if_kept: float | None
+    games: int
 
 
 class Trade(BaseModel):
@@ -68,6 +77,7 @@ class Trade(BaseModel):
     week: int
     sides: List[TradeSide]
     winner_team_id: int | None
+    # The winner's lead in WAR (wins).
     margin: float
 
 

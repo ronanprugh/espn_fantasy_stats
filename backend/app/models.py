@@ -110,11 +110,33 @@ class TradeRecord(Base):
     occurred_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
     week: Mapped[int] = mapped_column(nullable=False)
     winner_team_id: Mapped[int | None] = mapped_column(nullable=True)
+    # The winner's lead in WAR (wins).
     margin: Mapped[float] = mapped_column(Float, nullable=False, server_default="0")
 
     players: Mapped[list["TradeRecordPlayer"]] = relationship(
         back_populates="trade", cascade="all, delete-orphan", order_by="TradeRecordPlayer.id"
     )
+    sides: Mapped[list["TradeRecordSide"]] = relationship(
+        back_populates="trade", cascade="all, delete-orphan", order_by="TradeRecordSide.id"
+    )
+
+
+class TradeRecordSide(Base):
+    """One team's side of a trade: its new players' WAR, and its points per
+    game since the trade, as it played and had it kept the players it sent."""
+    __tablename__ = "trade_record_sides"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    trade_id: Mapped[int] = mapped_column(
+        ForeignKey("trade_records.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    team_id: Mapped[int] = mapped_column(nullable=False)
+    war: Mapped[float] = mapped_column(Float, nullable=False, server_default="0")
+    ppg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ppg_if_kept: Mapped[float | None] = mapped_column(Float, nullable=True)
+    games: Mapped[int] = mapped_column(nullable=False, server_default="0")
+
+    trade: Mapped["TradeRecord"] = relationship(back_populates="sides")
 
 
 class TradeRecordPlayer(Base):
@@ -139,6 +161,7 @@ class TradeRecordPlayer(Base):
     started_points: Mapped[float | None] = mapped_column(Float, nullable=True)
     bench_points: Mapped[float | None] = mapped_column(Float, nullable=True)
     weeks_started: Mapped[int | None] = mapped_column(nullable=True)
+    war: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     trade: Mapped["TradeRecord"] = relationship(back_populates="players")
 

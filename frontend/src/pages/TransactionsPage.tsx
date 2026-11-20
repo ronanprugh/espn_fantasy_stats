@@ -37,6 +37,10 @@ const KINDS: { key: Kind; label: string; noun: string }[] = [
 ]
 
 const fmt = (n: number) => n.toFixed(1)
+const signed = (n: number, digits = 1) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(digits)}`
+const fmtWar = (n: number) => signed(n, 2)
+const wins = (n: number) => `${n.toFixed(2)} ${n === 1 ? 'win' : 'wins'}`
+const tone = (n: number | null) => (n === null ? '' : n > 0 ? 'pos' : n < 0 ? 'neg' : '')
 const dateLabel = (ms: number) =>
   new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 const dayLabel = (day: string) =>
@@ -190,8 +194,10 @@ function TradesView({ trades, yourTeam, allSeasons }: { trades: Trade[]; yourTea
   return (
     <>
       <p className="subtitle">
-        Each side gets credit for what its new players scored for it as starters, from the week of the
-        trade on. Bench points don't count.
+        Trades are won on WAR, wins above replacement: for each start a side's new players made for it
+        from the week of the trade on, how much more likely their points made an average team to win than
+        a waiver-level player's would have. Bench weeks don't count. Points per game compare each team as
+        it played with how it would have done keeping the players it sent. Completed weeks only.
       </p>
       <DayRecords {...days} noun="trade" />
       <section className="trade-summary">
@@ -201,8 +207,11 @@ function TradesView({ trades, yourTeam, allSeasons }: { trades: Trade[]; yourTea
               <th>Team</th>
               <th className="num">Trades</th>
               <th className="num">Won–Lost</th>
-              <th className="num" title="Starting points gained minus given up across their trades">
-                Net pts
+              <th className="num" title="WAR gained minus WAR given up across their trades">
+                Net WAR
+              </th>
+              <th className="num" title="Points per game each trade added on average, against keeping the players they sent">
+                PPG +/−
               </th>
             </tr>
           </thead>
@@ -216,10 +225,8 @@ function TradesView({ trades, yourTeam, allSeasons }: { trades: Trade[]; yourTea
                 <td className="num">
                   {r.won}–{r.lost}
                 </td>
-                <td className={`num ${r.net > 0 ? 'pos' : r.net < 0 ? 'neg' : ''}`}>
-                  {r.net > 0 ? '+' : ''}
-                  {fmt(r.net)}
-                </td>
+                <td className={`num ${tone(r.netWar)}`}>{fmtWar(r.netWar)}</td>
+                <td className={`num ${tone(r.ppgGain)}`}>{r.ppgGain === null ? '—' : signed(r.ppgGain)}</td>
               </tr>
             ))}
           </tbody>
@@ -227,7 +234,7 @@ function TradesView({ trades, yourTeam, allSeasons }: { trades: Trade[]; yourTea
         {biggest && (
           <p className="tw-note">
             Most one-sided{allSeasons ? ' ever' : ''}:{' '}
-            {biggest.sides.find((s) => s.team_id === biggest.winner_team_id)?.team_name} won by {fmt(biggest.margin)} (
+            {biggest.sides.find((s) => s.team_id === biggest.winner_team_id)?.team_name} won by {wins(biggest.margin)} (
             {dateLabel(biggest.date)}).
           </p>
         )}
@@ -254,7 +261,7 @@ function TradeCard({ trade, yourTeam }: { trade: Trade; yourTeam: string | null 
           Week {trade.week} · {dateLabel(trade.date)}
         </span>
         <span className={`trade-verdict${winner ? '' : ' even'}`}>
-          {winner ? `${winner.team_name} won by ${fmt(trade.margin)}` : 'Even so far'}
+          {winner ? `${winner.team_name} won by ${wins(trade.margin)}` : 'Even so far'}
         </span>
       </header>
       <div className="trade-sides">
@@ -273,8 +280,11 @@ function TradeSideView({ side, year, won }: { side: TradeSide; year: number; won
         <TeamLink ownerId={side.owner_id} year={year}>
           {side.team_name}
         </TeamLink>
-        <span className="trade-side-total">{fmt(side.started_points)}</span>
+        <span className="trade-side-total" title={`${fmt(side.started_points)} starting points`}>
+          {fmtWar(side.war)} WAR
+        </span>
       </div>
+      <PpgLine side={side} />
       <div className="trade-got">got</div>
       <ul>
         {side.received.map((p) => (
@@ -284,12 +294,30 @@ function TradeSideView({ side, year, won }: { side: TradeSide; year: number; won
               {p.position && <span className="trade-pos"> {p.position}</span>}
             </span>
             <span className="trade-pts" title={`${fmt(p.bench_points)} more on the bench`}>
-              {fmt(p.started_points)}
-              <span className="trade-weeks"> · {p.weeks_started} wk</span>
+              {fmtWar(p.war)}
+              <span className="trade-weeks">
+                {' '}
+                · {fmt(p.started_points)} pts · {p.weeks_started} wk
+              </span>
             </span>
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+/** The team's points per game since the trade, against keeping its players. */
+function PpgLine({ side }: { side: TradeSide }) {
+  if (side.ppg === null || side.ppg_if_kept === null) return null
+  const gain = side.ppg - side.ppg_if_kept
+  return (
+    <div
+      className="trade-ppg"
+      title={`Over ${plural(side.games, 'game')} since the trade. Had they kept the players they sent, each slot a new player started in goes to the best of those players and their own bench that week.`}
+    >
+      {fmt(side.ppg)} PPG · {fmt(side.ppg_if_kept)} keeping their players{' '}
+      <span className={tone(gain)}>({signed(gain)})</span>
     </div>
   )
 }

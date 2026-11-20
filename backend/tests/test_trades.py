@@ -7,15 +7,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.models import Base, TradeRecord, TradeRecordPlayer, TradeSync
+from app.models import Base, TradeRecord, TradeRecordPlayer, TradeRecordSide, TradeSync
 from app.trades import (
     EASTERN,
+    _score_if_kept,
     activity_from_topic,
+    fits_slot,
     kickoff,
     moves_from_activity,
     player_position,
+    start_war,
     trade_outcomes,
     trades_from_activity,
+    war_baselines,
     week_of,
 )
 
@@ -111,44 +115,120 @@ def test_player_position_follows_espn_rules():
     assert player_position({}) == ""
 
 
+def entry(pid, pos, slot, pts, projected=10.0):
+    return {"player_id": pid, "position": pos, "slot_position": slot, "points": pts, "projected_points": projected}
+
+
 def box(team_lineups):
-    """{team_id: [(player_id, slot, points)]} -> one week's box score payload."""
-    sides = [{"team_id": tid, "lineup": [{"player_id": p, "slot_position": s, "points": pts} for p, s, pts in lu]}
-             for tid, lu in team_lineups.items()]
-    return {"matchups": [{"home": sides[0], "away": sides[1] if len(sides) > 1 else None}]}
+    """{team_id: [(player_id, position, slot, points[, projected])]} -> one
+    week's box score payload; a team's score is its starters' points."""
+    sides = []
+    for tid, lu in team_lineups.items():
+        lineup = [entry(*row) for row in lu]
+        total = sum(p["points"] for p in lineup if p["slot_position"] not in ("BE", "IR"))
+        sides.append({"team_id": tid, "total_points": total, "lineup": lineup})
+    return {"matchups": [{"home": sides[i], "away": sides[i + 1] if i + 1 < len(sides) else None}
+                         for i in range(0, len(sides), 2)]}
 
 
+# Alpha (1) sends JSN (10) and Kyren (11) to Bravo (2) for Dak (20) in week 5.
+# 41 is Bravo's bench WR, 42 Alpha's backup QB.
 WEEKS = {
-    4: box({1: [(10, "WR", 30.0), (11, "RB", 20.0)], 2: [(20, "QB", 25.0)]}),  # before: ignored
-    5: box({1: [(20, "QB", 24.0)], 2: [(10, "WR", 18.0), (11, "BE", 12.0)]}),
-    6: box({1: [(20, "QB", 21.0)], 2: [(10, "WR", 22.0), (11, "RB", 9.0)]}),
+    4: box({1: [(10, "WR", "WR", 30.0), (11, "RB", "RB", 20.0)], 2: [(20, "QB", "QB", 25.0)]}),  # before: not credited
+    5: box({1: [(20, "QB", "QB", 24.0), (42, "QB", "BE", 10.0)],
+            2: [(10, "WR", "WR", 18.0), (11, "RB", "BE", 12.0), (41, "WR", "BE", 7.0)]}),
+    6: box({1: [(20, "QB", "QB", 21.0), (42, "QB", "BE", 11.0)],
+            2: [(10, "WR", "WR", 22.0), (11, "RB", "RB", 9.0), (41, "WR", "BE", 3.0)]}),
 }
 
 
+def outcome(weeks=WEEKS):
+    [t] = trade_outcomes(trades_from_activity(acts(TRADE), 2026), weeks)
+    return t, {s["team_id"]: s for s in t["sides"]}
+
+
 def test_outcomes_count_starts_after_the_trade_for_the_new_team():
-    [t] = trade_outcomes(trades_from_activity(acts(TRADE), 2026), WEEKS)
-    by_team = {s["team_id"]: s for s in t["sides"]}
+    t, by_team = outcome()
     assert by_team[1]["started_points"] == 45.0
     bravo = {p["name"]: p for p in by_team[2]["received"]}
     assert bravo["Jaxon Smith-Njigba"]["started_points"] == 40.0
-    assert bravo["Kyren Williams"] == {**bravo["Kyren Williams"], "started_points": 9.0, "bench_points": 12.0, "weeks_started": 1}
+    kyren = bravo["Kyren Williams"]
+    assert (kyren["started_points"], kyren["bench_points"], kyren["weeks_started"]) == (9.0, 12.0, 1)
     assert by_team[2]["started_points"] == 49.0
-    assert t["winner_team_id"] == 2 and t["margin"] == 4.0
+
+
+def test_war_decides_the_winner():
+    t, by_team = outcome()
+    for side in by_team.values():
+        assert side["war"] == pytest.approx(sum(p["war"] for p in side["received"]), abs=0.002)
+    leader = max(by_team.values(), key=lambda s: s["war"])
+    assert t["winner_team_id"] == leader["team_id"]
+    assert t["margin"] == round(abs(by_team[1]["war"] - by_team[2]["war"]), 2)
 
 
 def test_no_winner_before_anyone_plays():
-    [t] = trade_outcomes(trades_from_activity(acts(TRADE), 2026), {})
+    t, by_team = outcome({})
     assert t["winner_team_id"] is None and t["margin"] == 0
+    assert by_team[1]["ppg"] is None and by_team[1]["games"] == 0
 
 
 def test_players_who_leave_the_new_team_stop_counting():
+    t, by_team = outcome({
+        5: box({1: [(20, "QB", "QB", 24.0)], 2: [(10, "WR", "WR", 18.0)]}),
+        6: box({1: [], 2: [(10, "WR", "WR", 22.0)]}),  # Dak gone from Alpha
+    })
+    assert by_team[1]["started_points"] == 24.0
+
+
+def test_points_per_game_had_each_team_kept_its_players():
+    t, by_team = outcome()
+    # Alpha: Dak's QB slot goes to its own backup QB (JSN and Kyren can't play QB).
+    assert (by_team[1]["ppg"], by_team[1]["ppg_if_kept"], by_team[1]["games"]) == (22.5, 10.5, 2)
+    # Bravo: JSN's WR slot goes to its bench WR, Kyren's RB slot to nobody
+    # (Dak can't play either, and benched Kyren never left a slot to fill).
+    assert (by_team[2]["ppg"], by_team[2]["ppg_if_kept"], by_team[2]["games"]) == (24.5, 5.0, 2)
+
+
+def test_kept_players_refill_slots_they_fit_best_first():
+    lineup = {p["player_id"]: p for p in [
+        entry(1, "WR", "RB/WR/TE", 9.0),  # the new player, in the flex
+        entry(2, "RB", "RB", 12.0),
+        entry(3, "TE", "BE", 6.0),
+    ]}
+    kept = [entry(9, "WR", "WR", 15.0), entry(8, "QB", "QB", 30.0)]
+    assert _score_if_kept(lineup, {1}, kept) == 12.0 + 15.0  # the WR beats the bench TE; the QB can't flex
+    assert _score_if_kept(lineup, {1}, []) == 12.0 + 6.0
+    assert _score_if_kept(lineup, set(), kept) == 21.0  # nothing traded in: as played
+
+
+def test_fits_slot():
+    assert fits_slot("WR", "WR") and fits_slot("WR", "RB/WR/TE") and fits_slot("QB", "OP")
+    assert fits_slot("D/ST", "D/ST")
+    assert not fits_slot("QB", "RB/WR/TE") and not fits_slot("K", "OP") and not fits_slot("WR", "BE")
+
+
+def test_war_baselines():
+    # Four teams starting one QB each, with a backup apiece. 108 played one
+    # game in two (a bye: no points, no projection), too few to be ranked.
     weeks = {
-        5: box({1: [(20, "QB", 24.0)], 2: [(10, "WR", 18.0)]}),
-        6: box({1: [], 2: [(10, "WR", 22.0)]}),  # Dak gone from Alpha
+        1: box({1: [(101, "QB", "QB", 20.0), (105, "QB", "BE", 9.0)], 2: [(102, "QB", "QB", 18.0), (106, "QB", "BE", 8.0)],
+                3: [(103, "QB", "QB", 15.0), (107, "QB", "BE", 5.0)], 4: [(104, "QB", "QB", 10.0), (108, "QB", "BE", 4.0)]}),
+        2: box({1: [(101, "QB", "QB", 22.0), (105, "QB", "BE", 9.0)], 2: [(102, "QB", "QB", 16.0), (106, "QB", "BE", 6.0)],
+                3: [(103, "QB", "QB", 15.0), (107, "QB", "BE", 5.0)], 4: [(104, "QB", "QB", 12.0), (108, "QB", "BE", 0.0, 0.0)]}),
     }
-    [t] = trade_outcomes(trades_from_activity(acts(TRADE), 2026), weeks)
-    alpha = [s for s in t["sides"] if s["team_id"] == 1][0]
-    assert alpha["started_points"] == 24.0
+    b = war_baselines(weeks)
+    assert b["average"]["QB"] == 16.0
+    # The pool is the four starters; replacement is QB5-QB7 by points per game.
+    assert b["replacement"]["QB"] == pytest.approx((9 + 7 + 5) / 3)
+    assert b["sigma"] == pytest.approx((110 / 8) ** 0.5)  # team scores 20, 22, 18, 16, 15, 15, 10, 12
+    assert start_war(b["replacement"]["QB"], "QB", b) == pytest.approx(0)
+    assert start_war(16.0, "QB", b) > 0 > start_war(5.0, "QB", b)
+
+
+def test_war_rewards_scarce_positions():
+    baselines = {"sigma": 25.0, "average": {"TE": 9.0, "WR": 12.0}, "replacement": {"TE": 4.0, "WR": 9.0}}
+    assert start_war(15.0, "TE", baselines) > start_war(15.0, "WR", baselines)
+    assert start_war(15.0, "K", baselines) == 0  # nothing to measure against
 
 
 # --- Fetching from ESPN ------------------------------------------------------
@@ -234,7 +314,7 @@ def db():
     from app.database import get_db
 
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine, tables=[TradeRecord.__table__, TradeRecordPlayer.__table__, TradeSync.__table__])
+    Base.metadata.create_all(engine, tables=[TradeRecord.__table__, TradeRecordPlayer.__table__, TradeRecordSide.__table__, TradeSync.__table__])
     Session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
     def override():
@@ -262,9 +342,14 @@ def test_store_round_trip_and_currency(db):
     assert not trade_store.is_current(db, 1, 2026)
     trade_store.save(db, 1, 2026, results, final=False)
     [loaded] = trade_store.load(db, 1, [2026])
-    assert loaded["year"] == 2026 and loaded["winner_team_id"] == 2 and loaded["margin"] == 4.0
+    [t] = results
+    assert loaded["year"] == 2026 and loaded["winner_team_id"] == t["winner_team_id"] and loaded["margin"] == t["margin"]
     by_team = {s["team_id"]: s for s in loaded["sides"]}
-    assert by_team[2]["started_points"] == 49.0
+    for side in t["sides"]:
+        stored = by_team[side["team_id"]]
+        for key in ("started_points", "war", "ppg", "ppg_if_kept", "games"):
+            assert stored[key] == pytest.approx(side[key]), key
+        assert [p["war"] for p in stored["received"]] == [p["war"] for p in side["received"]]
     assert [p["name"] for p in by_team[1]["sent"]] == ["Jaxon Smith-Njigba", "Kyren Williams"]
     assert trade_store.is_current(db, 1, 2026)
     # A season in progress goes stale at the next refresh point...
@@ -309,7 +394,9 @@ def test_trades_endpoint_calculates_once_then_reads_stored_results(db, monkeypat
 
     body = client.get("/api/leagues/1/seasons/2026/trades").json()
     [t] = body["trades"]
-    assert t["week"] == 5 and t["winner_team_id"] == 2 and t["margin"] == 4.0 and t["year"] == 2026
+    expected, _ = outcome()
+    assert t["week"] == 5 and t["year"] == 2026
+    assert t["winner_team_id"] == expected["winner_team_id"] and t["margin"] == expected["margin"]
     espn_calls, box_calls = len(league.espn_request.calls), calls["box"]
 
     again = client.get("/api/leagues/1/seasons/2026/trades").json()
@@ -337,3 +424,17 @@ def test_all_seasons_endpoints(db, monkeypatch):
 
     season = client.get("/api/leagues/1/seasons/2026/transactions").json()
     assert season["supported"] is True and len(season["moves"]) == 3
+
+
+def test_the_week_being_played_waits_until_it_is_over(db, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import main
+
+    league = fake_league([TRADE], cards=CARDS)
+    league.current_week = 6  # week 6 is under way
+    wire(monkeypatch, league, over=False)
+    monkeypatch.setattr(main, "is_live_season", lambda year: True)
+
+    [t] = TestClient(main.app).get("/api/leagues/1/seasons/2026/trades").json()["trades"]
+    assert {s["team_id"]: s["games"] for s in t["sides"]} == {1: 1, 2: 1}
