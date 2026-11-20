@@ -1,0 +1,5274 @@
+{
+  "components": {
+    "schemas": {
+      "AllSeasons": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "seasons": {
+            "items": {
+              "$ref": "#/components/schemas/SeasonTeams"
+            },
+            "title": "Seasons",
+            "type": "array"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "league_id",
+          "years",
+          "seasons"
+        ],
+        "title": "AllSeasons",
+        "type": "object"
+      },
+      "ApiTokenCreated": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "prefix": {
+            "title": "Prefix",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "created_at",
+          "last_used_at",
+          "token"
+        ],
+        "title": "ApiTokenCreated",
+        "type": "object"
+      },
+      "ApiTokenInfo": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "prefix": {
+            "title": "Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "created_at",
+          "last_used_at"
+        ],
+        "title": "ApiTokenInfo",
+        "type": "object"
+      },
+      "BoxPlayer": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "player_id": {
+            "title": "Player Id",
+            "type": "integer"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "pro_team": {
+            "title": "Pro Team",
+            "type": "string"
+          },
+          "projected_points": {
+            "title": "Projected Points",
+            "type": "number"
+          },
+          "slot_position": {
+            "title": "Slot Position",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "player_id",
+          "position",
+          "slot_position",
+          "pro_team",
+          "points",
+          "projected_points"
+        ],
+        "title": "BoxPlayer",
+        "type": "object"
+      },
+      "BoxScoreMatchup": {
+        "properties": {
+          "away": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoxScoreTeam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "home": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoxScoreTeam"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_playoff": {
+            "title": "Is Playoff",
+            "type": "boolean"
+          },
+          "matchup_type": {
+            "title": "Matchup Type",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "is_playoff",
+          "matchup_type",
+          "home",
+          "away"
+        ],
+        "title": "BoxScoreMatchup",
+        "type": "object"
+      },
+      "BoxScoreTeam": {
+        "properties": {
+          "lineup": {
+            "items": {
+              "$ref": "#/components/schemas/BoxPlayer"
+            },
+            "title": "Lineup",
+            "type": "array"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "projected_points": {
+            "title": "Projected Points",
+            "type": "number"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          },
+          "total_points": {
+            "title": "Total Points",
+            "type": "number"
+          }
+        },
+        "required": [
+          "team_id",
+          "team_name",
+          "owner_name",
+          "total_points",
+          "projected_points",
+          "lineup"
+        ],
+        "title": "BoxScoreTeam",
+        "type": "object"
+      },
+      "ChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "minLength": 8,
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest",
+        "type": "object"
+      },
+      "CloseGameRecord": {
+        "properties": {
+          "losses": {
+            "title": "Losses",
+            "type": "integer"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          },
+          "ties": {
+            "title": "Ties",
+            "type": "integer"
+          },
+          "wins": {
+            "title": "Wins",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "team_id",
+          "wins",
+          "losses",
+          "ties"
+        ],
+        "title": "CloseGameRecord",
+        "type": "object"
+      },
+      "CloseGames": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "margin": {
+            "title": "Margin",
+            "type": "number"
+          },
+          "seasons": {
+            "items": {
+              "$ref": "#/components/schemas/SeasonCloseGames"
+            },
+            "title": "Seasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "league_id",
+          "margin",
+          "seasons"
+        ],
+        "title": "CloseGames",
+        "type": "object"
+      },
+      "CreateApiTokenRequest": {
+        "properties": {
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreateApiTokenRequest",
+        "type": "object"
+      },
+      "CreateLeagueRequest": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "espn_league_id": {
+            "title": "Espn League Id",
+            "type": "integer"
+          },
+          "espn_s2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Espn S2"
+          },
+          "swid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swid"
+          }
+        },
+        "required": [
+          "espn_league_id",
+          "display_name"
+        ],
+        "title": "CreateLeagueRequest",
+        "type": "object"
+      },
+      "GenerateInviteRequest": {
+        "properties": {
+          "expires_in_hours": {
+            "description": "Must be 1, 6, 12, or 24",
+            "title": "Expires In Hours",
+            "type": "integer"
+          },
+          "max_uses": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "Max Uses",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expires_in_hours"
+        ],
+        "title": "GenerateInviteRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HeadToHeadMatchup": {
+        "properties": {
+          "is_playoff": {
+            "title": "Is Playoff",
+            "type": "boolean"
+          },
+          "owner_a_score": {
+            "title": "Owner A Score",
+            "type": "number"
+          },
+          "owner_a_team_id": {
+            "title": "Owner A Team Id",
+            "type": "integer"
+          },
+          "owner_a_team_name": {
+            "title": "Owner A Team Name",
+            "type": "string"
+          },
+          "owner_b_score": {
+            "title": "Owner B Score",
+            "type": "number"
+          },
+          "owner_b_team_id": {
+            "title": "Owner B Team Id",
+            "type": "integer"
+          },
+          "owner_b_team_name": {
+            "title": "Owner B Team Name",
+            "type": "string"
+          },
+          "round_label": {
+            "title": "Round Label",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          },
+          "winner_owner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner Owner Id"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "week",
+          "is_playoff",
+          "round_label",
+          "owner_a_team_id",
+          "owner_b_team_id",
+          "owner_a_team_name",
+          "owner_b_team_name",
+          "owner_a_score",
+          "owner_b_score",
+          "winner_owner_id"
+        ],
+        "title": "HeadToHeadMatchup",
+        "type": "object"
+      },
+      "HeadToHeadStats": {
+        "properties": {
+          "matchups": {
+            "items": {
+              "$ref": "#/components/schemas/HeadToHeadMatchup"
+            },
+            "title": "Matchups",
+            "type": "array"
+          },
+          "owner_a_avg_pf": {
+            "title": "Owner A Avg Pf",
+            "type": "number"
+          },
+          "owner_a_id": {
+            "title": "Owner A Id",
+            "type": "string"
+          },
+          "owner_a_name": {
+            "title": "Owner A Name",
+            "type": "string"
+          },
+          "owner_a_playoff_wins": {
+            "title": "Owner A Playoff Wins",
+            "type": "integer"
+          },
+          "owner_a_team_name": {
+            "title": "Owner A Team Name",
+            "type": "string"
+          },
+          "owner_a_total_pf": {
+            "title": "Owner A Total Pf",
+            "type": "number"
+          },
+          "owner_a_wins": {
+            "title": "Owner A Wins",
+            "type": "integer"
+          },
+          "owner_b_avg_pf": {
+            "title": "Owner B Avg Pf",
+            "type": "number"
+          },
+          "owner_b_id": {
+            "title": "Owner B Id",
+            "type": "string"
+          },
+          "owner_b_name": {
+            "title": "Owner B Name",
+            "type": "string"
+          },
+          "owner_b_playoff_wins": {
+            "title": "Owner B Playoff Wins",
+            "type": "integer"
+          },
+          "owner_b_team_name": {
+            "title": "Owner B Team Name",
+            "type": "string"
+          },
+          "owner_b_total_pf": {
+            "title": "Owner B Total Pf",
+            "type": "number"
+          },
+          "owner_b_wins": {
+            "title": "Owner B Wins",
+            "type": "integer"
+          },
+          "playoff_matchups": {
+            "title": "Playoff Matchups",
+            "type": "integer"
+          },
+          "playoff_ties": {
+            "title": "Playoff Ties",
+            "type": "integer"
+          },
+          "ties": {
+            "title": "Ties",
+            "type": "integer"
+          },
+          "total_matchups": {
+            "title": "Total Matchups",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "owner_a_id",
+          "owner_b_id",
+          "owner_a_name",
+          "owner_b_name",
+          "owner_a_team_name",
+          "owner_b_team_name",
+          "total_matchups",
+          "owner_a_wins",
+          "owner_b_wins",
+          "ties",
+          "owner_a_total_pf",
+          "owner_b_total_pf",
+          "owner_a_avg_pf",
+          "owner_b_avg_pf",
+          "playoff_matchups",
+          "owner_a_playoff_wins",
+          "owner_b_playoff_wins",
+          "playoff_ties",
+          "matchups"
+        ],
+        "title": "HeadToHeadStats",
+        "type": "object"
+      },
+      "InviteCodeResponse": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "expires_at"
+        ],
+        "title": "InviteCodeResponse",
+        "type": "object"
+      },
+      "LeagueAggregate": {
+        "properties": {
+          "end_year": {
+            "title": "End Year",
+            "type": "integer"
+          },
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "owners": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerAggregate"
+            },
+            "title": "Owners",
+            "type": "array"
+          },
+          "start_year": {
+            "title": "Start Year",
+            "type": "integer"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "league_id",
+          "start_year",
+          "end_year",
+          "years",
+          "owners"
+        ],
+        "title": "LeagueAggregate",
+        "type": "object"
+      },
+      "LeagueInfo": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "espn_league_id": {
+            "title": "Espn League Id",
+            "type": "integer"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "espn_league_id",
+          "display_name",
+          "years"
+        ],
+        "title": "LeagueInfo",
+        "type": "object"
+      },
+      "LeagueMoves": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "moves": {
+            "items": {
+              "$ref": "#/components/schemas/Move"
+            },
+            "title": "Moves",
+            "type": "array"
+          },
+          "unavailable_years": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Unavailable Years",
+            "type": "array"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "league_id",
+          "years",
+          "moves"
+        ],
+        "title": "LeagueMoves",
+        "type": "object"
+      },
+      "LeagueOwnerHistory": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "owners": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerHistory"
+            },
+            "title": "Owners",
+            "type": "array"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "league_id",
+          "years",
+          "owners"
+        ],
+        "title": "LeagueOwnerHistory",
+        "type": "object"
+      },
+      "LeaguePositionalAggregate": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "missing_weeks": {
+            "additionalProperties": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "default": {},
+            "title": "Missing Weeks",
+            "type": "object"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/PositionAggregate"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "league_id",
+          "years",
+          "positions"
+        ],
+        "title": "LeaguePositionalAggregate",
+        "type": "object"
+      },
+      "LeagueSummary": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "espn_league_id": {
+            "title": "Espn League Id",
+            "type": "integer"
+          },
+          "favorite_owner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorite Owner Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "espn_league_id",
+          "display_name"
+        ],
+        "title": "LeagueSummary",
+        "type": "object"
+      },
+      "LeagueTrades": {
+        "properties": {
+          "espn_trade_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {},
+            "title": "Espn Trade Counts",
+            "type": "object"
+          },
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "trades": {
+            "items": {
+              "$ref": "#/components/schemas/Trade"
+            },
+            "title": "Trades",
+            "type": "array"
+          },
+          "unavailable_years": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Unavailable Years",
+            "type": "array"
+          },
+          "years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "league_id",
+          "years",
+          "trades"
+        ],
+        "title": "LeagueTrades",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "Move": {
+        "properties": {
+          "added": {
+            "items": {
+              "$ref": "#/components/schemas/TradeSentPlayer"
+            },
+            "title": "Added",
+            "type": "array"
+          },
+          "bid": {
+            "title": "Bid",
+            "type": "integer"
+          },
+          "date": {
+            "title": "Date",
+            "type": "integer"
+          },
+          "dropped": {
+            "items": {
+              "$ref": "#/components/schemas/TradeSentPlayer"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "date",
+          "week",
+          "kind",
+          "team_id",
+          "team_name",
+          "owner_id",
+          "owner_name",
+          "added",
+          "dropped",
+          "bid"
+        ],
+        "title": "Move",
+        "type": "object"
+      },
+      "Owner": {
+        "properties": {
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "first_name",
+          "last_name"
+        ],
+        "title": "Owner",
+        "type": "object"
+      },
+      "OwnerAggregate": {
+        "properties": {
+          "avg_finish": {
+            "title": "Avg Finish",
+            "type": "number"
+          },
+          "avg_plus_minus": {
+            "title": "Avg Plus Minus",
+            "type": "number"
+          },
+          "avg_points_against": {
+            "title": "Avg Points Against",
+            "type": "number"
+          },
+          "avg_points_for": {
+            "title": "Avg Points For",
+            "type": "number"
+          },
+          "losses": {
+            "title": "Losses",
+            "type": "integer"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "playoff_losses": {
+            "title": "Playoff Losses",
+            "type": "integer"
+          },
+          "playoff_wins": {
+            "title": "Playoff Wins",
+            "type": "integer"
+          },
+          "points_against": {
+            "title": "Points Against",
+            "type": "number"
+          },
+          "points_for": {
+            "title": "Points For",
+            "type": "number"
+          },
+          "seasons_played": {
+            "title": "Seasons Played",
+            "type": "integer"
+          },
+          "team_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Team Names",
+            "type": "array"
+          },
+          "ties": {
+            "title": "Ties",
+            "type": "integer"
+          },
+          "wins": {
+            "title": "Wins",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "owner_id",
+          "owner_name",
+          "team_names",
+          "seasons_played",
+          "avg_finish",
+          "wins",
+          "losses",
+          "ties",
+          "playoff_wins",
+          "playoff_losses",
+          "points_for",
+          "points_against",
+          "avg_points_for",
+          "avg_points_against",
+          "avg_plus_minus"
+        ],
+        "title": "OwnerAggregate",
+        "type": "object"
+      },
+      "OwnerHistory": {
+        "properties": {
+          "current_team_name": {
+            "title": "Current Team Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "seasons": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerSeason"
+            },
+            "title": "Seasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "owner_id",
+          "owner_name",
+          "current_team_name",
+          "seasons"
+        ],
+        "title": "OwnerHistory",
+        "type": "object"
+      },
+      "OwnerSeason": {
+        "properties": {
+          "avg_plus_minus": {
+            "title": "Avg Plus Minus",
+            "type": "number"
+          },
+          "avg_points_against": {
+            "title": "Avg Points Against",
+            "type": "number"
+          },
+          "avg_points_for": {
+            "title": "Avg Points For",
+            "type": "number"
+          },
+          "final_standing": {
+            "title": "Final Standing",
+            "type": "integer"
+          },
+          "in_progress": {
+            "default": false,
+            "title": "In Progress",
+            "type": "boolean"
+          },
+          "losses": {
+            "title": "Losses",
+            "type": "integer"
+          },
+          "playoff_losses": {
+            "title": "Playoff Losses",
+            "type": "integer"
+          },
+          "playoff_wins": {
+            "title": "Playoff Wins",
+            "type": "integer"
+          },
+          "points_against": {
+            "title": "Points Against",
+            "type": "number"
+          },
+          "points_for": {
+            "title": "Points For",
+            "type": "number"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          },
+          "ties": {
+            "title": "Ties",
+            "type": "integer"
+          },
+          "wins": {
+            "title": "Wins",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "team_name",
+          "seed",
+          "final_standing",
+          "wins",
+          "losses",
+          "ties",
+          "playoff_wins",
+          "playoff_losses",
+          "points_for",
+          "points_against",
+          "avg_points_for",
+          "avg_points_against",
+          "avg_plus_minus"
+        ],
+        "title": "OwnerSeason",
+        "type": "object"
+      },
+      "PlayoffMatchup": {
+        "properties": {
+          "is_bye": {
+            "title": "Is Bye",
+            "type": "boolean"
+          },
+          "team_a_id": {
+            "title": "Team A Id",
+            "type": "integer"
+          },
+          "team_a_score": {
+            "title": "Team A Score",
+            "type": "number"
+          },
+          "team_b_id": {
+            "title": "Team B Id",
+            "type": "integer"
+          },
+          "team_b_score": {
+            "title": "Team B Score",
+            "type": "number"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          },
+          "winner_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner Id"
+          }
+        },
+        "required": [
+          "week",
+          "team_a_id",
+          "team_b_id",
+          "team_a_score",
+          "team_b_score",
+          "is_bye",
+          "winner_id"
+        ],
+        "title": "PlayoffMatchup",
+        "type": "object"
+      },
+      "PlayoffTeam": {
+        "properties": {
+          "final_standing": {
+            "title": "Final Standing",
+            "type": "integer"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "team_name",
+          "owner_name",
+          "seed",
+          "final_standing"
+        ],
+        "title": "PlayoffTeam",
+        "type": "object"
+      },
+      "PositionAggregate": {
+        "properties": {
+          "owners": {
+            "items": {
+              "$ref": "#/components/schemas/PositionOwnerAggregate"
+            },
+            "title": "Owners",
+            "type": "array"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "owners"
+        ],
+        "title": "PositionAggregate",
+        "type": "object"
+      },
+      "PositionOwnerAggregate": {
+        "properties": {
+          "avg_ppg": {
+            "title": "Avg Ppg",
+            "type": "number"
+          },
+          "current_team_name": {
+            "title": "Current Team Name",
+            "type": "string"
+          },
+          "games_played": {
+            "title": "Games Played",
+            "type": "integer"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "playoff_games": {
+            "title": "Playoff Games",
+            "type": "integer"
+          },
+          "playoff_points": {
+            "title": "Playoff Points",
+            "type": "number"
+          },
+          "playoff_ppg": {
+            "title": "Playoff Ppg",
+            "type": "number"
+          },
+          "seasons_with_data": {
+            "title": "Seasons With Data",
+            "type": "integer"
+          },
+          "total_points": {
+            "title": "Total Points",
+            "type": "number"
+          }
+        },
+        "required": [
+          "owner_id",
+          "owner_name",
+          "current_team_name",
+          "seasons_with_data",
+          "total_points",
+          "games_played",
+          "avg_ppg",
+          "playoff_points",
+          "playoff_games",
+          "playoff_ppg"
+        ],
+        "title": "PositionOwnerAggregate",
+        "type": "object"
+      },
+      "PositionTeamStats": {
+        "properties": {
+          "avg_ppg": {
+            "title": "Avg Ppg",
+            "type": "number"
+          },
+          "games_played": {
+            "title": "Games Played",
+            "type": "integer"
+          },
+          "made_playoffs": {
+            "title": "Made Playoffs",
+            "type": "boolean"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "playoff_games": {
+            "title": "Playoff Games",
+            "type": "integer"
+          },
+          "playoff_points": {
+            "title": "Playoff Points",
+            "type": "number"
+          },
+          "playoff_ppg": {
+            "title": "Playoff Ppg",
+            "type": "number"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          },
+          "total_points": {
+            "title": "Total Points",
+            "type": "number"
+          }
+        },
+        "required": [
+          "team_id",
+          "team_name",
+          "owner_id",
+          "owner_name",
+          "total_points",
+          "games_played",
+          "avg_ppg",
+          "playoff_points",
+          "playoff_games",
+          "playoff_ppg",
+          "made_playoffs"
+        ],
+        "title": "PositionTeamStats",
+        "type": "object"
+      },
+      "PowerRankingEntry": {
+        "properties": {
+          "blurb": {
+            "title": "Blurb",
+            "type": "string"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          },
+          "points_for": {
+            "title": "Points For",
+            "type": "number"
+          },
+          "posted_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posted Change"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "record": {
+            "title": "Record",
+            "type": "string"
+          },
+          "standing": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Standing"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          },
+          "written_name": {
+            "title": "Written Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "rank",
+          "change",
+          "posted_change",
+          "record",
+          "standing",
+          "points_for",
+          "written_name",
+          "blurb"
+        ],
+        "title": "PowerRankingEntry",
+        "type": "object"
+      },
+      "PowerRankingImport": {
+        "properties": {
+          "posts": {
+            "items": {
+              "$ref": "#/components/schemas/PowerRankingImportPost"
+            },
+            "title": "Posts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "posts"
+        ],
+        "title": "PowerRankingImport",
+        "type": "object"
+      },
+      "PowerRankingImportEntry": {
+        "properties": {
+          "blurb": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blurb"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "record": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          },
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
+          }
+        },
+        "required": [
+          "rank"
+        ],
+        "title": "PowerRankingImportEntry",
+        "type": "object"
+      },
+      "PowerRankingImportPost": {
+        "properties": {
+          "author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "entries": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PowerRankingImportEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "format": {
+            "default": "text",
+            "title": "Format",
+            "type": "string"
+          },
+          "image_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Base64"
+          },
+          "image_mime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Mime"
+          },
+          "kind": {
+            "default": "rankings",
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "posted_at": {
+            "title": "Posted At",
+            "type": "string"
+          },
+          "season": {
+            "title": "Season",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "season",
+          "week",
+          "posted_at"
+        ],
+        "title": "PowerRankingImportPost",
+        "type": "object"
+      },
+      "PowerRankingImportResult": {
+        "properties": {
+          "posts": {
+            "title": "Posts",
+            "type": "integer"
+          },
+          "rankings": {
+            "title": "Rankings",
+            "type": "integer"
+          },
+          "seasons": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Seasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "posts",
+          "rankings",
+          "seasons"
+        ],
+        "title": "PowerRankingImportResult",
+        "type": "object"
+      },
+      "PowerRankingPost": {
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "has_entries": {
+            "title": "Has Entries",
+            "type": "boolean"
+          },
+          "has_image": {
+            "title": "Has Image",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_guest": {
+            "title": "Is Guest",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "posted_at": {
+            "title": "Posted At",
+            "type": "string"
+          },
+          "season": {
+            "title": "Season",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "season",
+          "week",
+          "posted_at",
+          "title",
+          "author",
+          "is_guest",
+          "kind",
+          "format",
+          "has_image",
+          "has_entries",
+          "note",
+          "text"
+        ],
+        "title": "PowerRankingPost",
+        "type": "object"
+      },
+      "PowerRankingPostSummary": {
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "has_entries": {
+            "title": "Has Entries",
+            "type": "boolean"
+          },
+          "has_image": {
+            "title": "Has Image",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_guest": {
+            "title": "Is Guest",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "posted_at": {
+            "title": "Posted At",
+            "type": "string"
+          },
+          "season": {
+            "title": "Season",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "season",
+          "week",
+          "posted_at",
+          "title",
+          "author",
+          "is_guest",
+          "kind",
+          "format",
+          "has_image",
+          "has_entries",
+          "note"
+        ],
+        "title": "PowerRankingPostSummary",
+        "type": "object"
+      },
+      "PowerRankingSeason": {
+        "properties": {
+          "last_week": {
+            "title": "Last Week",
+            "type": "integer"
+          },
+          "live": {
+            "title": "Live",
+            "type": "boolean"
+          },
+          "previews": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Previews",
+            "type": "array"
+          },
+          "reg_weeks": {
+            "title": "Reg Weeks",
+            "type": "integer"
+          },
+          "season": {
+            "title": "Season",
+            "type": "integer"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/PowerRankingTeam"
+            },
+            "title": "Teams",
+            "type": "array"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/PowerRankingWeek"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "season",
+          "reg_weeks",
+          "last_week",
+          "live",
+          "teams",
+          "weeks",
+          "previews"
+        ],
+        "title": "PowerRankingSeason",
+        "type": "object"
+      },
+      "PowerRankingTeam": {
+        "properties": {
+          "final_standing": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Standing"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "reg_standing": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reg Standing"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team_id",
+          "team_name",
+          "owner_id",
+          "owner_name",
+          "final_standing",
+          "reg_standing"
+        ],
+        "title": "PowerRankingTeam",
+        "type": "object"
+      },
+      "PowerRankingWeek": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/PowerRankingEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "extra_post_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Extra Post Ids",
+            "type": "array"
+          },
+          "games": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "post_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Post Id"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_week": {
+            "title": "Source Week",
+            "type": "integer"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "source",
+          "source_week",
+          "post_id",
+          "extra_post_ids",
+          "entries",
+          "games"
+        ],
+        "title": "PowerRankingWeek",
+        "type": "object"
+      },
+      "PowerRankings": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "posts": {
+            "items": {
+              "$ref": "#/components/schemas/PowerRankingPostSummary"
+            },
+            "title": "Posts",
+            "type": "array"
+          },
+          "primary_author": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Author"
+          },
+          "seasons": {
+            "items": {
+              "$ref": "#/components/schemas/PowerRankingSeason"
+            },
+            "title": "Seasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "league_id",
+          "primary_author",
+          "posts",
+          "seasons"
+        ],
+        "title": "PowerRankings",
+        "type": "object"
+      },
+      "RecordEntry": {
+        "properties": {
+          "opp_team_id": {
+            "title": "Opp Team Id",
+            "type": "integer"
+          },
+          "opponent": {
+            "title": "Opponent",
+            "type": "string"
+          },
+          "own_team_id": {
+            "title": "Own Team Id",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value",
+          "year",
+          "week",
+          "opponent",
+          "own_team_id",
+          "opp_team_id"
+        ],
+        "title": "RecordEntry",
+        "type": "object"
+      },
+      "Rivalry": {
+        "properties": {
+          "avg_pa": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Pa"
+          },
+          "avg_pf": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Pf"
+          },
+          "last_meeting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RivalryLastMeeting"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "losses": {
+            "title": "Losses",
+            "type": "integer"
+          },
+          "meetings": {
+            "title": "Meetings",
+            "type": "integer"
+          },
+          "opponent_id": {
+            "title": "Opponent Id",
+            "type": "string"
+          },
+          "opponent_name": {
+            "title": "Opponent Name",
+            "type": "string"
+          },
+          "opponent_team_name": {
+            "title": "Opponent Team Name",
+            "type": "string"
+          },
+          "playoff_losses": {
+            "title": "Playoff Losses",
+            "type": "integer"
+          },
+          "playoff_meetings": {
+            "title": "Playoff Meetings",
+            "type": "integer"
+          },
+          "playoff_wins": {
+            "title": "Playoff Wins",
+            "type": "integer"
+          },
+          "points_against": {
+            "title": "Points Against",
+            "type": "number"
+          },
+          "points_for": {
+            "title": "Points For",
+            "type": "number"
+          },
+          "ties": {
+            "title": "Ties",
+            "type": "integer"
+          },
+          "wins": {
+            "title": "Wins",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "opponent_id",
+          "opponent_name",
+          "opponent_team_name",
+          "meetings",
+          "wins",
+          "losses",
+          "ties",
+          "points_for",
+          "points_against",
+          "avg_pf",
+          "avg_pa",
+          "playoff_meetings",
+          "playoff_wins",
+          "playoff_losses",
+          "last_meeting"
+        ],
+        "title": "Rivalry",
+        "type": "object"
+      },
+      "RivalryLastMeeting": {
+        "properties": {
+          "is_playoff": {
+            "title": "Is Playoff",
+            "type": "boolean"
+          },
+          "opponent_score": {
+            "title": "Opponent Score",
+            "type": "number"
+          },
+          "opponent_team_id": {
+            "title": "Opponent Team Id",
+            "type": "integer"
+          },
+          "own_team_id": {
+            "title": "Own Team Id",
+            "type": "integer"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "week",
+          "result",
+          "score",
+          "opponent_score",
+          "is_playoff",
+          "own_team_id",
+          "opponent_team_id"
+        ],
+        "title": "RivalryLastMeeting",
+        "type": "object"
+      },
+      "RivalrySummary": {
+        "properties": {
+          "opponents": {
+            "items": {
+              "$ref": "#/components/schemas/Rivalry"
+            },
+            "title": "Opponents",
+            "type": "array"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "owner_team_name": {
+            "title": "Owner Team Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner_id",
+          "owner_name",
+          "owner_team_name",
+          "opponents"
+        ],
+        "title": "RivalrySummary",
+        "type": "object"
+      },
+      "ScoreboardMatchup": {
+        "properties": {
+          "is_bye": {
+            "title": "Is Bye",
+            "type": "boolean"
+          },
+          "is_playoff": {
+            "title": "Is Playoff",
+            "type": "boolean"
+          },
+          "round_label": {
+            "title": "Round Label",
+            "type": "string"
+          },
+          "team_a_id": {
+            "title": "Team A Id",
+            "type": "integer"
+          },
+          "team_a_name": {
+            "title": "Team A Name",
+            "type": "string"
+          },
+          "team_a_owner": {
+            "title": "Team A Owner",
+            "type": "string"
+          },
+          "team_a_score": {
+            "title": "Team A Score",
+            "type": "number"
+          },
+          "team_b_id": {
+            "title": "Team B Id",
+            "type": "integer"
+          },
+          "team_b_name": {
+            "title": "Team B Name",
+            "type": "string"
+          },
+          "team_b_owner": {
+            "title": "Team B Owner",
+            "type": "string"
+          },
+          "team_b_score": {
+            "title": "Team B Score",
+            "type": "number"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          },
+          "winner_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner Id"
+          }
+        },
+        "required": [
+          "week",
+          "is_playoff",
+          "round_label",
+          "is_bye",
+          "team_a_id",
+          "team_a_name",
+          "team_a_owner",
+          "team_a_score",
+          "team_b_id",
+          "team_b_name",
+          "team_b_owner",
+          "team_b_score",
+          "winner_id"
+        ],
+        "title": "ScoreboardMatchup",
+        "type": "object"
+      },
+      "SeasonCloseGames": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/CloseGameRecord"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "records"
+        ],
+        "title": "SeasonCloseGames",
+        "type": "object"
+      },
+      "SeasonMoves": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "moves": {
+            "items": {
+              "$ref": "#/components/schemas/Move"
+            },
+            "title": "Moves",
+            "type": "array"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "unavailable": {
+            "default": false,
+            "title": "Unavailable",
+            "type": "boolean"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "league_id",
+          "year",
+          "supported",
+          "moves"
+        ],
+        "title": "SeasonMoves",
+        "type": "object"
+      },
+      "SeasonPlayoffs": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "matchups": {
+            "items": {
+              "$ref": "#/components/schemas/PlayoffMatchup"
+            },
+            "title": "Matchups",
+            "type": "array"
+          },
+          "playoff_team_count": {
+            "title": "Playoff Team Count",
+            "type": "integer"
+          },
+          "playoff_weeks": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Playoff Weeks",
+            "type": "array"
+          },
+          "reg_season_count": {
+            "title": "Reg Season Count",
+            "type": "integer"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/PlayoffTeam"
+            },
+            "title": "Teams",
+            "type": "array"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "league_id",
+          "year",
+          "playoff_team_count",
+          "reg_season_count",
+          "playoff_weeks",
+          "teams",
+          "matchups"
+        ],
+        "title": "SeasonPlayoffs",
+        "type": "object"
+      },
+      "SeasonPositionStats": {
+        "properties": {
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/PositionTeamStats"
+            },
+            "title": "Teams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "position",
+          "teams"
+        ],
+        "title": "SeasonPositionStats",
+        "type": "object"
+      },
+      "SeasonPositionalStats": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "missing_weeks": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Missing Weeks",
+            "type": "array"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/SeasonPositionStats"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "reg_season_count": {
+            "title": "Reg Season Count",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "league_id",
+          "year",
+          "reg_season_count",
+          "positions"
+        ],
+        "title": "SeasonPositionalStats",
+        "type": "object"
+      },
+      "SeasonScoreboard": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "matchups": {
+            "items": {
+              "$ref": "#/components/schemas/ScoreboardMatchup"
+            },
+            "title": "Matchups",
+            "type": "array"
+          },
+          "weeks": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Weeks",
+            "type": "array"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "league_id",
+          "year",
+          "weeks",
+          "matchups"
+        ],
+        "title": "SeasonScoreboard",
+        "type": "object"
+      },
+      "SeasonTeams": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "scoring_type": {
+            "default": "standard",
+            "title": "Scoring Type",
+            "type": "string"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/Team"
+            },
+            "title": "Teams",
+            "type": "array"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "league_id",
+          "year",
+          "teams"
+        ],
+        "title": "SeasonTeams",
+        "type": "object"
+      },
+      "SeasonTrades": {
+        "properties": {
+          "espn_trade_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Espn Trade Count"
+          },
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "trades": {
+            "items": {
+              "$ref": "#/components/schemas/Trade"
+            },
+            "title": "Trades",
+            "type": "array"
+          },
+          "unavailable": {
+            "default": false,
+            "title": "Unavailable",
+            "type": "boolean"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "league_id",
+          "year",
+          "supported",
+          "trades"
+        ],
+        "title": "SeasonTrades",
+        "type": "object"
+      },
+      "SignupRequest": {
+        "properties": {
+          "invite_code": {
+            "title": "Invite Code",
+            "type": "string"
+          },
+          "password": {
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "invite_code"
+        ],
+        "title": "SignupRequest",
+        "type": "object"
+      },
+      "Team": {
+        "properties": {
+          "abbrev": {
+            "title": "Abbrev",
+            "type": "string"
+          },
+          "avg_plus_minus": {
+            "title": "Avg Plus Minus",
+            "type": "number"
+          },
+          "avg_points_against": {
+            "title": "Avg Points Against",
+            "type": "number"
+          },
+          "avg_points_for": {
+            "title": "Avg Points For",
+            "type": "number"
+          },
+          "final_standing": {
+            "title": "Final Standing",
+            "type": "integer"
+          },
+          "losses": {
+            "title": "Losses",
+            "type": "integer"
+          },
+          "owners": {
+            "items": {
+              "$ref": "#/components/schemas/Owner"
+            },
+            "title": "Owners",
+            "type": "array"
+          },
+          "playoff_losses": {
+            "title": "Playoff Losses",
+            "type": "integer"
+          },
+          "playoff_wins": {
+            "title": "Playoff Wins",
+            "type": "integer"
+          },
+          "points_against": {
+            "title": "Points Against",
+            "type": "number"
+          },
+          "points_for": {
+            "title": "Points For",
+            "type": "number"
+          },
+          "scores": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Scores",
+            "type": "array"
+          },
+          "standing": {
+            "title": "Standing",
+            "type": "integer"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          },
+          "ties": {
+            "title": "Ties",
+            "type": "integer"
+          },
+          "wins": {
+            "title": "Wins",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "team_id",
+          "team_name",
+          "abbrev",
+          "owners",
+          "wins",
+          "losses",
+          "ties",
+          "playoff_wins",
+          "playoff_losses",
+          "points_for",
+          "points_against",
+          "avg_points_for",
+          "avg_points_against",
+          "avg_plus_minus",
+          "final_standing",
+          "standing",
+          "scores"
+        ],
+        "title": "Team",
+        "type": "object"
+      },
+      "TeamHub": {
+        "properties": {
+          "accolades": {
+            "$ref": "#/components/schemas/TeamHubAccolades"
+          },
+          "available_years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Available Years",
+            "type": "array"
+          },
+          "avg_finish": {
+            "title": "Avg Finish",
+            "type": "number"
+          },
+          "career_avg_pf": {
+            "title": "Career Avg Pf",
+            "type": "number"
+          },
+          "current_team_name": {
+            "title": "Current Team Name",
+            "type": "string"
+          },
+          "half_ppr_avg_pf": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Half Ppr Avg Pf"
+          },
+          "last_matchup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamHubLastMatchup"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "ppr_avg_pf": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ppr Avg Pf"
+          },
+          "records": {
+            "$ref": "#/components/schemas/TeamHubRecords"
+          },
+          "roster": {
+            "items": {
+              "$ref": "#/components/schemas/TeamHubPlayer"
+            },
+            "title": "Roster",
+            "type": "array"
+          },
+          "schedule": {
+            "items": {
+              "$ref": "#/components/schemas/TeamHubGame"
+            },
+            "title": "Schedule",
+            "type": "array"
+          },
+          "seasons_played": {
+            "title": "Seasons Played",
+            "type": "integer"
+          },
+          "selected_avg_pf": {
+            "title": "Selected Avg Pf",
+            "type": "number"
+          },
+          "selected_finish": {
+            "title": "Selected Finish",
+            "type": "integer"
+          },
+          "selected_team_id": {
+            "title": "Selected Team Id",
+            "type": "integer"
+          },
+          "selected_team_name": {
+            "title": "Selected Team Name",
+            "type": "string"
+          },
+          "selected_year": {
+            "title": "Selected Year",
+            "type": "integer"
+          },
+          "standard_avg_pf": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Standard Avg Pf"
+          }
+        },
+        "required": [
+          "owner_id",
+          "owner_name",
+          "current_team_name",
+          "selected_year",
+          "selected_team_id",
+          "selected_team_name",
+          "selected_finish",
+          "selected_avg_pf",
+          "seasons_played",
+          "avg_finish",
+          "career_avg_pf",
+          "available_years",
+          "roster",
+          "last_matchup",
+          "schedule",
+          "accolades",
+          "records"
+        ],
+        "title": "TeamHub",
+        "type": "object"
+      },
+      "TeamHubAccolades": {
+        "properties": {
+          "championship_years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Championship Years",
+            "type": "array"
+          },
+          "championships": {
+            "title": "Championships",
+            "type": "integer"
+          },
+          "last_place_years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Last Place Years",
+            "type": "array"
+          },
+          "last_places": {
+            "title": "Last Places",
+            "type": "integer"
+          },
+          "runner_up_years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Runner Up Years",
+            "type": "array"
+          },
+          "runner_ups": {
+            "title": "Runner Ups",
+            "type": "integer"
+          },
+          "third_place_years": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Third Place Years",
+            "type": "array"
+          },
+          "third_places": {
+            "title": "Third Places",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "championships",
+          "runner_ups",
+          "third_places",
+          "last_places",
+          "championship_years",
+          "runner_up_years",
+          "third_place_years",
+          "last_place_years"
+        ],
+        "title": "TeamHubAccolades",
+        "type": "object"
+      },
+      "TeamHubGame": {
+        "description": "A single game on the team's season schedule.",
+        "properties": {
+          "is_bye": {
+            "title": "Is Bye",
+            "type": "boolean"
+          },
+          "is_playoff": {
+            "title": "Is Playoff",
+            "type": "boolean"
+          },
+          "opp_owner_name": {
+            "title": "Opp Owner Name",
+            "type": "string"
+          },
+          "opp_score": {
+            "title": "Opp Score",
+            "type": "number"
+          },
+          "opp_team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opp Team Id"
+          },
+          "opp_team_name": {
+            "title": "Opp Team Name",
+            "type": "string"
+          },
+          "own_score": {
+            "title": "Own Score",
+            "type": "number"
+          },
+          "own_team_id": {
+            "title": "Own Team Id",
+            "type": "integer"
+          },
+          "own_team_name": {
+            "title": "Own Team Name",
+            "type": "string"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "round_label": {
+            "title": "Round Label",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "round_label",
+          "is_playoff",
+          "is_bye",
+          "own_team_id",
+          "own_team_name",
+          "own_score",
+          "opp_team_id",
+          "opp_team_name",
+          "opp_owner_name",
+          "opp_score",
+          "result"
+        ],
+        "title": "TeamHubGame",
+        "type": "object"
+      },
+      "TeamHubLastMatchup": {
+        "properties": {
+          "is_playoff": {
+            "title": "Is Playoff",
+            "type": "boolean"
+          },
+          "opp_owner_name": {
+            "title": "Opp Owner Name",
+            "type": "string"
+          },
+          "opp_score": {
+            "title": "Opp Score",
+            "type": "number"
+          },
+          "opp_team_id": {
+            "title": "Opp Team Id",
+            "type": "integer"
+          },
+          "opp_team_name": {
+            "title": "Opp Team Name",
+            "type": "string"
+          },
+          "own_score": {
+            "title": "Own Score",
+            "type": "number"
+          },
+          "own_team_id": {
+            "title": "Own Team Id",
+            "type": "integer"
+          },
+          "own_team_name": {
+            "title": "Own Team Name",
+            "type": "string"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "round_label": {
+            "title": "Round Label",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "week",
+          "round_label",
+          "is_playoff",
+          "own_team_id",
+          "own_team_name",
+          "own_score",
+          "opp_team_id",
+          "opp_team_name",
+          "opp_owner_name",
+          "opp_score",
+          "result"
+        ],
+        "title": "TeamHubLastMatchup",
+        "type": "object"
+      },
+      "TeamHubPlayer": {
+        "properties": {
+          "injury_status": {
+            "default": "",
+            "title": "Injury Status",
+            "type": "string"
+          },
+          "lineup_slot": {
+            "title": "Lineup Slot",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "player_id": {
+            "title": "Player Id",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "pro_team": {
+            "title": "Pro Team",
+            "type": "string"
+          },
+          "total_points": {
+            "title": "Total Points",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "player_id",
+          "position",
+          "lineup_slot",
+          "pro_team",
+          "total_points"
+        ],
+        "title": "TeamHubPlayer",
+        "type": "object"
+      },
+      "TeamHubRecords": {
+        "properties": {
+          "biggest_loss_margin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "biggest_win_margin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "highest_score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "longest_loss_streak": {
+            "title": "Longest Loss Streak",
+            "type": "integer"
+          },
+          "longest_win_streak": {
+            "title": "Longest Win Streak",
+            "type": "integer"
+          },
+          "lowest_score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordEntry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "highest_score",
+          "lowest_score",
+          "biggest_win_margin",
+          "biggest_loss_margin",
+          "longest_win_streak",
+          "longest_loss_streak"
+        ],
+        "title": "TeamHubRecords",
+        "type": "object"
+      },
+      "Trade": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "integer"
+          },
+          "margin": {
+            "title": "Margin",
+            "type": "number"
+          },
+          "sides": {
+            "items": {
+              "$ref": "#/components/schemas/TradeSide"
+            },
+            "title": "Sides",
+            "type": "array"
+          },
+          "uid": {
+            "title": "Uid",
+            "type": "string"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          },
+          "winner_team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner Team Id"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "uid",
+          "date",
+          "week",
+          "sides",
+          "winner_team_id",
+          "margin"
+        ],
+        "title": "Trade",
+        "type": "object"
+      },
+      "TradePlayer": {
+        "properties": {
+          "bench_points": {
+            "title": "Bench Points",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "player_id": {
+            "title": "Player Id",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "started_points": {
+            "title": "Started Points",
+            "type": "number"
+          },
+          "war": {
+            "title": "War",
+            "type": "number"
+          },
+          "weeks_started": {
+            "title": "Weeks Started",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "player_id",
+          "name",
+          "position",
+          "started_points",
+          "bench_points",
+          "weeks_started",
+          "war"
+        ],
+        "title": "TradePlayer",
+        "type": "object"
+      },
+      "TradeSentPlayer": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "player_id": {
+            "title": "Player Id",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          }
+        },
+        "required": [
+          "player_id",
+          "name",
+          "position"
+        ],
+        "title": "TradeSentPlayer",
+        "type": "object"
+      },
+      "TradeSide": {
+        "properties": {
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "owner_id": {
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "ppg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ppg"
+          },
+          "ppg_if_kept": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ppg If Kept"
+          },
+          "received": {
+            "items": {
+              "$ref": "#/components/schemas/TradePlayer"
+            },
+            "title": "Received",
+            "type": "array"
+          },
+          "sent": {
+            "items": {
+              "$ref": "#/components/schemas/TradeSentPlayer"
+            },
+            "title": "Sent",
+            "type": "array"
+          },
+          "started_points": {
+            "title": "Started Points",
+            "type": "number"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          },
+          "war": {
+            "title": "War",
+            "type": "number"
+          }
+        },
+        "required": [
+          "team_id",
+          "team_name",
+          "owner_id",
+          "owner_name",
+          "received",
+          "sent",
+          "started_points",
+          "war",
+          "ppg",
+          "ppg_if_kept",
+          "games"
+        ],
+        "title": "TradeSide",
+        "type": "object"
+      },
+      "UpdateLeagueRequest": {
+        "properties": {
+          "clear_favorite": {
+            "default": false,
+            "title": "Clear Favorite",
+            "type": "boolean"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "espn_s2": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Espn S2"
+          },
+          "favorite_owner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorite Owner Id"
+          },
+          "swid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swid"
+          }
+        },
+        "title": "UpdateLeagueRequest",
+        "type": "object"
+      },
+      "UserResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_admin": {
+            "title": "Is Admin",
+            "type": "boolean"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "is_admin"
+        ],
+        "title": "UserResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WeekBoxScores": {
+        "properties": {
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "matchups": {
+            "items": {
+              "$ref": "#/components/schemas/BoxScoreMatchup"
+            },
+            "title": "Matchups",
+            "type": "array"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "league_id",
+          "year",
+          "week",
+          "matchups"
+        ],
+        "title": "WeekBoxScores",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "espn_fantasy_stats",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/admin/invite": {
+      "post": {
+        "description": "Admins only: a new invite code, valid for 1, 6, 12 or 24 hours and up to\n`max_uses` sign-ups. Only its hash is stored, so the code is shown once.",
+        "operationId": "admin_generate_invite_api_admin_invite_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateInviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteCodeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Generate Invite"
+      }
+    },
+    "/api/auth/change_password": {
+      "post": {
+        "description": "Change the signed-in user's password, given the current one.",
+        "operationId": "auth_change_password_api_auth_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Auth Change Password"
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "description": "Sign in with a username and password; sets the session cookie.",
+        "operationId": "auth_login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Auth Login"
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "description": "End the current session.",
+        "operationId": "auth_logout_api_auth_logout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auth Logout"
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "description": "The signed-in user (from the session or an API token); 401 if none.",
+        "operationId": "auth_me_api_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auth Me"
+      }
+    },
+    "/api/auth/signup": {
+      "post": {
+        "description": "Create an account with a valid, unexpired invite code (bcrypt-hashed, so\nevery live code is checked in turn). Doesn't sign the new user in.",
+        "operationId": "auth_signup_api_auth_signup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Auth Signup"
+      }
+    },
+    "/api/health": {
+      "get": {
+        "description": "Liveness probe. Deliberately does not touch Postgres \u2014 the keep-warm\ncron hits this every few minutes, and waking Neon that often would burn\nits free compute-hour budget for no benefit.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/leagues/{league_id}/aggregate": {
+      "get": {
+        "description": "Career totals per owner over the seasons from `start_year` to `end_year`\n(inclusive; every season by default).",
+        "operationId": "aggregate_api_leagues__league_id__aggregate_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Year"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Year"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueAggregate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Aggregate"
+      }
+    },
+    "/api/leagues/{league_id}/close_games": {
+      "get": {
+        "description": "Close-game records for every season.\n\nSplit from /seasons because it needs each season's full matchup list, which\non a cold cache means a fresh ESPN fetch per year. The client renders the\nseason table first and fills this column in when it arrives.",
+        "operationId": "close_games_api_leagues__league_id__close_games_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloseGames"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Games"
+      }
+    },
+    "/api/leagues/{league_id}/head_to_head": {
+      "get": {
+        "description": "Every meeting between two owners across every season, with their record,\npoints and the matchup list.",
+        "operationId": "head_to_head_api_leagues__league_id__head_to_head_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner_a",
+            "required": true,
+            "schema": {
+              "title": "Owner A",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner_b",
+            "required": true,
+            "schema": {
+              "title": "Owner B",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeadToHeadStats"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Head To Head"
+      }
+    },
+    "/api/leagues/{league_id}/head_to_head/summary": {
+      "get": {
+        "description": "One owner's record against every other owner, in one request.\n\nThe Head to Head page shows this before an opponent is picked. It reads the\nsame cached teams and matchups as the pairwise endpoint below, once per\nseason, instead of the page firing a request per opponent.",
+        "operationId": "head_to_head_summary_api_leagues__league_id__head_to_head_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner",
+            "required": true,
+            "schema": {
+              "title": "Owner",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RivalrySummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Head To Head Summary"
+      }
+    },
+    "/api/leagues/{league_id}/info": {
+      "get": {
+        "description": "The league's display name and every season it has played.",
+        "operationId": "league_info_api_leagues__league_id__info_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "League Info"
+      }
+    },
+    "/api/leagues/{league_id}/owner_history": {
+      "get": {
+        "description": "Every owner's season-by-season results, for Trends and owner pickers.",
+        "operationId": "owner_history_api_leagues__league_id__owner_history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueOwnerHistory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Owner History"
+      }
+    },
+    "/api/leagues/{league_id}/owners/{owner_id}/hub": {
+      "get": {
+        "description": "One owner's Team Hub: every season they played, career records and\naccolades, and for the selected season (the latest by default) the\nroster, schedule and last matchup.",
+        "operationId": "team_hub_api_leagues__league_id__owners__owner_id__hub_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "owner_id",
+            "required": true,
+            "schema": {
+              "title": "Owner Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamHub"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Team Hub"
+      }
+    },
+    "/api/leagues/{league_id}/positional_stats/aggregate": {
+      "get": {
+        "description": "Positional stats summed per owner across every season from 2019 on.",
+        "operationId": "positional_stats_aggregate_api_leagues__league_id__positional_stats_aggregate_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaguePositionalAggregate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Positional Stats Aggregate"
+      }
+    },
+    "/api/leagues/{league_id}/power_rankings": {
+      "delete": {
+        "description": "Delete the league's whole power rankings archive, for everyone who has\nadded the league.",
+        "operationId": "delete_power_rankings_api_leagues__league_id__power_rankings_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Power Rankings"
+      },
+      "get": {
+        "description": "The league's power rankings: every post's summary and, per season, every\nregular-season week's ranks with gaps filled (see power_rankings.py).",
+        "operationId": "power_rankings_api_leagues__league_id__power_rankings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PowerRankings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Power Rankings"
+      }
+    },
+    "/api/leagues/{league_id}/power_rankings/import": {
+      "post": {
+        "description": "Replace the league's power rankings with an uploaded archive.\n\nAny member of the league can import. The archive is shared by everyone who\nhas added the league, the same way its ESPN data is.",
+        "operationId": "import_power_rankings_api_leagues__league_id__power_rankings_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PowerRankingImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PowerRankingImportResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Power Rankings"
+      }
+    },
+    "/api/leagues/{league_id}/power_rankings/posts/{post_id}": {
+      "get": {
+        "description": "One power rankings post in full, with its text.",
+        "operationId": "power_ranking_post_api_leagues__league_id__power_rankings_posts__post_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "post_id",
+            "required": true,
+            "schema": {
+              "title": "Post Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PowerRankingPost"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Power Ranking Post"
+      }
+    },
+    "/api/leagues/{league_id}/power_rankings/posts/{post_id}/image": {
+      "get": {
+        "description": "The saved image for an image post (a tier list, say).",
+        "operationId": "power_ranking_image_api_leagues__league_id__power_rankings_posts__post_id__image_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "post_id",
+            "required": true,
+            "schema": {
+              "title": "Post Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Power Ranking Image"
+      }
+    },
+    "/api/leagues/{league_id}/seasons": {
+      "get": {
+        "description": "Every team-season the league has played, one SeasonTeams per year.\n\nUnlike /aggregate this keeps each season separate, so the client can rank\nindividual seasons against each other. scoring_type rides along per year\nbecause the league has changed formats, and a PPR points total isn't\ncomparable to a standard one.",
+        "operationId": "all_seasons_api_leagues__league_id__seasons_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllSeasons"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "All Seasons"
+      }
+    },
+    "/api/leagues/{league_id}/seasons/{year}/playoffs": {
+      "get": {
+        "description": "A season's playoff teams and every playoff-week matchup, for the bracket.",
+        "operationId": "playoffs_api_leagues__league_id__seasons__year__playoffs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonPlayoffs"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Playoffs"
+      }
+    },
+    "/api/leagues/{league_id}/seasons/{year}/positional_stats": {
+      "get": {
+        "description": "Points by lineup position (QB, RB, ... D/ST) for each team in a season,\nregular season and championship-bracket playoffs (2019 on).",
+        "operationId": "positional_stats_for_year_api_leagues__league_id__seasons__year__positional_stats_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonPositionalStats"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Positional Stats For Year"
+      }
+    },
+    "/api/leagues/{league_id}/seasons/{year}/scoreboard": {
+      "get": {
+        "description": "Every matchup in a season, week by week, with names, scores and round.",
+        "operationId": "scoreboard_api_leagues__league_id__seasons__year__scoreboard_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonScoreboard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scoreboard"
+      }
+    },
+    "/api/leagues/{league_id}/seasons/{year}/teams": {
+      "get": {
+        "description": "Every team in a season: owners, record, points, standings and weekly scores.",
+        "operationId": "teams_api_leagues__league_id__seasons__year__teams_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonTeams"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Teams"
+      }
+    },
+    "/api/leagues/{league_id}/seasons/{year}/trades": {
+      "get": {
+        "description": "Every trade in a season, with what each side's new players went on to\nscore for it (app/trades.py), from the stored results (app/trade_store.py).\nESPN only keeps trades from 2019 on.",
+        "operationId": "season_trades_api_leagues__league_id__seasons__year__trades_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonTrades"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Season Trades"
+      }
+    },
+    "/api/leagues/{league_id}/seasons/{year}/transactions": {
+      "get": {
+        "description": "The season's waiver claims, free-agent pickups and drops (trades are on\n/trades). ESPN only keeps league activity from 2019 on.",
+        "operationId": "season_transactions_api_leagues__league_id__seasons__year__transactions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonMoves"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Season Transactions"
+      }
+    },
+    "/api/leagues/{league_id}/seasons/{year}/weeks/{week}/box_scores": {
+      "get": {
+        "description": "Every game in one week with both lineups, player by player (2019 on).\n404 for a week of the live season that hasn't been reached.",
+        "operationId": "box_scores_api_leagues__league_id__seasons__year__weeks__week__box_scores_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "week",
+            "required": true,
+            "schema": {
+              "title": "Week",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekBoxScores"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Box Scores"
+      }
+    },
+    "/api/leagues/{league_id}/trades": {
+      "get": {
+        "description": "Every season's trades with their results (2019 on), in one request for\nthe All seasons view. Seasons whose results are stored come straight from\nthe database; any others are calculated first.",
+        "operationId": "all_trades_api_leagues__league_id__trades_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueTrades"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "All Trades"
+      }
+    },
+    "/api/leagues/{league_id}/transactions": {
+      "get": {
+        "description": "Every season's waiver claims, pickups and drops (2019 on), in one\nrequest for the All seasons view.",
+        "operationId": "all_transactions_api_leagues__league_id__transactions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueMoves"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "All Transactions"
+      }
+    },
+    "/api/me/leagues": {
+      "get": {
+        "description": "The leagues the user has added.",
+        "operationId": "list_my_leagues_api_me_leagues_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LeagueSummary"
+                  },
+                  "title": "Response List My Leagues Api Me Leagues Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List My Leagues"
+      },
+      "post": {
+        "description": "Add an ESPN league to the user's account. Cookies are optional (public\nleagues need none) and are encrypted before they are stored. ESPN must\nconfirm the cookies can read the league first: its data is cached and\nshared by league id, so a row is what grants access to it.",
+        "operationId": "add_my_league_api_me_leagues_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLeagueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add My League"
+      }
+    },
+    "/api/me/leagues/{league_row_id}": {
+      "delete": {
+        "description": "Remove a league from the user's account. Its shared cache stays.",
+        "operationId": "delete_my_league_api_me_leagues__league_row_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_row_id",
+            "required": true,
+            "schema": {
+              "title": "League Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete My League"
+      },
+      "patch": {
+        "description": "Rename a league, replace or clear its cookies (an empty string clears),\nor set or clear the user's own team (`favorite_owner_id`). New cookies\nmust pass the same ESPN access check as adding the league.",
+        "operationId": "update_my_league_api_me_leagues__league_row_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "league_row_id",
+            "required": true,
+            "schema": {
+              "title": "League Row Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLeagueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeagueSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update My League"
+      }
+    },
+    "/api/me/tokens": {
+      "get": {
+        "description": "The user's API tokens, newest first. Never the tokens themselves.",
+        "operationId": "list_api_tokens_api_me_tokens_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApiTokenInfo"
+                  },
+                  "title": "Response List Api Tokens Api Me Tokens Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Api Tokens"
+      },
+      "post": {
+        "description": "Mint a read-only API token. The response is the only time the token is\nshown in full; at most MAX_API_TOKENS per user.",
+        "operationId": "create_api_token_api_me_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTokenCreated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Api Token"
+      }
+    },
+    "/api/me/tokens/{token_id}": {
+      "delete": {
+        "description": "Delete one of the user's API tokens; it stops working immediately.",
+        "operationId": "revoke_api_token_api_me_tokens__token_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "title": "Token Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Api Token"
+      }
+    }
+  }
+}

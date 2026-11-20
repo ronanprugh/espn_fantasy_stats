@@ -118,8 +118,10 @@ backend/
 ## Common changes
 
 - **New endpoint:** add a response model to `schemas.py` and the endpoint to
-  `main.py` (with a docstring; it shows in `/docs`). Mirror the type and add a
-  fetch function in `frontend/src/api.ts`. Put real logic in a pure module
+  `main.py` (with a docstring; it shows in `/docs`). Then run `npm run gen:api`
+  in `frontend/`, and add the type, a fetch function and a conformance check
+  in the frontend (see frontend/README.md). CI fails if the generated schema
+  is stale. Put real logic in a pure module
   with tests.
 - **Model change:** edit `models.py`, then
   `alembic revision --autogenerate -m "…"`. Review the generated file, and
