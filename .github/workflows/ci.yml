@@ -1,6 +1,6 @@
 # Checks every pull request and every push to main: the backend's lint and
-# tests, the migrations against Postgres, and the frontend's lint, type
-# check, tests and production build.
+# tests, the migrations against Postgres, the backend Docker image, and the
+# frontend's lint, type check, tests and production build.
 #
 # Only the migrations job needs a database (a Postgres service container),
 # and none needs ESPN: the backend tests use in-memory SQLite and fakes for
@@ -83,6 +83,34 @@ jobs:
         run: alembic check
       - name: Downgrade to base and back
         run: alembic downgrade base && alembic upgrade head
+
+  # The backend image as Render builds it: it must build, start, report
+  # healthy and not run as root. Nothing else checks the Dockerfile before
+  # a deploy does.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: docker build -t efs-backend backend
+      - name: Start
+        # /api/health needs no database, so a placeholder URL will do.
+        run: >-
+          docker run -d --name efs -p 8080:8080
+          -e SECRET_KEY=ci
+          -e ENCRYPTION_KEY=Zb0p3QqgWVSYcO2t4Ywq3C2yPF4QO7sGzsG0Wq2T3cE=
+          -e DATABASE_URL=postgresql+psycopg://ci:ci@localhost:5432/ci
+          efs-backend
+      - name: Healthy, answering, and not root
+        run: |
+          for i in $(seq 1 45); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' efs)" = healthy ] && break
+            sleep 2
+          done
+          docker inspect -f '{{.State.Health.Status}}' efs | grep -qx healthy || { docker logs efs; exit 1; }
+          curl -fsS localhost:8080/api/health
+          test "$(docker exec efs id -u)" != 0
 
   frontend:
     runs-on: ubuntu-latest
