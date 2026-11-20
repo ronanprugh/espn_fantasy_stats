@@ -4953,3 +4953,24 @@ button.cov:focus-visible, .pr-week-pill:focus-visible, .bump-legend-item:focus-v
   text-align: left;
   color: inherit;
 }
+
+/* Transactions: day records above the tables, and the move list. */
+.trade-callouts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  max-width: 640px;
+  margin: 12px 0 4px;
+}
+
+.moves-table td.muted {
+  color: var(--text-muted);
+}
+
+.moves-table td.nowrap {
+  white-space: nowrap;
+}
+
+.trades-page .hub-tabs {
+  margin-top: 12px;
+}

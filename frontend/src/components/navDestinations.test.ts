@@ -33,7 +33,7 @@ const ROUTER_PATHS = [
   '/team_hub',
   '/scoreboard',
   '/positional',
-  '/trades',
+  '/transactions',
   '/power_rankings',
   '/leagues',
   '/account',
@@ -84,7 +84,7 @@ describe('navigation destinations (FR U2-3)', () => {
     expect(byGroup).toEqual({
       'This Season': ['Standings', 'Scoreboard', 'Power Rankings'],
       Teams: ['Team Hub', 'Head to Head', 'Trends'],
-      History: ['All-Time', 'Playoffs', 'Positional Stats', 'Trades'],
+      History: ['All-Time', 'Playoffs', 'Positional Stats', 'Transactions'],
     })
   })
 
