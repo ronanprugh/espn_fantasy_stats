@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import {
-  fetchAllMoves,
-  fetchAllTrades,
   fetchMoves,
   fetchTrades,
   type Move,
@@ -16,6 +14,7 @@ import { SeasonPicker } from '../components/SeasonPicker'
 import { TeamLink } from '../components/TeamLink'
 import { useLeagueYears } from '../hooks/useLeagueYears'
 import { useUrlState } from '../hooks/useUrlState'
+import { loadSeasons } from '../lib/loadSeasons'
 import { isYours, useYourTeam } from '../hooks/useYourTeam'
 import {
   biggestWin,
@@ -77,36 +76,48 @@ export function TransactionsPage() {
   const [data, setData] = useState<Loaded | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // All seasons loads season by season: [done, total] while it does.
+  const [progress, setProgress] = useState<[number, number] | null>(null)
   // Trades and moves come from different endpoints; fetch only what's
-  // shown. All seasons is one request each: the server reads stored results.
+  // shown. All seasons asks for each season in turn (loadSeasons): one
+  // request for every season's ESPN work could outlast the proxy's timeout
+  // on a cold cache.
   const source = kind === 'trades' ? 'trades' : 'moves'
   const key = `${source}:${year}`
+  const seasonsKey = seasons.join(',')
 
   useEffect(() => {
     if (!leagueId || year === null) return
+    // All seasons needs the season list (a direct link can arrive before it).
+    if (year === 'all' && seasons.length === 0) return
     let cancelled = false
     setLoading(true)
     setError(null)
+    setProgress(null)
+    const years = year === 'all' ? seasons : [year]
+    const onProgress = year === 'all' ? (done: number, total: number) => !cancelled && setProgress([done, total]) : undefined
     const load: Promise<Loaded> =
       source === 'trades'
-        ? year === 'all'
-          ? fetchAllTrades(leagueId).then((r) => ({
+        ? loadSeasons(years, (y) => fetchTrades(leagueId, y), onProgress).then((rs) => {
+            const trades = rs.flatMap((r) => r.trades)
+            const counts = Object.fromEntries(
+              rs.filter((r) => r.espn_trade_count != null).map((r) => [r.year, r.espn_trade_count as number]),
+            )
+            return {
               key,
-              trades: r.trades,
+              trades,
               moves: [],
-              missing: r.unavailable_years ?? [],
-              short: tradeShortfall(r.trades, r.espn_trade_counts ?? {}),
-            }))
-          : fetchTrades(leagueId, year).then((r) => ({
-              key,
-              trades: r.trades,
-              moves: [],
-              missing: r.unavailable ? [year] : [],
-              short: r.espn_trade_count != null ? tradeShortfall(r.trades, { [year]: r.espn_trade_count }) : [],
-            }))
-        : year === 'all'
-          ? fetchAllMoves(leagueId).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable_years ?? [], short: [] }))
-          : fetchMoves(leagueId, year).then((r) => ({ key, trades: [], moves: r.moves, missing: r.unavailable ? [year] : [], short: [] }))
+              missing: rs.filter((r) => r.unavailable).map((r) => r.year),
+              short: tradeShortfall(trades, counts),
+            }
+          })
+        : loadSeasons(years, (y) => fetchMoves(leagueId, y), onProgress).then((rs) => ({
+            key,
+            trades: [],
+            moves: rs.flatMap((r) => r.moves),
+            missing: rs.filter((r) => r.unavailable).map((r) => r.year),
+            short: [],
+          }))
     load
       .then((d) => !cancelled && setData(d))
       .catch((e: Error) => !cancelled && setError(e.message))
@@ -114,9 +125,9 @@ export function TransactionsPage() {
     return () => {
       cancelled = true
     }
-    // `key` stands for the source and the season.
+    // `key` stands for the source and the season, `seasonsKey` for `seasons`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueId, key])
+  }, [leagueId, key, seasonsKey])
 
   if (!leagueId) return <NoLeagueSelected />
 
@@ -160,6 +171,11 @@ export function TransactionsPage() {
       </nav>
 
       {error && <ErrorMessage message={error} />}
+      {loading && progress && progress[1] > 1 && (
+        <p className="subtitle">
+          Loading season {Math.min(progress[0] + 1, progress[1])} of {progress[1]}…
+        </p>
+      )}
       {loading && <ListSkeleton rows={4} />}
 
       {shown && shown.missing.length > 0 && (

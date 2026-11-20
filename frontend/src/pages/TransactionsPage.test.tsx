@@ -71,6 +71,23 @@ describe('TransactionsPage', () => {
     expect(await screen.findByText('traded on to Charlie')).toBeTruthy()
   })
 
+  it('loads All seasons one season at a time and reports each one', async () => {
+    fetchTrades.mockImplementation(async (_league, year) =>
+      year === 2024
+        ? { ...season([], { unavailable: true }), year: 2024 }
+        : {
+            ...season([{ ...trade('c', 3, [side(1, 'Alpha', [], [9]), side(2, 'Bravo', [player(9, 'Henry')], [])]), year: 2025 }], {
+              espn_trade_count: 2,
+            }),
+            year: 2025,
+          },
+    )
+    renderPage('?year=all')
+    expect(await screen.findByText(/ESPN didn't return any transactions for 2024/)).toBeTruthy()
+    expect(screen.getByText(/ESPN records 2 trades in 2025 \(1 shown\)/)).toBeTruthy()
+    expect(fetchTrades.mock.calls.map((c) => c[1]).sort()).toEqual([2024, 2025])  // one request per season
+  })
+
   it('shows the season asked for even if an earlier request answers last', async () => {
     let answer2024: (v: SeasonTrades) => void = () => {}
     fetchTrades.mockImplementation((_league, year) =>
