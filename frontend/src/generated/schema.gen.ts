@@ -36,7 +36,8 @@ export interface paths {
         put?: never;
         /**
          * Auth Change Password
-         * @description Change the signed-in user's password, given the current one.
+         * @description Change the signed-in user's password, given the current one. Every
+         *     other session of theirs ends; this one carries on.
          */
         post: operations["auth_change_password_api_auth_change_password_post"];
         delete?: never;
@@ -56,7 +57,9 @@ export interface paths {
         put?: never;
         /**
          * Auth Login
-         * @description Sign in with a username and password; sets the session cookie.
+         * @description Sign in with a username and password; sets the session cookie. Too
+         *     many failures for a username, or from one client, are refused for a
+         *     while (429).
          */
         post: operations["auth_login_api_auth_login_post"];
         delete?: never;
@@ -117,7 +120,9 @@ export interface paths {
         /**
          * Auth Signup
          * @description Create an account with a valid, unexpired invite code (bcrypt-hashed, so
-         *     every live code is checked in turn). Doesn't sign the new user in.
+         *     every live code is checked in turn). Doesn't sign the new user in. Too
+         *     many failed attempts from one client are refused for a while (429): each
+         *     costs a bcrypt check per live code.
          */
         post: operations["auth_signup_api_auth_signup_post"];
         delete?: never;

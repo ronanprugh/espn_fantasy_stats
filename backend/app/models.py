@@ -31,6 +31,9 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    # Carried in each session cookie; bumping it (a password change) ends
+    # every session started before (auth.end_other_sessions).
+    session_version: Mapped[int] = mapped_column(server_default="0", nullable=False)
     created_at: Mapped[dt.datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     leagues: Mapped[list["League"]] = relationship(

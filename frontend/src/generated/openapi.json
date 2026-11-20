@@ -3602,7 +3602,7 @@
     },
     "/api/auth/change_password": {
       "post": {
-        "description": "Change the signed-in user's password, given the current one.",
+        "description": "Change the signed-in user's password, given the current one. Every\nother session of theirs ends; this one carries on.",
         "operationId": "auth_change_password_api_auth_change_password_post",
         "requestBody": {
           "content": {
@@ -3639,7 +3639,7 @@
     },
     "/api/auth/login": {
       "post": {
-        "description": "Sign in with a username and password; sets the session cookie.",
+        "description": "Sign in with a username and password; sets the session cookie. Too\nmany failures for a username, or from one client, are refused for a\nwhile (429).",
         "operationId": "auth_login_api_auth_login_post",
         "requestBody": {
           "content": {
@@ -3714,7 +3714,7 @@
     },
     "/api/auth/signup": {
       "post": {
-        "description": "Create an account with a valid, unexpired invite code (bcrypt-hashed, so\nevery live code is checked in turn). Doesn't sign the new user in.",
+        "description": "Create an account with a valid, unexpired invite code (bcrypt-hashed, so\nevery live code is checked in turn). Doesn't sign the new user in. Too\nmany failed attempts from one client are refused for a while (429): each\ncosts a bcrypt check per live code.",
         "operationId": "auth_signup_api_auth_signup_post",
         "requestBody": {
           "content": {
