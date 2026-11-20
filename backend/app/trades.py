@@ -245,8 +245,8 @@ def trade_events(transactions: Iterable[dict]) -> list[dict]:
 def trades_that_went_through(transactions: Iterable[dict]) -> int:
     """How many trades ESPN says went through: accepted, and executed or
     upheld by at least as many votes as vetoed it. The rebuild can come up
-    short of it (two trades between the same teams in a week show as one),
-    and the page says so when it does."""
+    short of it (two trades between the same two teams within a week of each
+    other show as one), and the page says so when it does."""
     by_proposal: dict[str, list[dict]] = {}
     for tx in transactions:
         kind = tx.get("type") or ""

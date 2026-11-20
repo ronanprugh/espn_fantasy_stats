@@ -90,7 +90,7 @@ export type Shortfall = { year: number; espn: number; shown: number }
 /**
  * Seasons where ESPN counts more trades than are shown. Past seasons'
  * trades are rebuilt from weekly rosters, where two trades between the same
- * two teams in the same week can't be told apart and show as one.
+ * two teams within a week of each other can't be told apart and show as one.
  */
 export function tradeShortfall(trades: readonly Trade[], espnCounts: Record<string, number>): Shortfall[] {
   return Object.entries(espnCounts)

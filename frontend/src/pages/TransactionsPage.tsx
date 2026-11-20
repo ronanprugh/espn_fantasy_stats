@@ -175,8 +175,8 @@ export function TransactionsPage() {
           {shown.short
             .map((s) => `${plural(s.espn, 'trade')} in ${s.year} (${s.shown} shown)`)
             .join(', ')}
-          . Earlier seasons' trades are rebuilt from weekly rosters, so two trades between the same two teams in the
-          same week appear as one.
+          . Earlier seasons' trades are rebuilt from weekly rosters, so two trades between the same two teams within a
+          week of each other appear as one.
         </p>
       )}
       {shown && count === 0 && shown.missing.length === 0 && (

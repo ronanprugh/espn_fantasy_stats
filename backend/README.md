@@ -96,7 +96,8 @@ backend/
   draft, pickups, drops and weekly rosters, and a player who turns up with,
   or is dropped by, a team other than his owner was traded to it.
   Limits of the rebuild, since rosters are weekly: two trades between the same
-  two teams in the same week show as one, and a player traded twice in a week
+  two teams within a week of each other show as one (the page compares the
+  count with ESPN's and says so), and a player traded twice in a week
   is credited through the middle team only when that's unambiguous. The
   middle team's line then says "traded on to …".
   `scripts/diagnose_transactions.py` prints what ESPN returns for each season
