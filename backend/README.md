@@ -48,6 +48,13 @@ backend/
    personal API token (`Authorization: Bearer efs_…`) for read-only requests.
    A 401 always means "no valid credentials": the frontend signs the user out
    on any 401, so wrong input from a signed-in user is a 400.
+   Each session cookie also carries the user's `session_version`; changing a
+   password (or `admin reset-password`) bumps it, which signs out every other
+   session. Failed sign-ins are counted in memory per username (10) and per
+   client (30) over 15 minutes, and bad invite codes per client (10); past
+   that the endpoint answers 429 with how long to wait (`auth.check_attempts`).
+   The client is the first `X-Forwarded-For` address, so the per-username
+   limit is the one that can't be dodged.
 2. **League access.** Every `/api/leagues/{league_id}/…` endpoint depends on
    `get_user_league`. `league_id` is the **ESPN** league id; the dependency
    checks the user has added that league and decrypts its cookies into a
@@ -172,7 +179,7 @@ Dependabot proposes upgrades as PRs, and CI is the gate. Be careful with
 .venv/bin/python -m app.admin create-user --username NAME [--admin]
 .venv/bin/python -m app.admin set-admin --username NAME [--revoke]
 .venv/bin/python -m app.admin add-league --username NAME --league-id ID --name "League" [--espn-s2 … --swid …]
-.venv/bin/python -m app.admin reset-password --username NAME
+.venv/bin/python -m app.admin reset-password --username NAME   # also signs them out everywhere
 .venv/bin/python -m app.admin list-users
 .venv/bin/python -m app.admin prune-cache [--dry-run]
 .venv/bin/python -m app.admin seed-from-env --username NAME [--name "League"]

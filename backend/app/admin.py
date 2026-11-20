@@ -76,8 +76,10 @@ def reset_password(args):
         if not user:
             sys.exit(f"User '{args.username}' not found")
         user.password_hash = hash_password(password)
+        # Signs them out everywhere: sessions carry the old version.
+        user.session_version = (user.session_version or 0) + 1
         db.commit()
-        print(f"Updated password for '{args.username}'")
+        print(f"Updated password for '{args.username}' (their sessions have ended)")
 
 
 def set_admin(args):

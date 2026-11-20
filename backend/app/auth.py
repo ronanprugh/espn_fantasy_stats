@@ -16,7 +16,11 @@ from a signed-in user is a 400, because the frontend signs the user out on 401.
 
 import datetime as dt
 import hashlib
+import math
 import secrets
+import threading
+import time
+from collections import deque
 
 import bcrypt
 from fastapi import Depends, HTTPException, Request, status
@@ -47,8 +51,85 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def login(request: Request, user: User) -> None:
-    """Start a session for `user` (sets the signed session cookie)."""
+    """Start a session for `user` (sets the signed session cookie). The
+    session carries the user's session version: bumping it (a password
+    change) ends every session started before."""
     request.session["user_id"] = user.id
+    request.session["sv"] = user.session_version or 0
+
+
+def end_other_sessions(request: Request, user: User) -> None:
+    """Sign the user out everywhere but here: other sessions' version no
+    longer matches. The caller commits."""
+    user.session_version = (user.session_version or 0) + 1
+    if request.session.get("user_id") == user.id:
+        request.session["sv"] = user.session_version
+
+
+def _signed_in_user(request: Request, db: Session) -> User | None:
+    """The session's user, or None (and the session cleared) when there's
+    none, or it was ended by a password change since."""
+    user_id = request.session.get("user_id")
+    if user_id is None:
+        return None
+    user = db.get(User, user_id)
+    if user is None or request.session.get("sv", 0) != (user.session_version or 0):
+        request.session.clear()
+        return None
+    return user
+
+
+# --- Rate limits ------------------------------------------------------------
+#
+# Failed sign-ins and signups, counted per key over a sliding window, in
+# memory: the backend is one process, and a restart forgetting the counts is
+# fine. Over the limit is a 429 saying how long to wait.
+
+ATTEMPT_WINDOW_S = 15 * 60
+LOGIN_FAILURES_PER_USERNAME = 10
+LOGIN_FAILURES_PER_CLIENT = 30
+SIGNUP_FAILURES_PER_CLIENT = 10
+
+_attempts: dict[str, deque[float]] = {}
+_attempts_lock = threading.Lock()
+
+
+def client_key(request: Request) -> str:
+    """Who's asking: the first X-Forwarded-For address (Vercel and Render
+    put the client there), else the connection's."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    first = forwarded.split(",")[0].strip()
+    return first or (request.client.host if request.client else "unknown")
+
+
+def check_attempts(*limits: tuple[str, int]) -> None:
+    """Raise 429 if any (key, limit) has had `limit` failures in the window."""
+    now = time.monotonic()
+    with _attempts_lock:
+        for key, limit in limits:
+            q = _attempts.get(key)
+            if not q:
+                continue
+            while q and now - q[0] > ATTEMPT_WINDOW_S:
+                q.popleft()
+            if len(q) >= limit:
+                minutes = max(1, math.ceil((ATTEMPT_WINDOW_S - (now - q[0])) / 60))
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"Too many attempts. Try again in {minutes} minute{'s' if minutes != 1 else ''}.",
+                )
+
+
+def note_failure(*keys: str) -> None:
+    now = time.monotonic()
+    with _attempts_lock:
+        for key in keys:
+            _attempts.setdefault(key, deque()).append(now)
+
+
+def clear_attempts(key: str) -> None:
+    with _attempts_lock:
+        _attempts.pop(key, None)
 
 
 def logout(request: Request) -> None:
@@ -91,15 +172,13 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     """Require an authenticated user: a signed-in session, or else a personal
     API token (`Authorization: Bearer efs_…`) on a read-only request.
     Raises 401 otherwise."""
-    user_id = request.session.get("user_id")
-    if user_id is None:
+    if request.session.get("user_id") is None:
         token = _bearer_token(request)
         if token is not None:
             return _user_from_token(request, db, token)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    user = db.get(User, user_id)
+    user = _signed_in_user(request, db)
     if user is None:
-        request.session.clear()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session invalid")
     return user
 
@@ -107,8 +186,7 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> User:
 def session_user(request: Request, db: Session = Depends(get_db)) -> User:
     """Require a signed-in browser session; an API token is not enough. For
     managing tokens, so a token can't list or mint others."""
-    user_id = request.session.get("user_id")
-    user = db.get(User, user_id) if user_id is not None else None
+    user = _signed_in_user(request, db)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return user
@@ -116,10 +194,7 @@ def session_user(request: Request, db: Session = Depends(get_db)) -> User:
 
 def optional_user(request: Request, db: Session = Depends(get_db)) -> User | None:
     """Like current_user but returns None if no session, without raising."""
-    user_id = request.session.get("user_id")
-    if user_id is None:
-        return None
-    return db.get(User, user_id)
+    return _signed_in_user(request, db)
 
 
 def require_admin(user: User = Depends(current_user)) -> User:

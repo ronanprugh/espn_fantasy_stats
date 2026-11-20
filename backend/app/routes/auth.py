@@ -10,12 +10,20 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from ..auth import (
+    LOGIN_FAILURES_PER_CLIENT,
+    LOGIN_FAILURES_PER_USERNAME,
+    SIGNUP_FAILURES_PER_CLIENT,
+    check_attempts,
+    clear_attempts,
+    client_key,
     current_user,
+    end_other_sessions,
     hash_api_token,
     hash_password,
     login,
     logout,
     new_api_token,
+    note_failure,
     require_admin,
     session_user,
     verify_password,
@@ -39,12 +47,18 @@ router = APIRouter()
 
 @router.post("/api/auth/login", response_model=UserResponse)
 def auth_login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
-    """Sign in with a username and password; sets the session cookie."""
+    """Sign in with a username and password; sets the session cookie. Too
+    many failures for a username, or from one client, are refused for a
+    while (429)."""
+    by_name, by_client = f"login:{payload.username.lower()}", f"login-client:{client_key(request)}"
+    check_attempts((by_name, LOGIN_FAILURES_PER_USERNAME), (by_client, LOGIN_FAILURES_PER_CLIENT))
     user = db.query(User).filter(User.username == payload.username).first()
     if not user or not verify_password(payload.password, user.password_hash):
+        note_failure(by_name, by_client)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )
+    clear_attempts(by_name)
     login(request, user)
     return UserResponse(id=user.id, username=user.username, is_admin=user.is_admin)
 
@@ -63,9 +77,13 @@ def auth_me(user: User = Depends(current_user)):
 
 
 @router.post("/api/auth/signup", response_model=UserResponse)
-def auth_signup(payload: SignupRequest, db: Session = Depends(get_db)):
+def auth_signup(payload: SignupRequest, request: Request, db: Session = Depends(get_db)):
     """Create an account with a valid, unexpired invite code (bcrypt-hashed, so
-    every live code is checked in turn). Doesn't sign the new user in."""
+    every live code is checked in turn). Doesn't sign the new user in. Too
+    many failed attempts from one client are refused for a while (429): each
+    costs a bcrypt check per live code."""
+    by_client = f"signup-client:{client_key(request)}"
+    check_attempts((by_client, SIGNUP_FAILURES_PER_CLIENT))
     raw = payload.invite_code.strip()
     now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
     candidates = (
@@ -77,6 +95,7 @@ def auth_signup(payload: SignupRequest, db: Session = Depends(get_db)):
         (c for c in candidates if verify_password(raw, c.code_hash)), None
     )
     if not matched:
+        note_failure(by_client)
         raise HTTPException(status_code=400, detail="Invalid or expired invite code")
     if db.query(User).filter(User.username == payload.username).first():
         raise HTTPException(status_code=409, detail="Username already taken")
@@ -152,10 +171,12 @@ def revoke_api_token(token_id: int, user: User = Depends(session_user), db: Sess
 @router.post("/api/auth/change_password")
 def auth_change_password(
     payload: ChangePasswordRequest,
+    request: Request,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    """Change the signed-in user's password, given the current one."""
+    """Change the signed-in user's password, given the current one. Every
+    other session of theirs ends; this one carries on."""
     if not verify_password(payload.current_password, user.password_hash):
         # 400, not 401: the session is fine, the input is wrong. The client
         # treats a 401 from a signed-in user as an expired session and signs
@@ -170,6 +191,7 @@ def auth_change_password(
             detail="New password must differ from the current one",
         )
     user.password_hash = hash_password(payload.new_password)
+    end_other_sessions(request, user)
     db.commit()
     return {"ok": True}
 
