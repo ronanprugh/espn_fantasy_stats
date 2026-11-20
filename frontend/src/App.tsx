@@ -3,13 +3,13 @@
  * phones, and the current page in between (`<Outlet />`). Sends anyone not
  * signed in to /login, remembering where they were headed.
  */
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { BottomTabBar } from './components/BottomTabBar'
 import { MoreSheet } from './components/MoreSheet'
 import { Sidebar } from './components/Sidebar'
 import { useAuth } from './contexts/AuthContext'
-import { SlowHint } from './components/Loading'
+import { Loading, SlowHint } from './components/Loading'
 
 const COLLAPSE_KEY = 'sidebar_collapsed'
 
@@ -48,7 +48,10 @@ export default function App() {
     <div className={`layout${collapsed ? ' sidebar-collapsed' : ''}`}>
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       <main className="content">
-        <Outlet />
+        {/* Pages load on first visit (main.tsx); the shell stays put meanwhile. */}
+        <Suspense fallback={<Loading />}>
+          <Outlet />
+        </Suspense>
       </main>
       {/* Both are hidden by CSS above 900px — see the "Bottom tab bar" block in
        * styles.css. No breakpoint detection lives in JS. */}

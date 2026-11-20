@@ -5,7 +5,7 @@
  * here and a destination in components/navDestinations.ts
  * (navDestinations.test.ts checks the two agree).
  */
-import React from 'react'
+import React, { lazy, type ComponentType } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import App from './App'
@@ -13,24 +13,35 @@ import { BASE_PATH } from './base'
 import { AuthProvider } from './contexts/AuthContext'
 import { LeagueProvider } from './contexts/LeagueContext'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { AccountPage } from './pages/AccountPage'
-import { AllTimePage } from './pages/AllTimePage'
-import { BoxScorePage } from './pages/BoxScorePage'
-import { ComparePage } from './pages/ComparePage'
 import { FrontPage } from './pages/FrontPage'
-import { HeadToHeadPage } from './pages/HeadToHeadPage'
-import { LeaguesPage } from './pages/LeaguesPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
-import { PlayoffsPage } from './pages/PlayoffsPage'
-import { PositionalStatsPage } from './pages/PositionalStatsPage'
-import { TransactionsPage } from './pages/TransactionsPage'
 import { TradesRedirect } from './pages/TradesRedirect'
-import { PowerRankingsPage } from './pages/PowerRankingsPage'
-import { ScoreboardPage } from './pages/ScoreboardPage'
-import { StandingsPage } from './pages/StandingsPage'
-import { TeamHubPage } from './pages/TeamHubPage'
 import './styles.css'
+
+/**
+ * A page loaded on first visit rather than with the app: each gets its own
+ * chunk, and Recharts goes only with the pages that chart. App's <Suspense>
+ * shows the loading placeholder meanwhile. This Week (the front page), login
+ * and signup stay in the main bundle so the first screen paints at once.
+ */
+function lazyPage<K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) {
+  return lazy(() => load().then((m) => ({ default: m[name] })))
+}
+
+const AccountPage = lazyPage(() => import('./pages/AccountPage'), 'AccountPage')
+const AllTimePage = lazyPage(() => import('./pages/AllTimePage'), 'AllTimePage')
+const BoxScorePage = lazyPage(() => import('./pages/BoxScorePage'), 'BoxScorePage')
+const ComparePage = lazyPage(() => import('./pages/ComparePage'), 'ComparePage')
+const HeadToHeadPage = lazyPage(() => import('./pages/HeadToHeadPage'), 'HeadToHeadPage')
+const LeaguesPage = lazyPage(() => import('./pages/LeaguesPage'), 'LeaguesPage')
+const PlayoffsPage = lazyPage(() => import('./pages/PlayoffsPage'), 'PlayoffsPage')
+const PositionalStatsPage = lazyPage(() => import('./pages/PositionalStatsPage'), 'PositionalStatsPage')
+const TransactionsPage = lazyPage(() => import('./pages/TransactionsPage'), 'TransactionsPage')
+const PowerRankingsPage = lazyPage(() => import('./pages/PowerRankingsPage'), 'PowerRankingsPage')
+const ScoreboardPage = lazyPage(() => import('./pages/ScoreboardPage'), 'ScoreboardPage')
+const StandingsPage = lazyPage(() => import('./pages/StandingsPage'), 'StandingsPage')
+const TeamHubPage = lazyPage(() => import('./pages/TeamHubPage'), 'TeamHubPage')
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
