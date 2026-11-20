@@ -630,21 +630,26 @@ def _season_trade_results(
     trades = trades_from_activity(
         _get_season_activity(lid, year, ctx.espn_s2, ctx.swid, refresh), year
     )
-    weeks = _get_season_scoreboard(lid, year, ctx.espn_s2, ctx.swid)["weeks"]
-    # Box scores from the first trade's week on: earlier weeks can't count.
-    box_by_week: dict[int, dict] = {}
-    first = min((t["week"] for t in trades), default=None)
-    for week in weeks:
-        if first is None or week < first:
-            continue
-        try:
-            box_by_week[week] = _get_season_box_scores(lid, year, week, ctx.espn_s2, ctx.swid)
-        except WeekNotPlayedError:
-            break
-        except Exception:
-            continue
     # Final once the season is over: its results can't change after that.
     final = season_over(_get_season_teams(lid, year, ctx.espn_s2, ctx.swid))
+    # Every completed week's box scores: WAR's baselines and the points per
+    # game draw on the whole season. The week being played is left out until
+    # it's over, so its partial scores don't count as games.
+    box_by_week: dict[int, dict] = {}
+    if trades:
+        weeks = _get_season_scoreboard(lid, year, ctx.espn_s2, ctx.swid)["weeks"]
+        current = None
+        if is_live_season(year) and not final:
+            current = get_league(lid, year, espn_s2=ctx.espn_s2, swid=ctx.swid).current_week
+        for week in weeks:
+            if current is not None and week >= current:
+                break
+            try:
+                box_by_week[week] = _get_season_box_scores(lid, year, week, ctx.espn_s2, ctx.swid)
+            except WeekNotPlayedError:
+                break
+            except Exception:
+                continue
     trade_store.save(db, lid, year, trade_outcomes(trades, box_by_week), final)
     return trade_store.load(db, lid, [year])
 

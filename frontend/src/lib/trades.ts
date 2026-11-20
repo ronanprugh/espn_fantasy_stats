@@ -9,15 +9,19 @@ export type TraderRecord = {
   trades: number
   won: number
   lost: number
-  /** Starting points gained minus given up across their trades: what their
-   * new players scored for them, less what the players they sent scored for
-   * the other side. */
-  net: number
+  /** WAR gained minus given up across their trades: what their new players
+   * added for them, less what the players they sent added for the other side. */
+  netWar: number
+  /** Points per game their trades added on average: as they played since
+   * each trade, less had they kept the players they sent. Null until a trade
+   * has a game since. */
+  ppgGain: number | null
 }
 
-/** Each owner's trades in a season: how many, won/lost, and the net points. */
+/** Each owner's trades: how many, won/lost, net WAR and points per game. */
 export function traderRecords(trades: readonly Trade[]): TraderRecord[] {
   const by = new Map<string, TraderRecord>()
+  const gains = new Map<string, number[]>()
   for (const t of trades) {
     for (const side of t.sides) {
       const r = by.get(side.owner_id) ?? {
@@ -26,7 +30,8 @@ export function traderRecords(trades: readonly Trade[]): TraderRecord[] {
         trades: 0,
         won: 0,
         lost: 0,
-        net: 0,
+        netWar: 0,
+        ppgGain: null,
       }
       r.trades += 1
       r.name = side.team_name
@@ -34,15 +39,21 @@ export function traderRecords(trades: readonly Trade[]): TraderRecord[] {
         if (t.winner_team_id === side.team_id) r.won += 1
         else r.lost += 1
       }
-      const others = t.sides.filter((s) => s !== side).reduce((n, s) => n + s.started_points, 0)
-      r.net += side.started_points - others
+      const others = t.sides.filter((s) => s !== side).reduce((n, s) => n + s.war, 0)
+      r.netWar += side.war - others
+      if (side.ppg !== null && side.ppg_if_kept !== null) {
+        const g = gains.get(side.owner_id) ?? []
+        g.push(side.ppg - side.ppg_if_kept)
+        gains.set(side.owner_id, g)
+      }
       by.set(side.owner_id, r)
     }
   }
-  return [...by.values()].sort((a, b) => b.trades - a.trades || b.net - a.net || a.name.localeCompare(b.name))
+  for (const [owner, g] of gains) by.get(owner)!.ppgGain = g.reduce((n, x) => n + x, 0) / g.length
+  return [...by.values()].sort((a, b) => b.trades - a.trades || b.netWar - a.netWar || a.name.localeCompare(b.name))
 }
 
-/** The season's most one-sided trade, by margin. */
+/** The most one-sided trade, by WAR margin. */
 export function biggestWin(trades: readonly Trade[]): Trade | null {
   return trades.reduce<Trade | null>(
     (best, t) => (t.winner_team_id !== null && (!best || t.margin > best.margin) ? t : best),

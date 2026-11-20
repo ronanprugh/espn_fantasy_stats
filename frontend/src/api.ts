@@ -105,6 +105,8 @@ export type TradePlayer = {
   started_points: number
   bench_points: number
   weeks_started: number
+  /** Wins above replacement from his starts for that side. */
+  war: number
 }
 
 export type TradeSide = {
@@ -114,8 +116,15 @@ export type TradeSide = {
   owner_name: string
   received: TradePlayer[]
   sent: { player_id: number; name: string; position: string }[]
-  /** Starting points from the players received: decides the winner. */
+  /** Starting points from the players received. */
   started_points: number
+  /** The players received's WAR: decides the winner. */
+  war: number
+  /** The team's points per game since the trade, and had it kept the players
+   * it sent, over `games` completed games (null before any). */
+  ppg: number | null
+  ppg_if_kept: number | null
+  games: number
 }
 
 export type Trade = {
@@ -128,6 +137,7 @@ export type Trade = {
   week: number
   sides: TradeSide[]
   winner_team_id: number | null
+  /** The winner's lead in WAR (wins). */
   margin: number
 }
 

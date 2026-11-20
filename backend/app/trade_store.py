@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from sqlalchemy.orm import Session
 
 from .espn_client import last_refresh_point
-from .models import TradeRecord, TradeRecordPlayer, TradeSync
+from .models import TradeRecord, TradeRecordPlayer, TradeRecordSide, TradeSync
 
 
 def _utc_naive(when: dt.datetime) -> dt.datetime:
@@ -49,6 +49,13 @@ def save(db: Session, league_id: int, season: int, trades: Iterable[dict], final
         )
         for side in t["sides"]:
             team = {k: side[k] for k in ("team_id", "team_name", "owner_id", "owner_name")}
+            record.sides.append(TradeRecordSide(
+                team_id=side["team_id"],
+                war=side["war"],
+                ppg=side["ppg"],
+                ppg_if_kept=side["ppg_if_kept"],
+                games=side["games"],
+            ))
             for p in side["received"]:
                 record.players.append(TradeRecordPlayer(
                     **team,
@@ -59,6 +66,7 @@ def save(db: Session, league_id: int, season: int, trades: Iterable[dict], final
                     started_points=p["started_points"],
                     bench_points=p["bench_points"],
                     weeks_started=p["weeks_started"],
+                    war=p["war"],
                 ))
             for p in side["sent"]:
                 record.players.append(TradeRecordPlayer(
@@ -89,6 +97,7 @@ def load(db: Session, league_id: int, seasons: Iterable[int]) -> list[dict]:
     )
     out = []
     for r in rows:
+        totals = {s.team_id: s for s in r.sides}
         sides: dict[int, dict] = {}
         for p in r.players:
             side = sides.setdefault(p.team_id, {
@@ -99,7 +108,14 @@ def load(db: Session, league_id: int, seasons: Iterable[int]) -> list[dict]:
                 "received": [],
                 "sent": [],
                 "started_points": 0.0,
+                "war": 0.0,
+                "ppg": None,
+                "ppg_if_kept": None,
+                "games": 0,
             })
+            if p.team_id in totals:
+                t = totals[p.team_id]
+                side.update(war=t.war or 0.0, ppg=t.ppg, ppg_if_kept=t.ppg_if_kept, games=t.games or 0)
             player = {"player_id": p.player_id, "name": p.player_name, "position": p.position}
             if p.action == "received":
                 side["received"].append({
@@ -107,6 +123,7 @@ def load(db: Session, league_id: int, seasons: Iterable[int]) -> list[dict]:
                     "started_points": p.started_points or 0.0,
                     "bench_points": p.bench_points or 0.0,
                     "weeks_started": p.weeks_started or 0,
+                    "war": p.war or 0.0,
                 })
                 side["started_points"] = round(side["started_points"] + (p.started_points or 0.0), 2)
             else:

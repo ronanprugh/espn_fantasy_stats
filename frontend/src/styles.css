@@ -4905,6 +4905,21 @@ button.cov:focus-visible, .pr-week-pill:focus-visible, .bump-legend-item:focus-v
   color: var(--success);
 }
 
+.trade-ppg {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.trade-ppg .pos {
+  color: var(--success);
+}
+
+.trade-ppg .neg {
+  color: var(--danger);
+}
+
 .trade-got {
   margin: 4px 0 2px;
   font-size: 10px;
@@ -4922,14 +4937,17 @@ button.cov:focus-visible, .pr-week-pill:focus-visible, .bump-legend-item:focus-v
 
 .trade-side li {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px;
+  column-gap: 8px;
   padding: 3px 0;
   font-size: 13px;
 }
 
+/* A name keeps room to be read; the numbers wrap beneath it when they don't fit. */
 .trade-player {
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: min(100%, 11em);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4942,6 +4960,7 @@ button.cov:focus-visible, .pr-week-pill:focus-visible, .bump-legend-item:focus-v
 }
 
 .trade-pts {
+  margin-left: auto;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
