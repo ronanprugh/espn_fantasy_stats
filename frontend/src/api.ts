@@ -801,6 +801,9 @@ export type SeasonPositionalStats = {
   year: number
   reg_season_count: number
   positions: SeasonPositionStats[]
+  /** Weeks ESPN wouldn't serve, left out of the totals until a later retry.
+   * Older servers omit it. */
+  missing_weeks?: number[]
 }
 
 export type PositionOwnerAggregate = {
@@ -825,6 +828,8 @@ export type LeaguePositionalAggregate = {
   league_id: number
   years: number[]
   positions: PositionAggregate[]
+  /** Season → weeks ESPN wouldn't serve (JSON keys are strings). */
+  missing_weeks?: Record<string, number[]>
 }
 
 export async function fetchPositionalStatsForYear(

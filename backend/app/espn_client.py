@@ -19,6 +19,7 @@ from datetime import datetime, time as clock_time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import requests
+import espn_api.requests.espn_requests as _espn_requests
 from espn_api.football import League
 from .season_state import season_over
 
@@ -55,13 +56,49 @@ REFRESH_POINTS: tuple[tuple[int, clock_time], ...] = (
 # points as the DB cache — otherwise an expired DB row is just rebuilt from the
 # same stale snapshot, for as long as the process lives.
 _leagues: dict[tuple[int, int], tuple[League, datetime]] = {}
-_years_cache: dict[int, list[int]] = {}
+# league id -> (its seasons, UTC time they were discovered). Rediscovered
+# after each refresh point, so a season ESPN starts serving shows up without
+# a restart.
+_years_cache: dict[int, tuple[list[int], datetime]] = {}
 
+
+# How long any ESPN request may take: (connect, read) seconds. espn_api
+# sends every request without a timeout, so one that ESPN accepts and never
+# answers would hold a worker thread for good; this gives each a limit.
+ESPN_TIMEOUT = (10, 30)
+
+
+class _RequestsWithTimeout:
+    """The `requests` module as espn_api sees it, with ESPN_TIMEOUT as the
+    default for every call. Everything else passes through unchanged."""
+
+    def __init__(self, module):
+        self._module = module
+
+    def get(self, *args, **kwargs):
+        kwargs.setdefault("timeout", ESPN_TIMEOUT)
+        return self._module.get(*args, **kwargs)
+
+    def post(self, *args, **kwargs):
+        kwargs.setdefault("timeout", ESPN_TIMEOUT)
+        return self._module.post(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._module, name)
+
+
+# espn_api makes all its requests through this module's `requests` name.
+_espn_requests.requests = _RequestsWithTimeout(requests)
 
 ESPN_GAMES = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl"
 # The earliest season probed when checking access: a league that hasn't been
 # renewed lately only answers for the seasons it played.
 FIRST_PROBE_SEASON = 2015
+
+
+class ESPNUnavailable(RuntimeError):
+    """ESPN didn't give an answer we can use: a server error, or no season
+    found for a league. Distinct from a bug on our side."""
 
 
 class LeagueAccess:
@@ -78,7 +115,7 @@ def check_league_access(league_id: int, espn_s2: str | None, swid: str | None) -
     Tries the season endpoint and the league-history endpoint, newest season
     first, back to FIRST_PROBE_SEASON. ESPN refusing access ends the search:
     the league exists and is private. Raises requests.RequestException, or
-    RuntimeError for an ESPN server error, when the answer can't be had;
+    ESPNUnavailable for an ESPN server error, when the answer can't be had;
     callers mustn't take that as access.
     """
     cookies = {"espn_s2": espn_s2, "SWID": swid} if espn_s2 and swid else None
@@ -87,13 +124,13 @@ def check_league_access(league_id: int, espn_s2: str | None, swid: str | None) -
             (f"{ESPN_GAMES}/seasons/{year}/segments/0/leagues/{league_id}", {"view": "mSettings"}),
             (f"{ESPN_GAMES}/leagueHistory/{league_id}", {"seasonId": year, "view": "mSettings"}),
         ):
-            r = requests.get(url, params=params, cookies=cookies, timeout=20)
+            r = requests.get(url, params=params, cookies=cookies, timeout=ESPN_TIMEOUT)
             if r.status_code == 200 and r.json():
                 return LeagueAccess.OK
             if r.status_code in (401, 403):
                 return LeagueAccess.DENIED
             if r.status_code >= 500:
-                raise RuntimeError(f"ESPN returned HTTP {r.status_code}")
+                raise ESPNUnavailable(f"ESPN returned HTTP {r.status_code}")
     return LeagueAccess.NOT_FOUND
 
 
@@ -175,12 +212,12 @@ def discover_years(
     probed year only if it has real game data (some seasons exist on
     ESPN before any games are played).
 
-    Cached for the life of the process, so a season that starts while the
-    server is up appears after its next restart (Render's free instance
-    restarts at least daily, when it sleeps).
+    Cached until the next refresh point (REFRESH_POINTS), like live-season
+    data, so a season ESPN starts serving appears within a day.
     """
-    if league_id in _years_cache:
-        return _years_cache[league_id]
+    hit = _years_cache.get(league_id)
+    if hit is not None and hit[1] >= last_refresh_point():
+        return hit[0]
 
     current = datetime.now().year
     last_err: Exception | None = None
@@ -198,10 +235,10 @@ def discover_years(
 
         if years:
             result = sorted(years)
-            _years_cache[league_id] = result
+            _years_cache[league_id] = (result, datetime.now(timezone.utc))
             return result
 
-    raise RuntimeError(
+    raise ESPNUnavailable(
         f"Could not discover any seasons for league {league_id} in the last "
         f"{probe_window} years: {last_err}"
     )

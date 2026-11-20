@@ -68,12 +68,17 @@ from .config import ALLOWED_ORIGINS, COOKIE_SAME_SITE, COOKIE_SECURE, SECRET_KEY
 from .crypto import decrypt, encrypt
 import datetime as dt
 import json
+import logging
+import os
 import secrets
 
 import requests
+from espn_api.requests.espn_requests import ESPNAccessDenied, ESPNInvalidLeague, ESPNUnknownError
 from .database import get_db
 from .espn_client import (
     POSITIONS_ORDER,
+    ESPN_TIMEOUT,
+    ESPNUnavailable,
     LeagueAccess,
     WeekNotPlayedError,
     check_league_access,
@@ -134,7 +139,44 @@ from .schemas import (
     PowerRankings,
 )
 
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+log = logging.getLogger("espn_fantasy_stats")
+
 app = FastAPI(title="espn_fantasy_stats")
+
+# ESPN being down, slow or refusing, as opposed to a bug on our side.
+ESPN_FAILURES = (ESPNInvalidLeague, ESPNUnknownError, ESPNUnavailable, requests.RequestException)
+
+
+def espn_failure(e: Exception, what: str) -> HTTPException:
+    """The response for an exception caught while loading ESPN data.
+
+    - An HTTPException raised on purpose inside the `try` passes through.
+    - ESPN refusing the league's cookies is a 403 saying so (not 401, which
+      the frontend takes as the user's own session expiring).
+    - ESPN failing is a 502 with a fixed message, logged as a warning.
+    - Anything else is our bug: a 500, logged with its traceback.
+
+    No response carries the exception's text: it can hold hostnames, SQL or
+    credentials-adjacent detail, and it's no use to the reader anyway.
+    """
+    if isinstance(e, HTTPException):
+        return e
+    if isinstance(e, ESPNAccessDenied):
+        log.warning("ESPN refused access (%s): %s", what, e)
+        return HTTPException(
+            status_code=403,
+            detail="ESPN refused access to this league. If it's private, its cookies may have expired: "
+            "update them on the Leagues page.",
+        )
+    if isinstance(e, ESPN_FAILURES):
+        log.warning("ESPN failed (%s): %r", what, e)
+        return HTTPException(status_code=502, detail="ESPN didn't answer just now. Try again in a minute.")
+    log.error("Unexpected error (%s)", what, exc_info=e)
+    return HTTPException(status_code=500, detail="Something went wrong on our side.")
 
 app.add_middleware(
     SessionMiddleware,
@@ -653,7 +695,7 @@ def _communication_page(league, headers: dict) -> dict:
     if "/leagueHistory/" in endpoint:
         base = endpoint.split("/leagueHistory/")[0]
         url = f"{base}/seasons/{req.year}/segments/0/leagues/{req.league_id}/communication/"
-        r = requests.get(url, params=params, headers=headers, cookies=req.cookies, timeout=30)
+        r = requests.get(url, params=params, headers=headers, cookies=req.cookies, timeout=ESPN_TIMEOUT)
         data = r.json() if r.status_code == 200 else {}
     else:
         data = req.league_get(extend="/communication/", params=params, headers=headers)
@@ -892,6 +934,10 @@ def _compute_positional_stats_for_year(
 
     if not refresh:
         cached = cache.get(league_id, year, "positional_stats_v3", fresh_since=_fresh_since(year))
+        if cached and cached.get("missing_weeks"):
+            # Built without a week ESPN wouldn't serve: good only until the
+            # next refresh point, then tried again.
+            cached = cache.get(league_id, year, "positional_stats_v3", fresh_since=last_refresh_point())
         if cached:
             return cached
 
@@ -922,11 +968,15 @@ def _compute_positional_stats_for_year(
 
     # team_id -> position -> { tot_pts, tot_games, po_pts, po_games }
     acc: dict[int, dict[str, dict]] = {}
+    missing_weeks: list[int] = []
 
     for week in range(1, total_weeks + 1):
         try:
             bs = _get_season_box_scores(league_id, year, week, espn_s2, swid, refresh)
         except Exception:
+            # Counted without this week for now, and said so; the payload is
+            # then cached only until the next refresh point (see above).
+            missing_weeks.append(week)
             continue
         week_points = compute_positional_week_points(bs)
         championship_set = championship_teams_by_week.get(week, set())
@@ -975,6 +1025,7 @@ def _compute_positional_stats_for_year(
         "year": year,
         "reg_season_count": reg_season_count,
         "positions": positions,
+        "missing_weeks": missing_weeks,
     }
     cache.put(league_id, year, "positional_stats_v3", payload)
     return payload
@@ -1005,7 +1056,7 @@ def league_info(ctx: LeagueContext = Depends(get_user_league)):
     try:
         years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+        raise espn_failure(e, "discovering seasons") from e
     return LeagueInfo(
         espn_league_id=ctx.espn_league_id,
         display_name=ctx.display_name,
@@ -1024,7 +1075,7 @@ def teams(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_use
     try:
         return _get_season_teams(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+        raise espn_failure(e, "loading ESPN data") from e
 
 
 @app.get(
@@ -1036,7 +1087,7 @@ def scoreboard(year: int, refresh: bool = False, ctx: LeagueContext = Depends(ge
     try:
         return _get_season_scoreboard(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+        raise espn_failure(e, "loading ESPN data") from e
 
 
 @app.get("/api/leagues/{league_id}/seasons/{year}/transactions", response_model=SeasonMoves)
@@ -1048,7 +1099,7 @@ def season_transactions(year: int, refresh: bool = False, ctx: LeagueContext = D
     try:
         activity = _load_season_activity(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+        raise espn_failure(e, "loading ESPN data") from e
     moves = [{**m, "year": year} for m in moves_from_activity(activity["activities"], year)]
     return {
         "league_id": ctx.espn_league_id,
@@ -1072,7 +1123,7 @@ def all_transactions(ctx: LeagueContext = Depends(get_user_league)):
                 unavailable.append(year)
             moves += [{**m, "year": year} for m in moves_from_activity(activity["activities"], year)]
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+        raise espn_failure(e, "loading ESPN data") from e
     return {"league_id": ctx.espn_league_id, "years": years, "unavailable_years": unavailable, "moves": moves}
 
 
@@ -1093,7 +1144,7 @@ def season_trades(
         unavailable = not trades and _activity_unavailable(ctx, year)
         espn_count = trade_store.espn_trade_counts(db, ctx.espn_league_id, [year]).get(year)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+        raise espn_failure(e, "loading ESPN data") from e
     return {
         "league_id": ctx.espn_league_id,
         "year": year,
@@ -1119,7 +1170,7 @@ def all_trades(ctx: LeagueContext = Depends(get_user_league), db: Session = Depe
         unavailable = [y for y in years if y not in traded and _activity_unavailable(ctx, y)]
         counts = trade_store.espn_trade_counts(db, ctx.espn_league_id, years)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+        raise espn_failure(e, "loading ESPN data") from e
     return {
         "league_id": ctx.espn_league_id,
         "years": years,
@@ -1150,7 +1201,7 @@ def box_scores(
     except WeekNotPlayedError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+        raise espn_failure(e, "loading ESPN data") from e
 
 
 @app.get(
@@ -1174,7 +1225,7 @@ def positional_stats_for_year(
             ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh
         )
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+        raise espn_failure(e, "loading ESPN data") from e
 
 
 @app.get(
@@ -1191,7 +1242,7 @@ def positional_stats_aggregate(
             ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid
         )
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+        raise espn_failure(e, "discovering seasons") from e
 
     years = [y for y in all_years if y >= 2019]
     if not years:
@@ -1203,6 +1254,7 @@ def positional_stats_aggregate(
     # Aggregate per position per owner across years.
     # owners[pos][owner_id] = {meta + tallies}
     by_pos: dict[str, dict[str, dict]] = {p: {} for p in POSITIONS_ORDER}
+    missing_weeks: dict[int, list[int]] = {}
 
     for year in years:
         try:
@@ -1210,7 +1262,9 @@ def positional_stats_aggregate(
                 ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh
             )
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+            raise espn_failure(e, f"season {year}") from e
+        if season.get("missing_weeks"):
+            missing_weeks[year] = season["missing_weeks"]
         for pos_block in season["positions"]:
             pos = pos_block["position"]
             for row in pos_block["teams"]:
@@ -1256,6 +1310,7 @@ def positional_stats_aggregate(
         "league_id": ctx.espn_league_id,
         "years": years,
         "positions": positions,
+        "missing_weeks": missing_weeks,
     }
 
 
@@ -1276,7 +1331,7 @@ def playoffs(year: int, refresh: bool = False, ctx: LeagueContext = Depends(get_
         cache.put(ctx.espn_league_id, year, "playoffs_v1", payload)
         return payload
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"ESPN error: {e}")
+        raise espn_failure(e, "loading ESPN data") from e
 
 
 @app.get(
@@ -1295,7 +1350,7 @@ def team_hub(
     try:
         all_years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+        raise espn_failure(e, "discovering seasons") from e
 
     # Gather every season this owner played in.
     seasons_by_year: dict[int, dict] = {}
@@ -1442,7 +1497,7 @@ def owner_history(refresh: bool = False, ctx: LeagueContext = Depends(get_user_l
     try:
         years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+        raise espn_failure(e, "discovering seasons") from e
     seasons = []
     for year in years:
         try:
@@ -1450,7 +1505,7 @@ def owner_history(refresh: bool = False, ctx: LeagueContext = Depends(get_user_l
                 _get_season_teams(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
             )
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+            raise espn_failure(e, f"season {year}") from e
     return {
         "league_id": ctx.espn_league_id,
         "years": years,
@@ -1466,7 +1521,7 @@ def _load_season_teams(ctx: LeagueContext, years: list[int], refresh: bool) -> l
                 _get_season_teams(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
             )
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+            raise espn_failure(e, f"season {year}") from e
     return seasons
 
 
@@ -1482,7 +1537,7 @@ def all_seasons(refresh: bool = False, ctx: LeagueContext = Depends(get_user_lea
     try:
         years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+        raise espn_failure(e, "discovering seasons") from e
     return {
         "league_id": ctx.espn_league_id,
         "years": years,
@@ -1501,7 +1556,7 @@ def close_games(refresh: bool = False, ctx: LeagueContext = Depends(get_user_lea
     try:
         years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+        raise espn_failure(e, "discovering seasons") from e
     seasons = []
     for year, teams_payload in zip(years, _load_season_teams(ctx, years, refresh)):
         games = max(
@@ -1512,7 +1567,7 @@ def close_games(refresh: bool = False, ctx: LeagueContext = Depends(get_user_lea
                 ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh
             )
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+            raise espn_failure(e, f"season {year}") from e
         records = close_game_records(matchups, games)
         seasons.append({
             "year": year,
@@ -1533,7 +1588,7 @@ def aggregate(
     try:
         available = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+        raise espn_failure(e, "discovering seasons") from e
     sy = start_year if start_year is not None else available[0]
     ey = end_year if end_year is not None else available[-1]
     years = [y for y in available if sy <= y <= ey]
@@ -1562,14 +1617,14 @@ def head_to_head_summary(
     try:
         years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not discover league years: {e}")
+        raise espn_failure(e, "discovering seasons") from e
     seasons = []
     for year in years:
         try:
             teams_payload = _get_season_teams(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
             matchups = _get_season_matchups(ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh)
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+            raise espn_failure(e, f"season {year}") from e
         seasons.append((year, teams_payload, matchups))
     return rivalry_summary(owner, seasons)
 
@@ -1588,7 +1643,7 @@ def head_to_head(
     try:
         years = discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not discover league years: {e}")
+        raise espn_failure(e, "discovering seasons") from e
 
     matchups: list[dict] = []
     owner_a_name = owner_b_name = ""
@@ -1603,7 +1658,7 @@ def head_to_head(
                 ctx.espn_league_id, year, ctx.espn_s2, ctx.swid, refresh
             )
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"ESPN error for {year}: {e}")
+            raise espn_failure(e, f"season {year}") from e
 
         team_a_in_season = next(
             (
@@ -1743,7 +1798,7 @@ def power_rankings(
             teams_payload = _get_season_teams(ctx.espn_league_id, season, ctx.espn_s2, ctx.swid, refresh)
             matchups = _get_season_matchups(ctx.espn_league_id, season, ctx.espn_s2, ctx.swid, refresh)
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"ESPN error for {season}: {e}")
+            raise espn_failure(e, f"season {season}") from e
         built = pr.build_season(
             season,
             [p for p in posts if p.season == season],
@@ -1832,7 +1887,7 @@ def import_power_rankings(
     try:
         available = set(discover_years(ctx.espn_league_id, espn_s2=ctx.espn_s2, swid=ctx.swid))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Could not discover years: {e}")
+        raise espn_failure(e, "discovering seasons") from e
     seasons_teams = {}
     for season in sorted({p.season for p in payload.posts}):
         if season not in available:
@@ -1844,7 +1899,7 @@ def import_power_rankings(
                 ctx.espn_league_id, season, ctx.espn_s2, ctx.swid
             )["teams"]
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"ESPN error for {season}: {e}")
+            raise espn_failure(e, f"season {season}") from e
     try:
         return pr.store_import(
             db, ctx.espn_league_id, [p.model_dump() for p in payload.posts], seasons_teams
