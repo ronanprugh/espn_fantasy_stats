@@ -5,7 +5,7 @@ refresh point."""
 from datetime import datetime, timezone
 from types import SimpleNamespace as NS
 
-from app import main
+from app import loaders, main
 
 
 def box(points):
@@ -35,11 +35,11 @@ def wire(monkeypatch, fail_weeks, store):
 
     monkeypatch.setattr(main.cache, "get", get)
     monkeypatch.setattr(main.cache, "put", put)
-    monkeypatch.setattr(main, "is_live_season", lambda year: False)
-    monkeypatch.setattr(main, "get_league", lambda *a, **k: league)
-    monkeypatch.setattr(main, "_get_season_teams", lambda *a, **k: teams)
-    monkeypatch.setattr(main, "_get_season_matchups", lambda *a, **k: [])
-    monkeypatch.setattr(main, "_get_season_box_scores", box_scores)
+    monkeypatch.setattr(loaders, "is_live_season", lambda year: False)
+    monkeypatch.setattr(loaders, "get_league", lambda *a, **k: league)
+    monkeypatch.setattr(loaders, "_get_season_teams", lambda *a, **k: teams)
+    monkeypatch.setattr(loaders, "_get_season_matchups", lambda *a, **k: [])
+    monkeypatch.setattr(loaders, "_get_season_box_scores", box_scores)
 
 
 def qb(payload):
@@ -50,24 +50,24 @@ def test_a_week_espn_wont_serve_is_reported_and_retried(monkeypatch):
     store = {}
     fail = {2}
     wire(monkeypatch, fail, store)
-    monkeypatch.setattr(main, "last_refresh_point", lambda: datetime(2025, 1, 2, tzinfo=timezone.utc))
+    monkeypatch.setattr(loaders, "last_refresh_point", lambda: datetime(2025, 1, 2, tzinfo=timezone.utc))
 
-    first = main._compute_positional_stats_for_year(1, 2024, None, None)
+    first = loaders._compute_positional_stats_for_year(1, 2024, None, None)
     assert first["missing_weeks"] == [2]
     assert qb(first)["games_played"] == 2 and qb(first)["total_points"] == 40.0
 
     # Stored before the latest refresh point, so it's rebuilt; ESPN serves
     # week 2 now, and the season is complete.
     fail.clear()
-    second = main._compute_positional_stats_for_year(1, 2024, None, None)
+    second = loaders._compute_positional_stats_for_year(1, 2024, None, None)
     assert second["missing_weeks"] == [] and qb(second)["games_played"] == 3
 
 
 def test_a_complete_finished_season_is_kept(monkeypatch):
     store = {}
     wire(monkeypatch, set(), store)
-    monkeypatch.setattr(main, "last_refresh_point", lambda: datetime(2030, 1, 1, tzinfo=timezone.utc))
-    main._compute_positional_stats_for_year(1, 2024, None, None)
+    monkeypatch.setattr(loaders, "last_refresh_point", lambda: datetime(2030, 1, 1, tzinfo=timezone.utc))
+    loaders._compute_positional_stats_for_year(1, 2024, None, None)
     # Even long after, a complete finished season comes from the cache.
-    monkeypatch.setattr(main, "_get_season_box_scores", lambda *a, **k: (_ for _ in ()).throw(AssertionError("refetched")))
-    assert qb(main._compute_positional_stats_for_year(1, 2024, None, None))["games_played"] == 3
+    monkeypatch.setattr(loaders, "_get_season_box_scores", lambda *a, **k: (_ for _ in ()).throw(AssertionError("refetched")))
+    assert qb(loaders._compute_positional_stats_for_year(1, 2024, None, None))["games_played"] == 3

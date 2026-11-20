@@ -2,7 +2,13 @@
 
 Module map (see backend/README.md for the full picture):
 
-- main            FastAPI app, middleware and every HTTP endpoint
+- main            FastAPI app, middleware, health check; includes the routers
+- routes/         the endpoints, one router per area (auth, leagues, seasons,
+                  transactions, teams, power_rankings)
+- deps            get_user_league: the league dependency of every data route
+- loaders         cached ESPN loaders (teams, matchups, box scores, activity,
+                  trade results, positional stats)
+- errors          espn_failure: how failures become responses
 - config          environment variables, read once at import
 - database        SQLAlchemy engine and the request-scoped session dependency
 - models          ORM tables (users, leagues, cache, power rankings, trades)

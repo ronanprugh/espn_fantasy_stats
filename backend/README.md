@@ -14,7 +14,12 @@ shape.
 ```
 backend/
 ├── app/
-│   ├── main.py            FastAPI app, middleware, every endpoint
+│   ├── main.py            FastAPI app, middleware, health; includes the routers
+│   ├── routes/            endpoints, one router per area (auth, leagues,
+│   │                      seasons, transactions, teams, power_rankings)
+│   ├── deps.py            get_user_league: the league dependency
+│   ├── loaders.py         cached ESPN loaders (`loaders.<name>` from routes)
+│   ├── errors.py          espn_failure: how failures become responses
 │   ├── config.py          environment variables (see .env.example)
 │   ├── database.py        engine, SessionLocal, get_db dependency
 │   ├── models.py          ORM tables
@@ -50,7 +55,7 @@ backend/
    row is only usable once ESPN has confirmed its cookies (or none, for a
    public league) can read the league (`espn_client.check_league_access`):
    when it's added, when its cookies change, and on first use for older rows.
-3. **Data.** A `_get_season_*` helper reads the payload from the `cache`
+3. **Data.** A `loaders._get_season_*` helper reads the payload from the `cache`
    table. If it's missing or stale it fetches from ESPN through
    `espn_client`, serialises it to plain dicts, stores it and returns it.
    `?refresh=true` skips the cache.
@@ -118,7 +123,9 @@ backend/
 ## Common changes
 
 - **New endpoint:** add a response model to `schemas.py` and the endpoint to
-  `main.py` (with a docstring; it shows in `/docs`). Then run `npm run gen:api`
+  the router for its area in `app/routes/` (with a docstring; it shows in
+  `/docs`). Call loaders as `loaders.<name>`, so tests can patch them in one
+  place (`monkeypatch.setattr(loaders, ...)`). Then run `npm run gen:api`
   in `frontend/`, and add the type, a fetch function and a conformance check
   in the frontend (see frontend/README.md). CI fails if the generated schema
   is stale. Put real logic in a pure module
