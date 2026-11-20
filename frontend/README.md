@@ -47,8 +47,14 @@ src/
 - **Shared fetches are cached per visit** in module-level maps: league years
   (`useLeagueYears`), power rankings (`usePowerRankings`) and team owners
   (`useTeamOwners`). Several pages need the same payload.
-- **Types mirror the backend by hand.** `api.ts` types follow
-  `backend/app/schemas.py`; change both together.
+- **Response types are checked against the backend.** `api.ts` keeps
+  hand-written types (with docs, and narrower than the schema where it
+  helps), and `src/generated/conformance.ts` checks each one against
+  `src/generated/schema.gen.ts`, which is generated from the backend's
+  OpenAPI schema. After changing `backend/app/schemas.py`, run
+  `npm run gen:api` (it needs `backend/.venv`) and commit the result; CI fails
+  if the generated files are stale, and `tsc` fails if `api.ts` no longer
+  fits. A new response type in `api.ts` gets a line in `conformance.ts`.
 - **Mobile is CSS first.** The shell switches at 900px in `styles.css`. Pages
   use `useIsMobile()` only when the phone layout is a different structure.
 - **Colours are tokens.** Use the CSS custom properties defined for both
