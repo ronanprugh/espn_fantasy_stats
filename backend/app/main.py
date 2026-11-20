@@ -74,7 +74,9 @@ import requests
 from .database import get_db
 from .espn_client import (
     POSITIONS_ORDER,
+    LeagueAccess,
     WeekNotPlayedError,
+    check_league_access,
     CLOSE_GAME_MARGIN,
     aggregate_by_owner,
     close_game_records,
@@ -144,6 +146,14 @@ app.add_middleware(
 
 # Power rankings ship every write-up in one response; text compresses ~4x.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+@app.middleware("http")
+async def no_sniffing(request: Request, call_next):
+    """Browsers must take every response as the type it says it is."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -364,6 +374,27 @@ def list_my_leagues(user: User = Depends(current_user), db: Session = Depends(ge
     ]
 
 
+def _require_league_access(espn_league_id: int, espn_s2: str | None, swid: str | None) -> dt.datetime:
+    """Check with ESPN that these cookies can read the league; the time of the
+    check, or an HTTPException saying why not."""
+    try:
+        access = check_league_access(espn_league_id, espn_s2, swid)
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail="Couldn't reach ESPN to check access to this league. Try again in a minute.",
+        )
+    if access == LeagueAccess.DENIED:
+        raise HTTPException(
+            status_code=403,
+            detail="ESPN didn't let these cookies read this league. For a private league, copy espn_s2 "
+            "and SWID from a browser signed in to ESPN as a member of the league.",
+        )
+    if access == LeagueAccess.NOT_FOUND:
+        raise HTTPException(status_code=404, detail="ESPN has no league with that ID in recent seasons.")
+    return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+
+
 @app.post("/api/me/leagues", response_model=LeagueSummary)
 def add_my_league(
     payload: CreateLeagueRequest,
@@ -371,7 +402,9 @@ def add_my_league(
     db: Session = Depends(get_db),
 ):
     """Add an ESPN league to the user's account. Cookies are optional (public
-    leagues need none) and are encrypted before they are stored."""
+    leagues need none) and are encrypted before they are stored. ESPN must
+    confirm the cookies can read the league first: its data is cached and
+    shared by league id, so a row is what grants access to it."""
     existing = (
         db.query(LeagueModel)
         .filter(
@@ -382,12 +415,14 @@ def add_my_league(
     )
     if existing:
         raise HTTPException(status_code=409, detail="League already added")
+    verified_at = _require_league_access(payload.espn_league_id, payload.espn_s2 or None, payload.swid or None)
     row = LeagueModel(
         user_id=user.id,
         espn_league_id=payload.espn_league_id,
         display_name=payload.display_name,
         espn_s2_encrypted=encrypt(payload.espn_s2),
         swid_encrypted=encrypt(payload.swid),
+        access_verified_at=verified_at,
     )
     db.add(row)
     db.commit()
@@ -408,7 +443,8 @@ def update_my_league(
     db: Session = Depends(get_db),
 ):
     """Rename a league, replace or clear its cookies (an empty string clears),
-    or set or clear the user's own team (`favorite_owner_id`)."""
+    or set or clear the user's own team (`favorite_owner_id`). New cookies
+    must pass the same ESPN access check as adding the league."""
     row = (
         db.query(LeagueModel)
         .filter(LeagueModel.id == league_row_id, LeagueModel.user_id == user.id)
@@ -418,10 +454,12 @@ def update_my_league(
         raise HTTPException(status_code=404, detail="League not found")
     if payload.display_name is not None:
         row.display_name = payload.display_name
-    if payload.espn_s2 is not None:
-        row.espn_s2_encrypted = encrypt(payload.espn_s2) if payload.espn_s2 else None
-    if payload.swid is not None:
-        row.swid_encrypted = encrypt(payload.swid) if payload.swid else None
+    if payload.espn_s2 is not None or payload.swid is not None:
+        espn_s2 = payload.espn_s2 if payload.espn_s2 is not None else decrypt(row.espn_s2_encrypted)
+        swid = payload.swid if payload.swid is not None else decrypt(row.swid_encrypted)
+        row.access_verified_at = _require_league_access(row.espn_league_id, espn_s2 or None, swid or None)
+        row.espn_s2_encrypted = encrypt(espn_s2) if espn_s2 else None
+        row.swid_encrypted = encrypt(swid) if swid else None
     if payload.clear_favorite:
         row.favorite_owner_id = None
     elif payload.favorite_owner_id is not None:
@@ -478,7 +516,9 @@ def get_user_league(
     db: Session = Depends(get_db),
 ) -> LeagueContext:
     """Dependency for every `/api/leagues/{league_id}/...` endpoint: 404s unless
-    the current user has added that ESPN league."""
+    the current user has added that ESPN league, and 403s unless ESPN has
+    confirmed the user's cookies can read it. Leagues added before that check
+    existed are checked here, once, on first use."""
     row = (
         db.query(LeagueModel)
         .filter(
@@ -491,10 +531,14 @@ def get_user_league(
         raise HTTPException(
             status_code=404, detail="League not in your account"
         )
+    espn_s2, swid = decrypt(row.espn_s2_encrypted), decrypt(row.swid_encrypted)
+    if row.access_verified_at is None:
+        row.access_verified_at = _require_league_access(row.espn_league_id, espn_s2, swid)
+        db.commit()
     return LeagueContext(
         espn_league_id=row.espn_league_id,
-        espn_s2=decrypt(row.espn_s2_encrypted),
-        swid=decrypt(row.swid_encrypted),
+        espn_s2=espn_s2,
+        swid=swid,
         display_name=row.display_name,
     )
 
@@ -1750,12 +1794,22 @@ def power_ranking_image(
 ):
     """The saved image for an image post (a tier list, say)."""
     post = _league_post(db, ctx.espn_league_id, post_id)
-    if post.image is None:
+    # The type comes from the bytes, not the stored label, so nothing but a
+    # real image is ever served from this origin (imports before the check
+    # existed included).
+    mime = pr.image_type(post.image)
+    if mime is None:
         raise HTTPException(status_code=404, detail="That post has no saved image.")
     return Response(
         content=post.image,
-        media_type=post.image_mime or "application/octet-stream",
-        headers={"Cache-Control": "private, max-age=86400"},
+        media_type=mime,
+        headers={
+            "Cache-Control": "private, max-age=86400",
+            "Content-Disposition": "inline",
+            # An image needs none of this; if a browser ever did render it as
+            # a document, it gets no scripts, no requests and no same-origin.
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
     )
 
 

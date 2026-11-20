@@ -46,7 +46,10 @@ backend/
 2. **League access.** Every `/api/leagues/{league_id}/…` endpoint depends on
    `get_user_league`. `league_id` is the **ESPN** league id; the dependency
    checks the user has added that league and decrypts its cookies into a
-   `LeagueContext`.
+   `LeagueContext`. ESPN data is cached and shared by league id, so a league
+   row is only usable once ESPN has confirmed its cookies (or none, for a
+   public league) can read the league (`espn_client.check_league_access`):
+   when it's added, when its cookies change, and on first use for older rows.
 3. **Data.** A `_get_season_*` helper reads the payload from the `cache`
    table. If it's missing or stale it fetches from ESPN through
    `espn_client`, serialises it to plain dicts, stores it and returns it.
