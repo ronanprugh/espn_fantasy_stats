@@ -1191,7 +1191,8 @@ body {
   color: var(--text-primary);
 }
 
-.league-form .hint {
+.league-form .hint,
+.editing-form .hint {
   font-size: 11px;
   color: var(--text-muted);
   margin: 4px 0 0;
