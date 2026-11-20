@@ -6,6 +6,7 @@ Usage (from backend/ with venv active):
     python -m app.admin add-league --username ronan --league-id 1375368 --name "Payton"
     python -m app.admin reset-password --username ronan
     python -m app.admin list-users
+    python -m app.admin prune-cache [--dry-run]
     python -m app.admin seed-from-env --username ronan
 """
 import argparse
@@ -105,6 +106,23 @@ def list_users(_args):
             print(f"  {u.id}\t{u.username}\t{league_count} leagues\t{u.created_at}{admin}")
 
 
+def prune_cache(args):
+    """Delete cached ESPN payloads stored under keys the app no longer reads
+    (left behind when a key's version is bumped)."""
+    from . import cache
+
+    retired = cache.retired_keys()
+    if not retired:
+        print("Nothing to prune: every cached row is under a current key.")
+        return
+    for key, n in sorted(retired.items()):
+        print(f"  {key}\t{n} rows")
+    if args.dry_run:
+        print(f"Would delete {sum(retired.values())} rows (dry run).")
+        return
+    print(f"Deleted {cache.prune(retired)} rows.")
+
+
 def seed_from_env(args):
     """One-shot bootstrap: create the named user + add the league in .env."""
     if not SEED_LEAGUE_ID:
@@ -173,6 +191,10 @@ def main():
 
     lu = sub.add_parser("list-users")
     lu.set_defaults(func=list_users)
+
+    pc = sub.add_parser("prune-cache", help="Delete cached rows under retired keys")
+    pc.add_argument("--dry-run", action="store_true", help="List them without deleting")
+    pc.set_defaults(func=prune_cache)
 
     sd = sub.add_parser("seed-from-env")
     sd.add_argument("--username", required=True)
