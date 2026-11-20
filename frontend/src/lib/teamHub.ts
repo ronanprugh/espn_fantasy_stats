@@ -1,4 +1,4 @@
-import type { SeasonTeams, TeamHubGame } from '../api'
+import type { SeasonTeams, TeamHubGame, TeamHubPlayer } from '../api'
 import { formatDashRecord, isInProgress } from './seasonStats'
 
 /** 1 → "1st", 2 → "2nd", 11 → "11th", 22 → "22nd". */
@@ -55,4 +55,31 @@ export function hubHeadline(season: SeasonTeams, teamId: number, schedule: reado
     pfRank: played && pfPlace > 0 ? `${ordinal(pfPlace)} in PF` : null,
     streak: currentStreak(schedule),
   }
+}
+
+/** Lineup slots in the order a lineup lists them. */
+export const STARTER_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'WR/TE', 'OP', 'FLEX', 'K', 'D/ST']
+
+/** Whether a lineup slot is a starting one (not bench, IR or empty). */
+export function isStarter(slot: string): boolean {
+  return slot !== 'BE' && slot !== 'IR' && slot !== ''
+}
+
+/** Where a slot sits in STARTER_ORDER; unknown slots last. */
+export function slotRank(slot: string): number {
+  const i = STARTER_ORDER.indexOf(slot)
+  return i === -1 ? STARTER_ORDER.length : i
+}
+
+/** A roster as Team Hub lists it: starters in lineup order, then the bench
+ * (by points, most first), then IR. */
+export function sortRoster(roster: TeamHubPlayer[]): TeamHubPlayer[] {
+  return [...roster].sort((a, b) => {
+    const aS = isStarter(a.lineup_slot)
+    const bS = isStarter(b.lineup_slot)
+    if (aS !== bS) return aS ? -1 : 1
+    if (aS) return slotRank(a.lineup_slot) - slotRank(b.lineup_slot)
+    if (a.lineup_slot !== b.lineup_slot) return a.lineup_slot === 'BE' ? -1 : 1
+    return b.total_points - a.total_points
+  })
 }

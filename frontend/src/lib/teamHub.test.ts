@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { SeasonTeams, Team, TeamHubGame } from '../api'
-import { currentStreak, hubHeadline, ordinal } from './teamHub'
+import type { SeasonTeams, Team, TeamHubGame, TeamHubPlayer } from '../api'
+import { currentStreak, hubHeadline, isStarter, ordinal, sortRoster } from './teamHub'
 
 const team = (id: number, w: number, l: number, pf: number, standing: number, final = 0): Team => ({
   team_id: id, team_name: `T${id}`, abbrev: '', owners: [], wins: w, losses: l, ties: 0,
@@ -47,5 +47,32 @@ describe('hubHeadline', () => {
     const h = hubHeadline(season([team(1, 9, 5, 1500, 3, 2), team(2, 10, 4, 1400, 1, 1)]), 1, [])!
     expect(h.standing).toBe('Finished 2nd')
     expect(h.pfRank).toBe('1st in PF')
+  })
+})
+
+describe('sortRoster', () => {
+  const p = (name: string, lineup_slot: string, total_points = 0): TeamHubPlayer => ({
+    name, player_id: 0, position: '', lineup_slot, pro_team: '', total_points, injury_status: '',
+  })
+
+  it('lists starters in lineup order, then the bench by points, then IR', () => {
+    const roster = [
+      p('ir', 'IR', 50), p('k', 'K'), p('bench low', 'BE', 10), p('flex', 'RB/WR/TE'),
+      p('qb', 'QB'), p('bench high', 'BE', 90), p('dst', 'D/ST'), p('wr', 'WR'),
+    ]
+    expect(sortRoster(roster).map((x) => x.name)).toEqual([
+      'qb', 'wr', 'flex', 'k', 'dst', 'bench high', 'bench low', 'ir',
+    ])
+  })
+
+  it('puts unknown starting slots after the known ones, and leaves its input alone', () => {
+    const roster = [p('mystery', 'XX'), p('qb', 'QB')]
+    expect(sortRoster(roster).map((x) => x.name)).toEqual(['qb', 'mystery'])
+    expect(roster[0].name).toBe('mystery')
+  })
+
+  it('counts bench, IR and empty slots as not starting', () => {
+    expect(['BE', 'IR', ''].map(isStarter)).toEqual([false, false, false])
+    expect(isStarter('QB')).toBe(true)
   })
 })

@@ -24,7 +24,9 @@ src/
 ├── hooks/            data and URL hooks shared by pages
 ├── lib/              pure logic: stats, formatting, links (with tests)
 ├── components/       shared UI: tables, charts, nav, pickers, badges
-└── pages/            one component per route
+└── pages/            one component per route; a page with several views keeps
+                      them in a folder beside it (powerRankings/, teamHub/,
+                      headToHead/), the page itself loading data and URL state
 ```
 
 ## Conventions
