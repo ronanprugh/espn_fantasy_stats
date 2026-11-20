@@ -14,8 +14,14 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Pull the database URL from our app config so we don't duplicate it.
-from app.config import DATABASE_URL  # noqa: E402
+# The database URL: DATABASE_URL from the environment when it's set (the
+# migrate workflow sets only that), else the app's config, which also reads
+# backend/.env for local runs.
+import os  # noqa: E402
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    from app.config import DATABASE_URL  # noqa: E402
 from app.models import Base  # noqa: E402
 
 config.set_main_option("sqlalchemy.url", DATABASE_URL)

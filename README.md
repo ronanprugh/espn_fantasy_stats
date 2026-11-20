@@ -196,6 +196,17 @@ cd backend
 .venv/bin/alembic upgrade head
 ```
 
+In production, migrations apply themselves: when a change under
+`backend/alembic/` lands on `main`, the `migrate` workflow
+(`.github/workflows/migrate.yml`) runs `alembic upgrade head` against Neon.
+It needs one repository secret, `DATABASE_URL` (Settings → Secrets and
+variables → Actions), holding the Neon connection string in the same form as
+Render's (`postgresql+psycopg://…?sslmode=require`; Neon's direct host, the one
+without `-pooler`, is best for schema changes). It can also be run by hand from
+the Actions tab. Keep migrations additive (new tables and columns) where you
+can: Render deploys the same push at the same time, so for a minute the old
+code may run against the new schema.
+
 To reset the local DB completely (nuke all users, leagues, and cached ESPN data):
 
 ```bash
