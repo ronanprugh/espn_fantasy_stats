@@ -163,3 +163,77 @@ export function moveRecords(moves: readonly Move[], kind: MoveKind): MoveRecord[
   }
   return [...by.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
 }
+
+/** Trades one owner was part of. */
+export function tradesFor(trades: readonly Trade[], ownerId: string): Trade[] {
+  return trades.filter((t) => t.sides.some((s) => s.owner_id === ownerId))
+}
+
+/** A trade seen from one owner's side: what they gave and got, and how it
+ * went for them. `net` is their WAR less what the other sides' WAR came to. */
+export type TradeFor = {
+  trade: Trade
+  side: Trade['sides'][number]
+  others: Trade['sides'][number][]
+  net: number
+  result: 'won' | 'lost' | 'even'
+}
+
+export function tradeFor(trade: Trade, ownerId: string): TradeFor | null {
+  const side = trade.sides.find((s) => s.owner_id === ownerId)
+  if (!side) return null
+  const others = trade.sides.filter((s) => s !== side)
+  const net = side.war - others.reduce((n, s) => n + s.war, 0)
+  const result = trade.winner_team_id === null ? 'even' : trade.winner_team_id === side.team_id ? 'won' : 'lost'
+  return { trade, side, others, net, result }
+}
+
+export type TeamTradeSummary = {
+  record: TraderRecord
+  /** Their best and worst trade by net WAR; worst is null with one trade. */
+  best: TradeFor | null
+  worst: TradeFor | null
+}
+
+/** One owner's trading: their record, and their best and worst trades. */
+export function teamTradeSummary(trades: readonly Trade[], ownerId: string): TeamTradeSummary | null {
+  const theirs = tradesFor(trades, ownerId)
+  const record = traderRecords(theirs).find((r) => r.ownerId === ownerId)
+  if (!record) return null
+  const seen = theirs.map((t) => tradeFor(t, ownerId)!).sort((a, b) => b.net - a.net || a.trade.date - b.trade.date)
+  return { record, best: seen[0] ?? null, worst: seen.length > 1 ? seen[seen.length - 1] : null }
+}
+
+export type PartnerRecord = { ownerId: string; name: string; trades: number; won: number; lost: number; netWar: number }
+
+/**
+ * One owner's trades by partner: how often they dealt with each other owner,
+ * how those trades went for them, and their WAR less the partner's across
+ * them. A three-team trade counts once with each partner. Most trades first.
+ */
+export function partnerRecords(trades: readonly Trade[], ownerId: string): PartnerRecord[] {
+  const by = new Map<string, PartnerRecord>()
+  for (const t of trades) {
+    const seen = tradeFor(t, ownerId)
+    if (!seen) continue
+    for (const o of seen.others) {
+      const r = by.get(o.owner_id) ?? { ownerId: o.owner_id, name: o.team_name, trades: 0, won: 0, lost: 0, netWar: 0 }
+      r.trades += 1
+      if (seen.result === 'won') r.won += 1
+      if (seen.result === 'lost') r.lost += 1
+      r.netWar += seen.side.war - o.war
+      r.name = o.team_name
+      by.set(o.owner_id, r)
+    }
+  }
+  return [...by.values()].sort((a, b) => b.trades - a.trades || b.netWar - a.netWar || a.name.localeCompare(b.name))
+}
+
+/** Items grouped by season, newest season first, each newest first. */
+export function bySeason<T extends { year: number; date: number }>(items: readonly T[]): { year: number; items: T[] }[] {
+  const groups = new Map<number, T[]>()
+  for (const it of items) groups.set(it.year, [...(groups.get(it.year) ?? []), it])
+  return [...groups.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([year, its]) => ({ year, items: its.sort((a, b) => b.date - a.date) }))
+}

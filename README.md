@@ -31,7 +31,8 @@ What's in it:
 - **Head to Head**: one owner's record against everyone, or every meeting between two owners.
 - **Positional Stats**: points each team scored from each lineup position, by season or all-time (2019+).
 - **Transactions**: trades (decided by WAR, wins above replacement), waiver claims, free-agent pickups
-  and drops, by season or all-time, with records (2019+).
+  and drops, by season or all-time, with records (2019+). Pick a team to see only its moves: its trades
+  from its side, its record, best and worst trade, and who it traded with.
 - **Power Rankings**: a league's posted power rankings, imported from a file. Week-by-week rankings with
   every write-up, a season bump chart, all-time records and a searchable archive. Ranks also show up on
   Standings, Team Hub, Trends, Head to Head and the Scoreboard. Weeks with no posted rankings take the

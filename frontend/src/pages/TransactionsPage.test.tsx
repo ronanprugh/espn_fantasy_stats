@@ -16,8 +16,12 @@ vi.mock('../hooks/useYourTeam', async (original) => ({
 vi.mock('../api', async (original) => ({
   ...(await original<typeof import('../api')>()),
   fetchTrades: vi.fn(),
+  fetchMoves: vi.fn(),
+  fetchOwnerHistory: vi.fn(),
 }))
 const fetchTrades = vi.mocked(api.fetchTrades)
+const fetchMoves = vi.mocked(api.fetchMoves)
+const fetchOwnerHistory = vi.mocked(api.fetchOwnerHistory)
 
 const player = (id: number, name: string) => ({
   player_id: id, name, position: 'RB', started_points: 0, bench_points: 0, weeks_started: 0, war: 0,
@@ -42,7 +46,18 @@ function renderPage(search = '?year=2024') {
   )
 }
 
-beforeEach(() => fetchTrades.mockReset())
+beforeEach(() => {
+  fetchTrades.mockReset()
+  fetchMoves.mockReset()
+  fetchOwnerHistory.mockReset()
+  fetchOwnerHistory.mockResolvedValue({
+    league_id: 1,
+    years: [2024, 2025],
+    owners: ['Alpha', 'Bravo', 'Charlie'].map((name, i) => ({
+      owner_id: `o${i + 1}`, owner_name: `${name} Owner`, current_team_name: name, seasons: [],
+    })),
+  })
+})
 
 describe('TransactionsPage', () => {
   it('says when ESPN returned nothing for a season, instead of "No trades"', async () => {
@@ -102,5 +117,56 @@ describe('TransactionsPage', () => {
     answer2024(season([], { unavailable: true }))
     await new Promise((r) => setTimeout(r, 0))
     expect(screen.queryByText(/for 2024/)).toBeNull()
+  })
+
+  describe('team filter', () => {
+    const withWar = (s: TradeSide, war: number): TradeSide => ({ ...s, war })
+    const ab = { ...trade('a', 1, [withWar(side(1, 'Alpha', [], [9]), 0.2), withWar(side(2, 'Bravo', [player(9, 'Henry')], []), 0.5)]), winner_team_id: 2, margin: 0.3 }
+    const bc = trade('b', 2, [side(2, 'Bravo', [], [8]), side(3, 'Charlie', [player(8, 'Moss')], [])])
+
+    it('shows only the picked team\'s trades, from their side', async () => {
+      fetchTrades.mockResolvedValue(season([ab, bc]))
+      renderPage('?year=2024&team=o1')
+      expect(await screen.findByText('Lost by 0.30 wins')).toBeTruthy()
+      expect(screen.queryByText('Moss')).toBeNull()
+      expect(screen.getByText('Traded with')).toBeTruthy()
+      expect(screen.getByText(/2024 · Alpha · 1 trade$/)).toBeTruthy()
+    })
+
+    it('narrows to a team picked from the list, and back to all', async () => {
+      fetchTrades.mockResolvedValue(season([ab, bc]))
+      renderPage()
+      expect(await screen.findByText('Moss')).toBeTruthy()
+      await userEvent.selectOptions(screen.getByLabelText('Team'), 'o3')
+      expect(screen.queryByText('Henry')).toBeNull()
+      expect(screen.getByText('Moss')).toBeTruthy()
+      await userEvent.click(screen.getByRole('button', { name: 'Show all teams' }))
+      expect(screen.getByText('Henry')).toBeTruthy()
+    })
+
+    it('narrows to a team from its count in the records table', async () => {
+      fetchTrades.mockResolvedValue(season([ab, bc]))
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: '2' }))  // Bravo: in both
+      expect(screen.getByLabelText<HTMLSelectElement>('Team').value).toBe('o2')
+    })
+
+    it('says when the team made none', async () => {
+      fetchTrades.mockResolvedValue(season([bc]))
+      renderPage('?year=2024&team=o1')
+      expect(await screen.findByText('Alpha made no trades in 2024.')).toBeTruthy()
+    })
+
+    it('filters waiver claims to the team and drops the Team column', async () => {
+      const move = (owner: number, name: string): api.Move => ({
+        year: 2024, date: owner, week: 3, kind: 'waiver', team_id: owner, team_name: `T${owner}`, owner_id: `o${owner}`,
+        owner_name: '', added: [{ player_id: owner, name, position: 'WR' }], dropped: [], bid: 0,
+      })
+      fetchMoves.mockResolvedValue({ league_id: 1, year: 2024, supported: true, moves: [move(1, 'Nacua'), move(2, 'Puka')] })
+      renderPage('?year=2024&type=waiver&team=o1')
+      expect(await screen.findByText('Nacua WR')).toBeTruthy()
+      expect(screen.queryByText('Puka WR')).toBeNull()
+      expect(screen.queryByRole('columnheader', { name: 'Team' })).toBeNull()
+    })
   })
 })

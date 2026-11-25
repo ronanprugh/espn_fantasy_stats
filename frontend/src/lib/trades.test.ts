@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import type { Move, Trade, TradeSide } from '../api'
-import { biggestWin, easternDay, moveDays, moveRecords, tradeDays, traderRecords, tradedOn, tradeShortfall } from './trades'
+import {
+  biggestWin,
+  bySeason,
+  easternDay,
+  moveDays,
+  moveRecords,
+  partnerRecords,
+  teamTradeSummary,
+  tradeDays,
+  traderRecords,
+  tradedOn,
+  tradeFor,
+  tradesFor,
+  tradeShortfall,
+} from './trades'
 
 const side = (id: number, owner: string, war: number, ppg: [number, number] | null = null): TradeSide => ({
   team_id: id, team_name: `Team ${id}`, owner_id: owner, owner_name: owner,
@@ -142,5 +156,67 @@ describe('tradeShortfall', () => {
     const trades = [t(2019), t(2019), t(2020)]
     expect(tradeShortfall(trades, { '2020': 1, '2019': 3, '2021': 0 })).toEqual([{ year: 2019, espn: 3, shown: 2 }])
     expect(tradeShortfall(trades, {})).toEqual([])
+  })
+})
+
+describe('one team\'s trades', () => {
+  const won = trade(side(1, 'o1', 0.8), side(2, 'o2', 0.5))
+  const lost = { ...trade(side(1, 'o1', 0.1), side(3, 'o3', 0.4)), date: 1 }
+  const again = { ...trade(side(2, 'o2', 0.2), side(1, 'o1', 0.3)), date: 2 }
+  const others = trade(side(2, 'o2', 0.2), side(3, 'o3', 0.1))
+  const all = [won, lost, again, others]
+
+  it('keeps only the trades the team was part of', () => {
+    expect(tradesFor(all, 'o1')).toEqual([won, lost, again])
+    expect(tradesFor(all, 'nobody')).toEqual([])
+  })
+
+  it('sees a trade from their side', () => {
+    const seen = tradeFor(lost, 'o1')!
+    expect(seen.side.owner_id).toBe('o1')
+    expect(seen.others.map((s) => s.owner_id)).toEqual(['o3'])
+    expect(seen.net).toBeCloseTo(-0.3)
+    expect(seen.result).toBe('lost')
+    expect(tradeFor(trade(side(1, 'o1', 0), side(2, 'o2', 0)), 'o1')!.result).toBe('even')
+    expect(tradeFor(others, 'o1')).toBeNull()
+  })
+
+  it('sums up their record with their best and worst trade', () => {
+    const s = teamTradeSummary(all, 'o1')!
+    expect(s.record).toMatchObject({ trades: 3, won: 2, lost: 1 })
+    expect(s.best!.trade).toBe(won)
+    expect(s.worst!.trade).toBe(lost)
+    expect(teamTradeSummary([won], 'o1')!.worst).toBeNull()
+    expect(teamTradeSummary(all, 'nobody')).toBeNull()
+  })
+
+  it('totals their trades with each partner', () => {
+    const r = partnerRecords(all, 'o1')
+    expect(r.map((p) => p.ownerId)).toEqual(['o2', 'o3'])
+    expect(r[0]).toMatchObject({ trades: 2, won: 2, lost: 0 })
+    expect(r[0].netWar).toBeCloseTo(0.4)
+    expect(r[1]).toMatchObject({ trades: 1, won: 0, lost: 1 })
+  })
+
+  it('counts a three-team trade once with each partner', () => {
+    const three: Trade = { ...won, sides: [side(1, 'o1', 0.6), side(2, 'o2', 0.2), side(3, 'o3', 0.1)], winner_team_id: 1 }
+    const r = Object.fromEntries(partnerRecords([three], 'o1').map((p) => [p.ownerId, p]))
+    expect(r.o2).toMatchObject({ trades: 1, won: 1 })
+    expect(r.o3).toMatchObject({ trades: 1, won: 1 })
+    expect(r.o2.netWar).toBeCloseTo(0.4)
+  })
+})
+
+describe('bySeason', () => {
+  it('groups newest season first, each newest first', () => {
+    const items = [
+      { year: 2024, date: 1 },
+      { year: 2025, date: 5 },
+      { year: 2024, date: 3 },
+    ]
+    expect(bySeason(items)).toEqual([
+      { year: 2025, items: [{ year: 2025, date: 5 }] },
+      { year: 2024, items: [{ year: 2024, date: 3 }, { year: 2024, date: 1 }] },
+    ])
   })
 })

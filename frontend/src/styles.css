@@ -5003,3 +5003,135 @@ button.cov:focus-visible, .pr-week-pill:focus-visible, .bump-legend-item:focus-v
 .trades-page .hub-tabs {
   margin-top: 12px;
 }
+
+/* Transactions: the team filter, and a team's view. */
+.tx-team-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.tx-team-filter label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tx-team-filter select {
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  font-size: 14px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  min-width: min(240px, 100%);
+  max-width: 100%;
+}
+
+.tx-chip {
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tx-chip:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* A records table's count: a button that narrows the page to that team. */
+.tx-count {
+  padding: 0 2px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.tx-count:hover {
+  color: var(--accent);
+}
+
+.tx-method {
+  margin: 4px 0 8px;
+  max-width: 640px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.tx-method summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tx-method p {
+  margin: 6px 0 0;
+}
+
+.tx-stats {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.stat-value.pos {
+  color: var(--success);
+}
+
+.stat-value.neg {
+  color: var(--danger);
+}
+
+.tx-season + .tx-season {
+  margin-top: 20px;
+}
+
+.tx-season-head {
+  margin: 0 0 10px;
+  font-size: 18px;
+  color: var(--text-strong);
+}
+
+.tx-season-head span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.trade-verdict.lost {
+  color: var(--danger);
+}
+
+/* With a team picked, each card's edge says how the trade went for them. */
+.trade-card.tx-won {
+  border-left: 4px solid var(--success);
+}
+
+.trade-card.tx-lost {
+  border-left: 4px solid var(--danger);
+}
+
+@media (max-width: 900px) {
+  .tx-team-filter select {
+    flex: 1 1 100%;
+    min-height: 44px;
+  }
+
+  .tx-chip {
+    min-height: 36px;
+  }
+}
+
+/* The header's summary names a team now: let it drop below the title rather than squeeze it. */
+.trades-page .page-header {
+  flex-wrap: wrap;
+  column-gap: 12px;
+  row-gap: 4px;
+}
