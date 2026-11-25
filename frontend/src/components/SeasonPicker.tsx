@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useActiveInView } from '../hooks/useActiveInView'
 
 type Leading<E extends string> = { value: E; label: string }
 
@@ -27,20 +27,8 @@ export function SeasonPicker<E extends string = never>({
   leading?: readonly Leading<E>[]
   label?: string
 }) {
-  const navRef = useRef<HTMLElement>(null)
   const yearsDesc = [...years].sort((a, b) => b - a)
-
-  // Scroll the row, not the page: scrollIntoView would also move the window.
-  useLayoutEffect(() => {
-    const nav = navRef.current
-    const active = nav?.querySelector<HTMLElement>('button[aria-pressed="true"]')
-    if (!nav || !active || nav.scrollWidth <= nav.clientWidth) return
-    const left = active.offsetLeft - nav.offsetLeft
-    const right = left + active.offsetWidth
-    const pad = 12
-    if (left < nav.scrollLeft + pad) nav.scrollLeft = left - pad
-    else if (right > nav.scrollLeft + nav.clientWidth - pad) nav.scrollLeft = right - nav.clientWidth + pad
-  }, [value, yearsDesc.length])
+  const navRef = useActiveInView<HTMLElement>([value, yearsDesc.length])
 
   const button = (v: number | E, text: string) => {
     const on = v === value

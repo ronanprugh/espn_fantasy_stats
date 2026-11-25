@@ -9,16 +9,18 @@ from ..accolades import accolades as count_accolades
 from ..deps import LeagueContext, get_user_league
 from ..errors import espn_failure
 from ..espn_client import (
+    WeekNotPlayedError,
     serialize_roster,
 )
 from ..rivalries import is_unplayed, rivalry_summary
 from ..schemas import (
     HeadToHeadStats,
     RivalrySummary,
+    SeasonRosters,
     TeamHub,
 )
 from ..season_state import season_over
-from ..team_hub import career_records, team_schedule
+from ..team_hub import career_records, roster_weeks, team_lineup, team_schedule
 
 router = APIRouter()
 
@@ -178,6 +180,41 @@ def team_hub(
         "accolades": accolades,
         "records": records,
     }
+
+
+@router.get(
+    "/api/leagues/{league_id}/seasons/{year}/teams/{team_id}/rosters",
+    response_model=SeasonRosters,
+)
+def season_rosters(year: int, team_id: int, ctx: LeagueContext = Depends(get_user_league)):
+    """A team's roster at the start of a season and at its end: the whole
+    roster, bench and IR included, from the box scores of its first and last
+    games (its latest so far in a season being played). 2019 on, as box
+    scores are."""
+    lid = ctx.espn_league_id
+    base = {"league_id": lid, "year": year, "team_id": team_id, "in_progress": False, "start": None, "end": None}
+    if year < 2019:
+        return {**base, "supported": False}
+    try:
+        teams = loaders._get_season_teams(lid, year, ctx.espn_s2, ctx.swid)
+        matchups = loaders._get_season_scoreboard(lid, year, ctx.espn_s2, ctx.swid)["matchups"]
+        first, last = roster_weeks(matchups, team_id)
+
+        def snapshot(week: int | None) -> dict | None:
+            if week is None:
+                return None
+            try:
+                box = loaders._get_season_box_scores(lid, year, week, ctx.espn_s2, ctx.swid)
+            except WeekNotPlayedError:
+                return None
+            players = team_lineup(box, team_id)
+            return {"week": week, "players": players} if players is not None else None
+
+        start = snapshot(first)
+        end = start if last == first else snapshot(last)
+    except Exception as e:
+        raise espn_failure(e, "loading ESPN data") from e
+    return {**base, "supported": True, "in_progress": not season_over(teams), "start": start, "end": end}
 
 
 @router.get("/api/leagues/{league_id}/head_to_head/summary", response_model=RivalrySummary)

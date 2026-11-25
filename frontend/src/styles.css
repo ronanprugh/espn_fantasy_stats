@@ -5135,3 +5135,128 @@ button.cov:focus-visible, .pr-week-pill:focus-visible, .bump-legend-item:focus-v
   column-gap: 12px;
   row-gap: 4px;
 }
+
+/* A team's roster at the start of a season beside the one at the end
+ * (pages/transactions/RosterChanges.tsx). */
+.roster-changes {
+  margin: 4px 0 8px;
+}
+
+.roster-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.roster-col {
+  min-width: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px 12px;
+}
+
+.roster-col h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.roster-col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.roster-col li {
+  display: grid;
+  grid-template-columns: 3.2em minmax(0, 1fr);
+  column-gap: 8px;
+  padding: 4px 0 4px 8px;
+  border-left: 3px solid transparent;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.roster-col li:first-child {
+  border-top: none;
+}
+
+.roster-col li.new {
+  border-left-color: var(--success);
+  background: var(--success-tint);
+}
+
+.roster-col li.gone {
+  border-left-color: var(--danger);
+}
+
+.roster-col li.gone .rc-name {
+  color: var(--text-muted);
+}
+
+.rc-pos {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.rc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.rc-team,
+.rc-ir {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.rc-ir {
+  font-weight: 700;
+  color: var(--danger);
+}
+
+/* How a player joined or left, under his name. */
+.rc-note {
+  grid-column: 2;
+  font-size: 11px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.rc-key {
+  font-weight: 700;
+}
+
+.rc-key.new {
+  color: var(--success);
+}
+
+.rc-key.gone {
+  color: var(--danger);
+}
+
+/* Team Hub's Transactions tab: one block per kind. */
+.tx-block + .tx-block {
+  margin-top: 28px;
+}
+
+.tx-block h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.tx-more {
+  margin: 20px 0 0;
+  font-size: 14px;
+}

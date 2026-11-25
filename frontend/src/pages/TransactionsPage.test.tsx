@@ -18,10 +18,14 @@ vi.mock('../api', async (original) => ({
   fetchTrades: vi.fn(),
   fetchMoves: vi.fn(),
   fetchOwnerHistory: vi.fn(),
+  fetchTeams: vi.fn(),
+  fetchSeasonRosters: vi.fn(),
 }))
 const fetchTrades = vi.mocked(api.fetchTrades)
 const fetchMoves = vi.mocked(api.fetchMoves)
 const fetchOwnerHistory = vi.mocked(api.fetchOwnerHistory)
+const fetchTeams = vi.mocked(api.fetchTeams)
+const fetchSeasonRosters = vi.mocked(api.fetchSeasonRosters)
 
 const player = (id: number, name: string) => ({
   player_id: id, name, position: 'RB', started_points: 0, bench_points: 0, weeks_started: 0, war: 0,
@@ -167,6 +171,63 @@ describe('TransactionsPage', () => {
       expect(await screen.findByText('Nacua WR')).toBeTruthy()
       expect(screen.queryByText('Puka WR')).toBeNull()
       expect(screen.queryByRole('columnheader', { name: 'Team' })).toBeNull()
+    })
+  })
+
+  describe('rosters', () => {
+    const rp = (id: number, name: string, position = 'RB'): api.RosterPlayer => ({
+      player_id: id, name, position, slot_position: 'BE', pro_team: 'KC',
+    })
+
+    beforeEach(() => {
+      fetchTeams.mockReset()
+      fetchSeasonRosters.mockReset()
+      fetchTeams.mockResolvedValue({
+        league_id: 1, year: 2024, scoring_type: 'ppr',
+        teams: [{ team_id: 1, owners: [{ id: 'o1' }] }, { team_id: 2, owners: [{ id: 'o2' }] }] as api.SeasonTeams['teams'],
+      })
+      fetchSeasonRosters.mockResolvedValue({
+        league_id: 1, year: 2024, team_id: 1, supported: true, in_progress: false,
+        start: { week: 1, players: [rp(1, 'Kept Guy', 'QB'), rp(9, 'Henry')] },
+        end: { week: 17, players: [rp(1, 'Kept Guy', 'QB'), rp(5, 'Nacua', 'WR')] },
+      })
+      const henry = trade('a', 1, [side(1, 'Alpha', [], [9]), side(2, 'Bravo', [player(9, 'Henry')], [])])
+      fetchTrades.mockResolvedValue(season([henry]))
+      fetchMoves.mockResolvedValue({
+        league_id: 1, year: 2024, supported: true,
+        moves: [{
+          year: 2024, date: 5, week: 9, kind: 'waiver', team_id: 1, team_name: 'Alpha', owner_id: 'o1', owner_name: '',
+          added: [{ player_id: 5, name: 'Nacua', position: 'WR' }], dropped: [], bid: 14,
+        }],
+      })
+    })
+
+    it('shows a team\'s start and end rosters, and how each change happened', async () => {
+      renderPage('?year=2024&team=o1&type=rosters')
+      expect(await screen.findByText('Start of season · week 1')).toBeTruthy()
+      expect(screen.getByText('End of season · week 17')).toBeTruthy()
+      expect(screen.getByText('traded to Bravo, wk 7')).toBeTruthy()
+      expect(screen.getByText('waiver claim, wk 9 · $14')).toBeTruthy()
+      expect(screen.getByText('1 joined')).toBeTruthy()
+      expect(fetchSeasonRosters).toHaveBeenCalledWith(1, 2024, 1)
+    })
+
+    it('offers Rosters only with a team picked, and leaves it when the team is cleared', async () => {
+      fetchTrades.mockResolvedValue(season([]))
+      renderPage('?year=2024')
+      await screen.findByText(/No trades in 2024/)
+      expect(screen.queryByRole('button', { name: 'Rosters' })).toBeNull()
+      await userEvent.selectOptions(screen.getByLabelText('Team'), 'o1')
+      await userEvent.click(screen.getByRole('button', { name: 'Rosters' }))
+      expect(await screen.findByText('Start of season · week 1')).toBeTruthy()
+      await userEvent.click(screen.getByRole('button', { name: 'Show all teams' }))
+      expect(await screen.findByText(/No trades in 2024/)).toBeTruthy()
+    })
+
+    it('asks for a season in All seasons', async () => {
+      renderPage('?year=all&team=o1&type=rosters')
+      expect(await screen.findByText(/Pick a season to see the roster/)).toBeTruthy()
+      expect(fetchSeasonRosters).not.toHaveBeenCalled()
     })
   })
 })

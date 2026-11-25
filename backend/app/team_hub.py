@@ -133,3 +133,30 @@ def team_schedule(matchups: list[dict], team_id: int) -> tuple[list[dict], dict 
         if not is_unplayed(m):
             latest = game
     return schedule, latest
+
+
+def roster_weeks(matchups: list[dict], team_id: int) -> tuple[int | None, int | None]:
+    """The first and last weeks the team played a game with points on the
+    board: where its start-of-season and end-of-season rosters are read from
+    the box scores. In a live season the last is the latest week played so
+    far. Byes are skipped (no box score has the team), and so are future
+    games. (None, None) before the season's first game."""
+    weeks = sorted(
+        m["week"]
+        for m in matchups
+        if team_id in (m["team_a_id"], m["team_b_id"]) and not m["is_bye"] and not is_unplayed(m)
+    )
+    return (weeks[0], weeks[-1]) if weeks else (None, None)
+
+
+def team_lineup(box_scores: dict, team_id: int) -> list[dict] | None:
+    """The team's whole roster in a week's box scores, bench and IR included,
+    or None when it played no game that week."""
+    for m in box_scores.get("matchups", []):
+        for side in (m.get("home"), m.get("away")):
+            if side and side["team_id"] == team_id:
+                return [
+                    {k: p[k] for k in ("player_id", "name", "position", "slot_position", "pro_team")}
+                    for p in side.get("lineup", [])
+                ]
+    return None

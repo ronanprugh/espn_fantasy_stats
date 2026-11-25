@@ -1,6 +1,6 @@
 from app.espn_client import aggregate_by_owner
 from app.season_state import is_decided, result_for
-from app.team_hub import career_records, team_schedule
+from app.team_hub import career_records, roster_weeks, team_lineup, team_schedule
 
 
 def _game(week, a, a_pts, b, b_pts, winner, round_label="regular"):
@@ -129,5 +129,76 @@ def test_team_hub_endpoint_in_a_live_season(monkeypatch):
         assert hub["last_matchup"]["week"] == 3
         # 4th in 2025; 2026's 1st place is a standing, not a finish.
         assert hub["avg_finish"] == 4.0
+    finally:
+        main.app.dependency_overrides.clear()
+
+
+def _box(week, *games):
+    """A week's box scores. Each game is ((team id, [player ids]), (team id, [player ids]))."""
+    def side(tid, pids):
+        return {
+            "team_id": tid, "team_name": f"Team {tid}", "owner_name": "", "total_points": 0.0, "projected_points": 0.0,
+            "lineup": [
+                {"player_id": p, "name": f"P{p}", "position": "RB", "slot_position": "BE", "pro_team": "KC",
+                 "points": 1.0, "projected_points": 0.0}
+                for p in pids
+            ],
+        }
+    return {"week": week, "matchups": [
+        {"week": week, "is_playoff": False, "matchup_type": "", "home": side(*home), "away": side(*away)}
+        for home, away in games
+    ]}
+
+
+def test_roster_weeks_are_the_first_and_latest_games_played():
+    # LIVE: weeks 1–2 decided, 3 being played, 4–5 future.
+    assert roster_weeks(LIVE, 1) == (1, 3)
+    bye = {**_game(4, 1, 0.0, 1, 0.0, None), "is_bye": True, "team_a_score": 50.0}
+    assert roster_weeks([*LIVE[:2], bye], 1) == (1, 2)
+    assert roster_weeks(LIVE[3:], 1) == (None, None)
+    assert roster_weeks(LIVE, 9) == (None, None)
+
+
+def test_team_lineup_is_the_whole_roster_or_none():
+    box = _box(1, ((1, [10, 11]), (2, [20])))
+    assert [p["player_id"] for p in team_lineup(box, 1)] == [10, 11]
+    assert team_lineup(box, 2)[0] == {"player_id": 20, "name": "P20", "position": "RB", "slot_position": "BE", "pro_team": "KC"}
+    assert team_lineup(box, 3) is None
+
+
+def test_season_rosters_endpoint(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app import loaders, main
+    from app.espn_client import WeekNotPlayedError
+
+    boxes = {
+        1: _box(1, ((1, [10, 11]), (2, [20]))),
+        2: _box(2, ((3, [30]), (1, [10, 12]))),
+        3: _box(3, ((1, [12, 13]), (4, [40]))),
+    }
+
+    def box_scores(lid, year, week, *a, **k):
+        if week not in boxes:
+            raise WeekNotPlayedError("not yet")
+        return boxes[week]
+
+    ctx = main.LeagueContext(espn_league_id=1, espn_s2=None, swid=None, display_name="Test League")
+    monkeypatch.setattr(loaders, "_get_season_teams", lambda *a, **k: {"teams": [{"final_standing": 0}]})
+    monkeypatch.setattr(loaders, "_get_season_scoreboard", lambda *a, **k: {"matchups": LIVE})
+    monkeypatch.setattr(loaders, "_get_season_box_scores", box_scores)
+    main.app.dependency_overrides[main.get_user_league] = lambda: ctx
+    try:
+        client = TestClient(main.app)
+        body = client.get("/api/leagues/1/seasons/2026/teams/1/rosters").json()
+        assert body["supported"] and body["in_progress"]
+        assert body["start"]["week"] == 1 and [p["player_id"] for p in body["start"]["players"]] == [10, 11]
+        # Week 3 is being played: the latest roster so far.
+        assert body["end"]["week"] == 3 and [p["player_id"] for p in body["end"]["players"]] == [12, 13]
+        # A team with no game played yet has neither.
+        none = client.get("/api/leagues/1/seasons/2026/teams/9/rosters").json()
+        assert none["start"] is None and none["end"] is None
+        old = client.get("/api/leagues/1/seasons/2018/teams/1/rosters").json()
+        assert old["supported"] is False and old["start"] is None
     finally:
         main.app.dependency_overrides.clear()

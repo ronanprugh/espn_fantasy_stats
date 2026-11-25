@@ -2268,6 +2268,60 @@
         "title": "RivalrySummary",
         "type": "object"
       },
+      "RosterPlayer": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "player_id": {
+            "title": "Player Id",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "string"
+          },
+          "pro_team": {
+            "title": "Pro Team",
+            "type": "string"
+          },
+          "slot_position": {
+            "title": "Slot Position",
+            "type": "string"
+          }
+        },
+        "required": [
+          "player_id",
+          "name",
+          "position",
+          "slot_position",
+          "pro_team"
+        ],
+        "title": "RosterPlayer",
+        "type": "object"
+      },
+      "RosterSnapshot": {
+        "properties": {
+          "players": {
+            "items": {
+              "$ref": "#/components/schemas/RosterPlayer"
+            },
+            "title": "Players",
+            "type": "array"
+          },
+          "week": {
+            "title": "Week",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "players"
+        ],
+        "title": "RosterSnapshot",
+        "type": "object"
+      },
       "ScoreboardMatchup": {
         "properties": {
           "is_bye": {
@@ -2515,6 +2569,60 @@
           "positions"
         ],
         "title": "SeasonPositionalStats",
+        "type": "object"
+      },
+      "SeasonRosters": {
+        "description": "A team's roster at the start of a season and at its end (2019 on),\nfrom the box scores of its first and last games.",
+        "properties": {
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RosterSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "in_progress": {
+            "title": "In Progress",
+            "type": "boolean"
+          },
+          "league_id": {
+            "title": "League Id",
+            "type": "integer"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RosterSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "league_id",
+          "year",
+          "team_id",
+          "supported",
+          "in_progress"
+        ],
+        "title": "SeasonRosters",
         "type": "object"
       },
       "SeasonScoreboard": {
@@ -4758,6 +4866,64 @@
           }
         },
         "summary": "Teams"
+      }
+    },
+    "/api/leagues/{league_id}/seasons/{year}/teams/{team_id}/rosters": {
+      "get": {
+        "description": "A team's roster at the start of a season and at its end: the whole\nroster, bench and IR included, from the box scores of its first and last\ngames (its latest so far in a season being played). 2019 on, as box\nscores are.",
+        "operationId": "season_rosters_api_leagues__league_id__seasons__year__teams__team_id__rosters_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "title": "Team Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "league_id",
+            "required": true,
+            "schema": {
+              "title": "League Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonRosters"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Season Rosters"
       }
     },
     "/api/leagues/{league_id}/seasons/{year}/trades": {
