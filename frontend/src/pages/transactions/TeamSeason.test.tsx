@@ -78,6 +78,14 @@ describe('TeamSeasonTransactions', () => {
     expect(fetchSeasonRosters).toHaveBeenCalledWith(1, 2025, 1)
   })
 
+  it('still shows the trades and moves when the rosters fail', async () => {
+    fetchSeasonRosters.mockRejectedValue(new Error('Not Found'))
+    renderModule()
+    expect(await screen.findByText(/Couldn't load the rosters/)).toBeTruthy()
+    expect(screen.getByText('Won by 0.30 wins')).toBeTruthy()
+    expect(screen.getByText('Puka WR')).toBeTruthy()
+  })
+
   it('says so when the team made no trades or moves', async () => {
     fetchTrades.mockResolvedValue({ league_id: 1, year: 2025, supported: true, trades: [] })
     fetchMoves.mockResolvedValue({ league_id: 1, year: 2025, supported: true, moves: [] })

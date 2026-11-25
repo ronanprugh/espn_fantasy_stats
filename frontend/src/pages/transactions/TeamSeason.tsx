@@ -6,7 +6,7 @@
 import { Link } from 'react-router-dom'
 import { ErrorMessage } from '../../components/ErrorMessage'
 import { ListSkeleton } from '../../components/Loading'
-import { useTeamSeason } from '../../hooks/useTeamSeason'
+import { useTeamSeason, type TeamSeason } from '../../hooks/useTeamSeason'
 import { transactionsHref } from '../../lib/links'
 import { tradedOn, tradesFor } from '../../lib/trades'
 import { MovesTable } from './Moves'
@@ -22,16 +22,24 @@ type Props = {
   teamId?: number
 }
 
+/** The rosters, or why there are none. */
+function Rosters({ data, ownerId, year }: { data: TeamSeason; ownerId: string; year: number }) {
+  if (data.rosters) {
+    return <RosterChangesView rosters={data.rosters} ownerId={ownerId} trades={data.trades} moves={data.moves} />
+  }
+  return (
+    <p className="subtitle">
+      {data.rostersFailed ? "Couldn't load the rosters just now. Try again in a few minutes." : `This team didn't play in ${year}.`}
+    </p>
+  )
+}
+
 /** Just the rosters, start and end. */
 export function TeamRosters({ leagueId, year, ownerId, teamId }: Props) {
   const { data, loading, error } = useTeamSeason(leagueId, year, ownerId, teamId)
   if (error) return <ErrorMessage message={error} />
   if (loading || !data) return <ListSkeleton rows={6} />
-  return data.rosters ? (
-    <RosterChangesView rosters={data.rosters} ownerId={ownerId} trades={data.trades} moves={data.moves} />
-  ) : (
-    <p className="subtitle">This team didn't play in {year}.</p>
-  )
+  return <Rosters data={data} ownerId={ownerId} year={year} />
 }
 
 /** Rosters, trades and moves for one team's season. */
@@ -47,11 +55,7 @@ export function TeamSeasonTransactions({ leagueId, year, ownerId, teamId }: Prop
     <div className="team-season">
       <section className="tx-block">
         <h3>Roster, start to end — {year}</h3>
-        {data.rosters ? (
-          <RosterChangesView rosters={data.rosters} ownerId={ownerId} trades={data.trades} moves={data.moves} />
-        ) : (
-          <p className="subtitle">No rosters for {year}.</p>
-        )}
+        <Rosters data={data} ownerId={ownerId} year={year} />
       </section>
 
       <section className="tx-block">

@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react'
 import { fetchMoves, fetchSeasonRosters, fetchTeams, fetchTrades, type Move, type SeasonRosters, type Trade } from '../api'
 
 export type TeamSeason = {
+  /** Null when the owner had no team that season, or the rosters couldn't be
+   * had (`rostersFailed`). */
   rosters: SeasonRosters | null
+  /** The rosters alone failed: the trades and moves still show. The frontend
+   * and backend deploy separately, so for a few minutes a new frontend can
+   * ask an older backend for rosters it doesn't serve yet. */
+  rostersFailed: boolean
   /** Every trade of the season (a team's side is found by owner id). */
   trades: Trade[]
   moves: Move[]
@@ -31,13 +37,15 @@ export function useTeamSeason(
       teamId !== undefined
         ? Promise.resolve(teamId)
         : fetchTeams(leagueId, year).then((s) => s.teams.find((t) => t.owners[0]?.id === ownerId)?.team_id ?? null)
-    Promise.all([
-      team.then((id) => (id === null ? null : fetchSeasonRosters(leagueId, year, id))),
-      fetchTrades(leagueId, year),
-      fetchMoves(leagueId, year),
-    ])
-      .then(([rosters, trades, moves]) => {
-        if (!cancelled) setState({ key, data: { rosters, trades: trades.trades, moves: moves.moves }, error: null })
+    const rosters = team
+      .then((id) => (id === null ? null : fetchSeasonRosters(leagueId, year, id)))
+      .then(
+        (r) => ({ rosters: r, rostersFailed: false }),
+        () => ({ rosters: null, rostersFailed: true }),
+      )
+    Promise.all([rosters, fetchTrades(leagueId, year), fetchMoves(leagueId, year)])
+      .then(([r, trades, moves]) => {
+        if (!cancelled) setState({ key, data: { ...r, trades: trades.trades, moves: moves.moves }, error: null })
       })
       .catch((e: Error) => !cancelled && setState({ key, data: null, error: e.message }))
     return () => {
