@@ -571,6 +571,33 @@ export async function fetchBoxScores(
   return jsonFetch<WeekBoxScores>(url)
 }
 
+/** One player on a roster in a week: slot is where he was that week (BE, IR or a starting slot). */
+export type RosterPlayer = {
+  player_id: number
+  name: string
+  position: string
+  slot_position: string
+  pro_team: string
+}
+
+export type RosterSnapshot = { week: number; players: RosterPlayer[] }
+
+/** A team's roster at the start of a season (its first game) and at the end
+ * (its last game, or its latest so far while `in_progress`). 2019 on. */
+export type SeasonRosters = {
+  league_id: number
+  year: number
+  team_id: number
+  supported: boolean
+  in_progress: boolean
+  start: RosterSnapshot | null
+  end: RosterSnapshot | null
+}
+
+export async function fetchSeasonRosters(leagueId: number, year: number, teamId: number): Promise<SeasonRosters> {
+  return jsonFetch<SeasonRosters>(`/api/leagues/${leagueId}/seasons/${year}/teams/${teamId}/rosters`)
+}
+
 export type HeadToHeadMatchup = {
   year: number
   week: number

@@ -1,6 +1,7 @@
 /**
  * Team Hub: one owner's page (`?team=<owner id>`). Summary (record, standing,
- * trophies and career records), the roster, the season's schedule and, when the
+ * trophies and career records), the roster, the season's schedule, its
+ * transactions (rosters start to end, trades, pickups and drops) and, when the
  * league has them, power rankings. `?year=` picks the season, `?tab=` the tab.
  */
 import { useEffect, useState, type ReactNode } from 'react'
@@ -24,15 +25,18 @@ import { hubHeadline } from '../lib/teamHub'
 import { useLeague } from '../contexts/LeagueContext'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { numberParam, useUrlState } from '../hooks/useUrlState'
+import { useActiveInView } from '../hooks/useActiveInView'
 import { usePowerRankings } from '../hooks/usePowerRankings'
 import { ownerSeasonStats, ownerStats } from '../lib/powerRankings'
 import { HubSkeleton } from './teamHub/HubSkeleton'
 import { RosterTable } from './teamHub/RosterTab'
 import { ScheduleTable } from './teamHub/ScheduleTab'
+import { TeamSeasonTransactions } from './transactions/TeamSeason'
+import { FIRST_TRADE_YEAR } from '../lib/trades'
 import { StatCard, TrophyCabinet, RecordsSection, LastMatchupCard } from './teamHub/SummaryTab'
 
-type HubTab = 'summary' | 'roster' | 'schedule' | 'power'
-const HUB_TABS: HubTab[] = ['summary', 'roster', 'schedule', 'power']
+type HubTab = 'summary' | 'roster' | 'schedule' | 'transactions' | 'power'
+const HUB_TABS: HubTab[] = ['summary', 'roster', 'schedule', 'transactions', 'power']
 
 export function TeamHubPage() {
   const { selectedLeague } = useLeague()
@@ -136,6 +140,10 @@ export function TeamHubPage() {
     }
   }, [leagueId, ownerId, selectedYear])
 
+  // Before the early return: hooks run on every render. The row is only there
+  // once the hub has loaded, so that's a reason to look again too.
+  const tabsRef = useActiveInView<HTMLElement>([tab, !!hub, loading])
+
   if (!selectedLeague) return <NoLeagueSelected />
 
   // The team's seasons, from the hub once it's loaded and from the owner list
@@ -209,28 +217,39 @@ export function TeamHubPage() {
             <TrophyCabinet accolades={hub.accolades} />
           </section>
 
-          <nav className="hub-tabs">
+          <nav ref={tabsRef} className="hub-tabs" aria-label="Team Hub sections">
             <button
               className={tab === 'summary' ? 'active' : ''}
+              aria-pressed={tab === 'summary'}
               onClick={() => setTab('summary')}
             >
               Summary
             </button>
             <button
               className={tab === 'roster' ? 'active' : ''}
+              aria-pressed={tab === 'roster'}
               onClick={() => setTab('roster')}
             >
               Roster
             </button>
             <button
               className={tab === 'schedule' ? 'active' : ''}
+              aria-pressed={tab === 'schedule'}
               onClick={() => setTab('schedule')}
             >
               Schedule
             </button>
+            <button
+              className={tab === 'transactions' ? 'active' : ''}
+              aria-pressed={tab === 'transactions'}
+              onClick={() => setTab('transactions')}
+            >
+              Transactions
+            </button>
             {powerRankings.hasData && (
               <button
                 className={tab === 'power' ? 'active' : ''}
+                aria-pressed={tab === 'power'}
                 onClick={() => setTab('power')}
               >
                 Power Rankings
@@ -314,6 +333,18 @@ export function TeamHubPage() {
               <RosterTable roster={hub.roster} />
             </section>
           )}
+
+          {tab === 'transactions' &&
+            (hub.selected_year < FIRST_TRADE_YEAR ? (
+              <p className="subtitle">ESPN keeps transactions from {FIRST_TRADE_YEAR} on.</p>
+            ) : (
+              <TeamSeasonTransactions
+                leagueId={selectedLeague.espn_league_id}
+                year={hub.selected_year}
+                ownerId={hub.owner_id}
+                teamId={hub.selected_team_id}
+              />
+            ))}
 
           {tab === 'schedule' && (
             <section className="hub-schedule">

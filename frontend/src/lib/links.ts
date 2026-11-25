@@ -13,6 +13,18 @@ export function teamHubHref(ownerId: string, opts: { year?: number | null; tab?:
   return `/team_hub?${params}`
 }
 
+/** The Transactions page, narrowed to one team when `team` is given. */
+export function transactionsHref(
+  opts: { team?: string | null; year?: number | 'all' | null; type?: 'rosters' | 'waiver' | 'free_agent' | 'drop' } = {},
+): string {
+  const params = new URLSearchParams()
+  if (opts.year != null) params.set('year', String(opts.year))
+  if (opts.team) params.set('team', opts.team)
+  if (opts.type) params.set('type', opts.type)
+  const q = params.toString()
+  return q ? `/transactions?${q}` : '/transactions'
+}
+
 /** Head to Head between two owners, `a` on the left. */
 export function headToHeadHref(ownerA: string, ownerB: string): string {
   return `/h2h?${new URLSearchParams({ a: ownerA, b: ownerB })}`

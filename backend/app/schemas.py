@@ -561,6 +561,34 @@ class BoxScoreMatchup(BaseModel):
     away: BoxScoreTeam | None
 
 
+class RosterPlayer(BaseModel):
+    player_id: int
+    name: str
+    position: str
+    slot_position: str
+    pro_team: str
+
+
+class RosterSnapshot(BaseModel):
+    week: int
+    players: List[RosterPlayer]
+
+
+class SeasonRosters(BaseModel):
+    """A team's roster at the start of a season and at its end (2019 on),
+    from the box scores of its first and last games."""
+
+    league_id: int
+    year: int
+    team_id: int
+    # False before 2019: ESPN keeps no box scores.
+    supported: bool
+    # The season isn't over: `end` is the latest week played, not the last.
+    in_progress: bool
+    start: RosterSnapshot | None = None
+    end: RosterSnapshot | None = None
+
+
 class WeekBoxScores(BaseModel):
     league_id: int
     year: int

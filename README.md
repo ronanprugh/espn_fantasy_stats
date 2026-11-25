@@ -25,14 +25,15 @@ What's in it:
 - **Box Score**: both lineups slot by slot, mirrored about the slot on a phone.
 - **Playoff History**: SVG bracket reconstruction with championship and consolation paths. Click any match
   for its box score.
-- **Team Hub**: one owner's summary (record, standing, trophies, career records), roster, schedule and
-  power rankings.
+- **Team Hub**: one owner's summary (record, standing, trophies, career records), roster, schedule,
+  transactions and power rankings.
 - **Trends**: a year-over-year line chart of any stat for the owners you pick, against the league average.
 - **Head to Head**: one owner's record against everyone, or every meeting between two owners.
 - **Positional Stats**: points each team scored from each lineup position, by season or all-time (2019+).
 - **Transactions**: trades (decided by WAR, wins above replacement), waiver claims, free-agent pickups
   and drops, by season or all-time, with records (2019+). Pick a team to see only its moves: its trades
-  from its side, its record, best and worst trade, and who it traded with.
+  from its side, its record, best and worst trade, and who it traded with; or its roster at the start of a
+  season beside its roster at the end, with how each player joined or left.
 - **Power Rankings**: a league's posted power rankings, imported from a file. Week-by-week rankings with
   every write-up, a season bump chart, all-time records and a searchable archive. Ranks also show up on
   Standings, Team Hub, Trends, Head to Head and the Scoreboard. Weeks with no posted rankings take the

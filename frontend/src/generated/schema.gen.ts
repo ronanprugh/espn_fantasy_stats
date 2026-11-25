@@ -520,6 +520,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/leagues/{league_id}/seasons/{year}/teams/{team_id}/rosters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Season Rosters
+         * @description A team's roster at the start of a season and at its end: the whole
+         *     roster, bench and IR included, from the box scores of its first and last
+         *     games (its latest so far in a season being played). 2019 on, as box
+         *     scores are.
+         */
+        get: operations["season_rosters_api_leagues__league_id__seasons__year__teams__team_id__rosters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/leagues/{league_id}/seasons/{year}/trades": {
         parameters: {
             query?: never;
@@ -1527,6 +1550,26 @@ export interface components {
             /** Owner Team Name */
             owner_team_name: string;
         };
+        /** RosterPlayer */
+        RosterPlayer: {
+            /** Name */
+            name: string;
+            /** Player Id */
+            player_id: number;
+            /** Position */
+            position: string;
+            /** Pro Team */
+            pro_team: string;
+            /** Slot Position */
+            slot_position: string;
+        };
+        /** RosterSnapshot */
+        RosterSnapshot: {
+            /** Players */
+            players: components["schemas"]["RosterPlayer"][];
+            /** Week */
+            week: number;
+        };
         /** ScoreboardMatchup */
         ScoreboardMatchup: {
             /** Is Bye */
@@ -1616,6 +1659,25 @@ export interface components {
             positions: components["schemas"]["SeasonPositionStats"][];
             /** Reg Season Count */
             reg_season_count: number;
+            /** Year */
+            year: number;
+        };
+        /**
+         * SeasonRosters
+         * @description A team's roster at the start of a season and at its end (2019 on),
+         *     from the box scores of its first and last games.
+         */
+        SeasonRosters: {
+            end?: components["schemas"]["RosterSnapshot"] | null;
+            /** In Progress */
+            in_progress: boolean;
+            /** League Id */
+            league_id: number;
+            start?: components["schemas"]["RosterSnapshot"] | null;
+            /** Supported */
+            supported: boolean;
+            /** Team Id */
+            team_id: number;
             /** Year */
             year: number;
         };
@@ -2761,6 +2823,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SeasonTeams"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    season_rosters_api_leagues__league_id__seasons__year__teams__team_id__rosters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                year: number;
+                team_id: number;
+                league_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonRosters"];
                 };
             };
             /** @description Validation Error */
