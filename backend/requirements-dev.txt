@@ -96,7 +96,7 @@ packaging==26.3
     # via pytest
 pluggy==1.7.0
     # via pytest
-psycopg==3.3.9
+psycopg[binary]==3.3.9
     # via
     #   -c requirements.txt
     #   -r requirements.in
@@ -140,7 +140,7 @@ requests==2.34.2
     #   espn-api
 ruff==0.17.6
     # via -r requirements-dev.in
-sentry-sdk==2.75.0
+sentry-sdk==3.0.0
     # via
     #   -c requirements.txt
     #   -r requirements.in
@@ -157,14 +157,11 @@ typing-extensions==4.16.0
     # via
     #   -c requirements.txt
     #   alembic
-    #   anyio
     #   fastapi
     #   opentelemetry-api
-    #   psycopg
     #   pydantic
     #   pydantic-core
     #   sqlalchemy
-    #   starlette
     #   typing-inspection
 typing-inspection==0.4.5
     # via
@@ -177,7 +174,7 @@ urllib3==2.8.0
     #   espn-api
     #   requests
     #   sentry-sdk
-uvicorn==0.54.0
+uvicorn[standard]==0.54.0
     # via
     #   -c requirements.txt
     #   -r requirements.in

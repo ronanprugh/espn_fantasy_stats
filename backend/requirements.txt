@@ -46,7 +46,7 @@ markupsafe==3.0.4
     # via mako
 opentelemetry-api==1.45.2
     # via fastapi
-psycopg==3.3.9
+psycopg[binary]==3.3.9
     # via -r requirements.in
 psycopg-binary==3.3.9
     # via psycopg
@@ -68,7 +68,7 @@ requests==2.34.2
     # via
     #   -r requirements.in
     #   espn-api
-sentry-sdk==2.75.0
+sentry-sdk==3.0.0
     # via -r requirements.in
 sqlalchemy==2.1.9
     # via
@@ -79,14 +79,11 @@ starlette==1.10.0
 typing-extensions==4.16.0
     # via
     #   alembic
-    #   anyio
     #   fastapi
     #   opentelemetry-api
-    #   psycopg
     #   pydantic
     #   pydantic-core
     #   sqlalchemy
-    #   starlette
     #   typing-inspection
 typing-inspection==0.4.5
     # via
@@ -97,7 +94,7 @@ urllib3==2.8.0
     #   espn-api
     #   requests
     #   sentry-sdk
-uvicorn==0.54.0
+uvicorn[standard]==0.54.0
     # via -r requirements.in
 uvloop==0.23.0
     # via uvicorn
