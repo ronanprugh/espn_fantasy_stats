@@ -15,7 +15,7 @@
     "gen:api": "cd ../backend && .venv/bin/python scripts/export_openapi.py && cd ../frontend && openapi-typescript src/generated/openapi.json -o src/generated/schema.gen.ts"
   },
   "dependencies": {
-    "@sentry/browser": "^10.78.0",
+    "@sentry/browser": "^11.17.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.6",
